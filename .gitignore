@@ -1,0 +1,37 @@
+# Reference sources (upstream code, not ours)
+/reference/
+
+# Gradle / Android
+.gradle/
+build/
+/local.properties
+/captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.keystore
+*.jks
+/.android/
+/.kotlin/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Nix
+result
+result-*
+.direnv/
+
+# Design toolchain
+/design/src/node_modules/
+/design/src/pages/
+
+# Misc
+*.log
+/tmp/
