@@ -21,6 +21,7 @@ kotlin { jvmToolchain(21) }
 
 dependencies {
     implementation(project(":core:designsystem"))
+    implementation(libs.kotlinx.coroutines.core)
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.foundation)
     implementation(libs.compose.material3)
