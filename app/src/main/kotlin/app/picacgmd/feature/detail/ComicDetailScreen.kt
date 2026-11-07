@@ -1,0 +1,723 @@
+package app.picacgmd.feature.detail
+
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Comment
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.CreateNewFolder
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.NotificationsNone
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Translate
+import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil3.compose.AsyncImage
+import app.picacgmd.R
+import app.picacgmd.core.designsystem.component.ComicCover
+import app.picacgmd.core.designsystem.component.ComicCoverCard
+import app.picacgmd.core.designsystem.component.ErrorState
+import app.picacgmd.core.designsystem.component.LoadingState
+import app.picacgmd.core.designsystem.component.MetaIcons
+import app.picacgmd.core.designsystem.component.MetaInfo
+import app.picacgmd.core.designsystem.component.SectionHeader
+import app.picacgmd.core.network.ComicInfo
+import app.picacgmd.core.network.Ep
+import app.picacgmd.di.LocalAppContainer
+import app.picacgmd.feature.comics.formatCount
+import app.picacgmd.feature.comics.rememberImageUrl
+import app.picacgmd.feature.comments.CommentRow
+
+/**
+ * Boards 10–11: comic detail. Wire as `composable<ComicDetailRoute> { ComicDetailScreen(comicId = it.comicId, …) }`.
+ *
+ * @param onRead open the reader at chapter [epOrder] (1-based) and picture index [page] (0-based).
+ * @param onDownloadChapters enqueue the chosen chapters (all chapters are pre-selected in the picker).
+ * @param onTeamClick 汉化组 chip; the list API filters by `chineseTeam`.
+ */
+@Composable
+fun ComicDetailScreen(
+    comicId: String,
+    onBack: () -> Unit,
+    onRead: (comicId: String, epOrder: Int, page: Int) -> Unit,
+    onDownloadChapters: (ComicInfo, List<Ep>) -> Unit,
+    onCategoryClick: (String) -> Unit,
+    onTagClick: (String) -> Unit,
+    onAuthorClick: (String) -> Unit,
+    onTeamClick: (String) -> Unit,
+    onComicClick: (String) -> Unit,
+    onOpenComments: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val container = LocalAppContainer.current
+    val viewModel = viewModel(key = "detail:$comicId") { ComicDetailViewModel(container, comicId) }
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val library by viewModel.library.collectAsStateWithLifecycle()
+    val snackbar = remember { SnackbarHostState() }
+    val failedTemplate = stringResource(R.string.detail_action_failed, "%s")
+    LaunchedEffect(viewModel) {
+        viewModel.messages.collect { snackbar.showSnackbar(failedTemplate.replace("%s", it)) }
+    }
+    var folderPicker by rememberSaveable { mutableStateOf(false) }
+    var downloadPicker by rememberSaveable { mutableStateOf(false) }
+
+    Scaffold(
+        modifier = modifier,
+        snackbarHost = { SnackbarHost(snackbar) },
+        contentWindowInsets = WindowInsets(0),
+    ) { padding ->
+        val comic = state.comic
+        when {
+            comic == null && state.error != null -> Column(Modifier.fillMaxSize().padding(padding).statusBarsPadding()) {
+                DetailTopBar(title = null, onBack = onBack, solid = true)
+                ErrorState(onRetry = viewModel::load, description = state.error)
+            }
+            comic == null -> Column(Modifier.fillMaxSize().padding(padding).statusBarsPadding()) {
+                DetailTopBar(title = null, onBack = onBack, solid = true)
+                LoadingState()
+            }
+            else -> DetailBody(
+                comic = comic,
+                state = state,
+                library = library,
+                onBack = onBack,
+                onRead = { ep, page -> onRead(comic.id, ep, page) },
+                onLike = viewModel::toggleLike,
+                onFavourite = viewModel::toggleFavourite,
+                onLocal = { folderPicker = true },
+                onSubscribe = viewModel::toggleSubscribe,
+                onDownload = { downloadPicker = true },
+                onCategoryClick = onCategoryClick,
+                onTagClick = onTagClick,
+                onAuthorClick = onAuthorClick,
+                onTeamClick = onTeamClick,
+                onComicClick = onComicClick,
+                onOpenComments = { onOpenComments(comic.id) },
+                onRetryEps = viewModel::retryEps,
+            )
+        }
+    }
+
+    val comic = state.comic
+    if (folderPicker && comic != null) {
+        FolderPickerSheet(
+            library = library,
+            onDismiss = { folderPicker = false },
+            onPick = { folderPicker = false; viewModel.putInFolder(it) },
+            onCreate = { folderPicker = false; viewModel.createFolderAndPut(it) },
+            onRemove = { folderPicker = false; viewModel.removeLocal() },
+        )
+    }
+    if (downloadPicker && comic != null) {
+        DownloadPickerSheet(
+            eps = state.eps.orEmpty(),
+            onDismiss = { downloadPicker = false },
+            onConfirm = { downloadPicker = false; onDownloadChapters(comic, it) },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DetailTopBar(title: String?, onBack: () -> Unit, solid: Boolean, actions: @Composable () -> Unit = {}) {
+    TopAppBar(
+        title = { if (title != null) Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        navigationIcon = {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.comics_back)) }
+        },
+        actions = { actions() },
+        windowInsets = WindowInsets(0),
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = if (solid) MaterialTheme.colorScheme.surfaceContainer else Color.Transparent,
+        ),
+    )
+}
+
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun DetailBody(
+    comic: ComicInfo,
+    state: DetailState,
+    library: LibraryState,
+    onBack: () -> Unit,
+    onRead: (Int, Int) -> Unit,
+    onLike: () -> Unit,
+    onFavourite: () -> Unit,
+    onLocal: () -> Unit,
+    onSubscribe: () -> Unit,
+    onDownload: () -> Unit,
+    onCategoryClick: (String) -> Unit,
+    onTagClick: (String) -> Unit,
+    onAuthorClick: (String) -> Unit,
+    onTeamClick: (String) -> Unit,
+    onComicClick: (String) -> Unit,
+    onOpenComments: () -> Unit,
+    onRetryEps: () -> Unit,
+) {
+    val listState = rememberLazyListState()
+    val collapsed by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
+    val clipboard = LocalClipboardManager.current
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 112.dp)) {
+            item(key = "hero") { Hero(comic, onAuthorClick) }
+            if (state.hiddenByRule) item(key = "hidden") { HiddenNotice() }
+            item(key = "actions") {
+                ActionRow(
+                    comic = comic,
+                    library = library,
+                    onLike = onLike,
+                    onFavourite = onFavourite,
+                    onLocal = onLocal,
+                    onSubscribe = onSubscribe,
+                    onDownload = onDownload,
+                )
+            }
+            item(key = "meta") { MetaChips(comic, onCategoryClick, onTagClick, onAuthorClick, onTeamClick) }
+            if (comic.description.isNotBlank()) item(key = "desc") { Description(comic.description) }
+            item(key = "eps-header") {
+                SectionHeader(title = stringResource(R.string.detail_chapters, state.eps?.size ?: comic.epsCount))
+            }
+            item(key = "eps") { Chapters(state, library, onRead, onRetryEps) }
+            if (state.recommendations.isNotEmpty()) {
+                item(key = "rec-header") { SectionHeader(title = stringResource(R.string.detail_recommend)) }
+                item(key = "rec") {
+                    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        items(state.recommendations, key = { it.id }) { rec ->
+                            ComicCoverCard(
+                                title = rec.title,
+                                coverUrl = rememberImageUrl(rec.thumb),
+                                onClick = { onComicClick(rec.id) },
+                                modifier = Modifier.width(112.dp),
+                            )
+                        }
+                    }
+                }
+            }
+            item(key = "comments-header") {
+                SectionHeader(
+                    title = stringResource(R.string.detail_comments, comic.commentsCount),
+                    actionLabel = stringResource(R.string.detail_comments_all),
+                    onActionClick = onOpenComments,
+                )
+            }
+            item(key = "comments") {
+                Column(Modifier.clickable(onClick = onOpenComments)) {
+                    if (state.commentsLoaded && state.comments.isEmpty()) {
+                        Text(
+                            stringResource(R.string.detail_comments_empty),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        )
+                    }
+                    state.comments.forEach { comment -> CommentRow(comment = comment, compact = true) }
+                }
+            }
+        }
+
+        // Top bar fades from transparent-over-hero to solid once the hero scrolls away.
+        Column(Modifier.fillMaxWidth()) {
+            Surface(color = if (collapsed) MaterialTheme.colorScheme.surfaceContainer else Color.Transparent) {
+                Column {
+                    Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+                    DetailTopBar(
+                        title = if (collapsed) comic.title else null,
+                        onBack = onBack,
+                        solid = collapsed,
+                        actions = {
+                            IconButton(onClick = { clipboard.setText(AnnotatedString(comic.title)) }) {
+                                Icon(Icons.Outlined.ContentCopy, stringResource(R.string.detail_copy_title))
+                            }
+                        },
+                    )
+                }
+            }
+        }
+
+        ReadButton(
+            progress = library.progress,
+            firstEp = state.eps?.firstOrNull()?.order ?: 1,
+            onRead = onRead,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
+    }
+}
+
+/** Blurred cover wash behind a crisp cover and the title block: the page's one dramatic moment. */
+@Composable
+private fun Hero(comic: ComicInfo, onAuthorClick: (String) -> Unit) {
+    val cover = rememberImageUrl(comic.thumb)
+    val surface = MaterialTheme.colorScheme.surface
+    Box(Modifier.fillMaxWidth()) {
+        AsyncImage(
+            model = cover,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.matchParentSize().blur(36.dp),
+        )
+        Box(
+            Modifier
+                .matchParentSize()
+                .background(Brush.verticalGradient(0f to surface.copy(alpha = 0.55f), 0.65f to surface.copy(alpha = 0.88f), 1f to surface)),
+        )
+        Column {
+            Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+            Spacer(Modifier.height(64.dp))
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                ComicCover(
+                    coverUrl = cover,
+                    contentDescription = comic.title,
+                    modifier = Modifier.width(124.dp),
+                    shape = MaterialTheme.shapes.large,
+                    badge = if (comic.finished) stringResource(R.string.comics_finished) else null,
+                )
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        comic.title,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 4,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (comic.author.isNotBlank()) {
+                        Text(
+                            comic.author,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable { onAuthorClick(comic.author) },
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        MetaInfo(MetaIcons.Likes, formatCount(comic.likesCount.toLong()))
+                        MetaInfo(MetaIcons.Views, formatCount(comic.viewsCount))
+                        MetaInfo(MetaIcons.Pages, stringResource(R.string.comics_pages_eps, comic.pagesCount, comic.epsCount))
+                    }
+                    comic.updatedAt?.take(10)?.let {
+                        Text(
+                            stringResource(R.string.detail_updated, it),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HiddenNotice() {
+    Row(
+        Modifier
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.errorContainer, MaterialTheme.shapes.medium)
+            .padding(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Outlined.VisibilityOff, null, tint = MaterialTheme.colorScheme.onErrorContainer)
+        Text(stringResource(R.string.detail_hidden_by_rule), color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun ActionRow(
+    comic: ComicInfo,
+    library: LibraryState,
+    onLike: () -> Unit,
+    onFavourite: () -> Unit,
+    onLocal: () -> Unit,
+    onSubscribe: () -> Unit,
+    onDownload: () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+    ) {
+        ActionToggle(
+            on = comic.isLiked,
+            iconOn = Icons.Filled.Favorite, iconOff = Icons.Outlined.FavoriteBorder,
+            label = if (comic.isLiked) stringResource(R.string.detail_liked) else stringResource(R.string.detail_like),
+            onClick = onLike,
+        )
+        ActionToggle(
+            on = comic.isFavourite,
+            iconOn = Icons.Filled.Bookmark, iconOff = Icons.Outlined.BookmarkBorder,
+            label = if (comic.isFavourite) stringResource(R.string.detail_favourited) else stringResource(R.string.detail_favourite),
+            onClick = onFavourite,
+        )
+        ActionToggle(
+            on = library.localFolderId != null,
+            iconOn = Icons.Filled.Folder, iconOff = Icons.Outlined.FolderOpen,
+            label = library.localFolderName ?: stringResource(R.string.detail_local_favourite),
+            onClick = onLocal,
+        )
+        ActionToggle(
+            on = library.subscribed,
+            iconOn = Icons.Filled.NotificationsActive, iconOff = Icons.Outlined.NotificationsNone,
+            label = if (library.subscribed) stringResource(R.string.detail_subscribed) else stringResource(R.string.detail_subscribe),
+            onClick = onSubscribe,
+        )
+        ActionToggle(
+            on = false,
+            iconOn = Icons.Outlined.Download, iconOff = Icons.Outlined.Download,
+            label = stringResource(R.string.detail_download),
+            onClick = onDownload,
+            enabled = comic.allowDownload,
+        )
+    }
+}
+
+@Composable
+private fun ActionToggle(
+    on: Boolean,
+    iconOn: ImageVector,
+    iconOff: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+) {
+    val colors = MaterialTheme.colorScheme
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(68.dp)) {
+        androidx.compose.material3.FilledIconToggleButton(
+            checked = on,
+            onCheckedChange = { onClick() },
+            enabled = enabled,
+            shapes = IconButtonDefaults.toggleableShapes(),
+            colors = IconButtonDefaults.filledIconToggleButtonColors(
+                containerColor = colors.surfaceContainerHigh,
+                contentColor = colors.onSurfaceVariant,
+                checkedContainerColor = colors.primaryContainer,
+                checkedContentColor = colors.onPrimaryContainer,
+            ),
+            modifier = Modifier.size(52.dp),
+        ) { Icon(if (on) iconOn else iconOff, label) }
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (on) colors.primary else colors.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MetaChips(
+    comic: ComicInfo,
+    onCategoryClick: (String) -> Unit,
+    onTagClick: (String) -> Unit,
+    onAuthorClick: (String) -> Unit,
+    onTeamClick: (String) -> Unit,
+) {
+    Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (comic.author.isNotBlank()) {
+                AssistChip(onClick = { onAuthorClick(comic.author) }, label = { Text(comic.author) }, leadingIcon = { Icon(Icons.Outlined.Person, stringResource(R.string.detail_author)) })
+            }
+            if (comic.chineseTeam.isNotBlank()) {
+                AssistChip(onClick = { onTeamClick(comic.chineseTeam) }, label = { Text(comic.chineseTeam) }, leadingIcon = { Icon(Icons.Outlined.Translate, stringResource(R.string.detail_team)) })
+            }
+        }
+        if (comic.categories.isNotEmpty()) {
+            ChipGroupLabel(stringResource(R.string.detail_categories))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                comic.categories.forEach { name ->
+                    SuggestionChip(onClick = { onCategoryClick(name) }, label = { Text(name) })
+                }
+            }
+        }
+        if (comic.tags.isNotEmpty()) {
+            ChipGroupLabel(stringResource(R.string.detail_tags))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                comic.tags.forEach { tag ->
+                    SuggestionChip(onClick = { onTagClick(tag) }, label = { Text(tag) })
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChipGroupLabel(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 6.dp),
+    )
+}
+
+@Composable
+private fun Description(text: String) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    Column(
+        Modifier
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainerLow, MaterialTheme.shapes.large)
+            .clickable { expanded = !expanded }
+            .padding(14.dp)
+            .animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec()),
+    ) {
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = if (expanded) Int.MAX_VALUE else 4,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            stringResource(if (expanded) R.string.detail_collapse else R.string.detail_expand),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun Chapters(state: DetailState, library: LibraryState, onRead: (Int, Int) -> Unit, onRetry: () -> Unit) {
+    val eps = state.eps
+    var showAll by rememberSaveable { mutableStateOf(false) }
+    var reversed by rememberSaveable { mutableStateOf(false) }
+    when {
+        eps == null && state.epsError != null -> ErrorState(onRetry = onRetry, description = state.epsError)
+        eps == null -> LoadingState()
+        else -> Column(Modifier.padding(horizontal = 16.dp)) {
+            val ordered = if (reversed) eps.reversed() else eps
+            val visible = if (showAll || ordered.size <= 12) ordered else ordered.take(12)
+            val lastRead = library.progress?.epOrder
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                visible.forEach { ep ->
+                    val current = ep.order == lastRead
+                    Surface(
+                        onClick = { onRead(ep.order, if (current) library.progress?.pictureIndex ?: 0 else 0) },
+                        shape = MaterialTheme.shapes.medium,
+                        color = if (current) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                        contentColor = if (current) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                    ) {
+                        Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                            Text(ep.title.ifBlank { ep.order.toString() }, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                            if (current) {
+                                Text(stringResource(R.string.detail_chapter_last_read), style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
+                }
+            }
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = { reversed = !reversed }) { Text(stringResource(R.string.detail_chapters_reverse)) }
+                if (ordered.size > 12) {
+                    TextButton(onClick = { showAll = !showAll }) {
+                        Text(stringResource(if (showAll) R.string.detail_collapse else R.string.detail_chapters_all))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReadButton(
+    progress: app.picacgmd.core.domain.repository.ReadingProgress?,
+    firstEp: Int,
+    onRead: (Int, Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier
+            .fillMaxWidth()
+            .background(Brush.verticalGradient(listOf(Color.Transparent, MaterialTheme.colorScheme.surface)))
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+    ) {
+        Button(
+            onClick = { if (progress != null) onRead(progress.epOrder, progress.pictureIndex) else onRead(firstEp, 0) },
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
+        ) {
+            Icon(Icons.AutoMirrored.Outlined.MenuBook, null)
+            Spacer(Modifier.width(10.dp))
+            Text(
+                if (progress != null) stringResource(R.string.detail_continue_reading, progress.epTitle.ifBlank { progress.epOrder.toString() })
+                else stringResource(R.string.detail_start_reading),
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+    }
+}
+
+/** B4: a comic lives in exactly one local folder; pick, create, or remove. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FolderPickerSheet(
+    library: LibraryState,
+    onDismiss: () -> Unit,
+    onPick: (Long) -> Unit,
+    onCreate: (String) -> Unit,
+    onRemove: () -> Unit,
+) {
+    var creating by rememberSaveable { mutableStateOf(false) }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Text(
+            stringResource(R.string.detail_folder_picker_title),
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+        )
+        library.folders.forEach { folder ->
+            ListItem(
+                headlineContent = { Text(folder.name) },
+                leadingContent = { RadioButton(selected = folder.folderId == library.localFolderId, onClick = null) },
+                modifier = Modifier.clickable { onPick(folder.folderId) },
+            )
+        }
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.detail_folder_new)) },
+            leadingContent = { Icon(Icons.Outlined.CreateNewFolder, null) },
+            modifier = Modifier.clickable { creating = true },
+        )
+        if (library.localFolderId != null) {
+            HorizontalDivider()
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.detail_folder_remove), color = MaterialTheme.colorScheme.error) },
+                modifier = Modifier.clickable(onClick = onRemove),
+            )
+        }
+        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars).height(16.dp))
+    }
+    if (creating) {
+        var name by rememberSaveable { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { creating = false },
+            title = { Text(stringResource(R.string.detail_folder_new)) },
+            text = {
+                OutlinedTextField(value = name, onValueChange = { name = it.take(40) }, singleLine = true, label = { Text(stringResource(R.string.detail_folder_name)) })
+            },
+            confirmButton = {
+                TextButton(onClick = { creating = false; onCreate(name) }, enabled = name.isNotBlank()) {
+                    Text(stringResource(R.string.detail_folder_create))
+                }
+            },
+            dismissButton = { TextButton(onClick = { creating = false }) { Text(stringResource(R.string.comics_cancel)) } },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+private fun DownloadPickerSheet(eps: List<Ep>, onDismiss: () -> Unit, onConfirm: (List<Ep>) -> Unit) {
+    var chosen by remember(eps) { mutableStateOf(eps.map(Ep::id).toSet()) }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.detail_download_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+            TextButton(onClick = { chosen = if (chosen.size == eps.size) emptySet() else eps.map(Ep::id).toSet() }) {
+                Text(stringResource(R.string.comics_select_all))
+            }
+        }
+        LazyColumn(Modifier.weight(1f, fill = false)) {
+            items(eps, key = { it.id }) { ep ->
+                ListItem(
+                    headlineContent = { Text(ep.title.ifBlank { ep.order.toString() }) },
+                    leadingContent = { Checkbox(checked = ep.id in chosen, onCheckedChange = null) },
+                    modifier = Modifier.clickable { chosen = if (ep.id in chosen) chosen - ep.id else chosen + ep.id },
+                )
+            }
+        }
+        FilledTonalButton(
+            onClick = { onConfirm(eps.filter { it.id in chosen }) },
+            enabled = chosen.isNotEmpty(),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
+        ) { Text(stringResource(R.string.detail_download_confirm, chosen.size)) }
+        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+    }
+}

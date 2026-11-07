@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shared -->
+    <string name="comics_back">返回</string>
+    <string name="comics_retry">重试</string>
+    <string name="comics_load_more_failed">加载失败，点按重试</string>
+    <string name="comics_end_of_list">已经到底了</string>
+    <string name="comics_found_count">找到 %1$d 本</string>
+    <string name="comics_found_hidden_count">找到 %1$d 本 · 已隐藏 %2$d 本</string>
+    <string name="comics_page_hidden">本页有 %1$d 本被屏蔽规则隐藏</string>
+    <string name="comics_empty_title">这里还没有漫画</string>
+    <string name="comics_empty_hidden">本页的漫画都被屏蔽规则隐藏了</string>
+    <string name="comics_pages_eps">%1$dP · %2$d 话</string>
+    <string name="comics_finished">完结</string>
+    <string name="comics_all">全部漫画</string>
+
+    <!-- Sort -->
+    <string name="comics_sort">排序</string>
+    <string name="comics_sort_default">默认</string>
+    <string name="comics_sort_newest">新到旧</string>
+    <string name="comics_sort_oldest">旧到新</string>
+    <string name="comics_sort_liked">最多爱心</string>
+    <string name="comics_sort_viewed">最多指名</string>
+
+    <!-- Layout -->
+    <string name="comics_layout">列表样式</string>
+    <string name="comics_layout_details">详情</string>
+    <string name="comics_layout_cover">仅封面</string>
+    <string name="comics_layout_cover_title">封面和标题</string>
+
+    <!-- Paging -->
+    <string name="comics_page_indicator">%1$d / %2$d 页</string>
+    <string name="comics_jump_to_page">跳页</string>
+    <string name="comics_jump_title">跳到第几页</string>
+    <string name="comics_jump_hint">1 – %1$d</string>
+    <string name="comics_jump_confirm">跳转</string>
+    <string name="comics_cancel">取消</string>
+    <string name="comics_prev_page">上一页</string>
+    <string name="comics_next_page">下一页</string>
+
+    <!-- Selection -->
+    <string name="comics_select">多选</string>
+    <string name="comics_selected_count">已选 %1$d 本</string>
+    <string name="comics_select_all">全选</string>
+    <string name="comics_clear_selection">退出多选</string>
+    <string name="comics_batch_download">下载所选</string>
+
+    <!-- Search -->
+    <string name="search_placeholder">搜索标题、作者、标签</string>
+    <string name="search_history">搜索历史</string>
+    <string name="search_clear_history">清空</string>
+    <string name="search_delete_history">删除「%1$s」</string>
+    <string name="search_hot">大家都在搜</string>
+    <string name="search_hot_failed">热门关键词加载失败</string>
+    <string name="search_filter">筛选</string>
+    <string name="search_filter_categories">分类</string>
+    <string name="search_filter_categories_hint">不选则搜索全部分类</string>
+    <string name="search_filter_apply">应用</string>
+    <string name="search_filter_reset">重置</string>
+    <string name="search_no_result">没有找到相关漫画</string>
+    <string name="search_no_result_hint">换个关键词，或放宽筛选条件试试</string>
+    <string name="search_clear">清除</string>
+    <string name="search_submit">搜索</string>
+
+    <!-- Detail -->
+    <string name="detail_title">漫画详情</string>
+    <string name="detail_like">点赞</string>
+    <string name="detail_liked">已点赞</string>
+    <string name="detail_favourite">收藏</string>
+    <string name="detail_favourited">已收藏</string>
+    <string name="detail_local_favourite">本地收藏</string>
+    <string name="detail_local_favourited">在「%1$s」</string>
+    <string name="detail_subscribe">追更</string>
+    <string name="detail_subscribed">已追更</string>
+    <string name="detail_download">下载</string>
+    <string name="detail_start_reading">开始阅读</string>
+    <string name="detail_continue_reading">继续阅读 · %1$s</string>
+    <string name="detail_continue_page">第 %1$d 页</string>
+    <string name="detail_author">作者</string>
+    <string name="detail_team">汉化</string>
+    <string name="detail_uploader">上传</string>
+    <string name="detail_updated">更新于 %1$s</string>
+    <string name="detail_categories">分类</string>
+    <string name="detail_tags">标签</string>
+    <string name="detail_description">简介</string>
+    <string name="detail_expand">展开</string>
+    <string name="detail_collapse">收起</string>
+    <string name="detail_chapters">章节 · %1$d</string>
+    <string name="detail_chapters_reverse">倒序</string>
+    <string name="detail_chapters_all">全部章节</string>
+    <string name="detail_chapter_last_read">上次读到</string>
+    <string name="detail_recommend">看了这本的人也在看</string>
+    <string name="detail_comments">评论 · %1$d</string>
+    <string name="detail_comments_all">全部评论</string>
+    <string name="detail_comments_empty">还没有评论，来抢沙发吧</string>
+    <string name="detail_hidden_by_rule">这本漫画命中了你的屏蔽规则</string>
+    <string name="detail_download_not_allowed">这本漫画不允许下载</string>
+    <string name="detail_action_failed">操作失败：%1$s</string>
+    <string name="detail_copy_title">复制标题</string>
+    <string name="detail_copied">已复制</string>
+    <string name="detail_folder_picker_title">放到哪个收藏夹</string>
+    <string name="detail_folder_new">新建收藏夹</string>
+    <string name="detail_folder_name">收藏夹名称</string>
+    <string name="detail_folder_create">创建并放入</string>
+    <string name="detail_folder_remove">移出本地收藏</string>
+    <string name="detail_download_title">选择要下载的章节</string>
+    <string name="detail_download_confirm">下载 %1$d 话</string>
+    <string name="detail_views">%1$s 指名</string>
+
+    <!-- Comments -->
+    <string name="comments_title">评论</string>
+    <string name="comments_top">置顶</string>
+    <string name="comments_all">最新评论</string>
+    <string name="comments_replies">%1$d 条回复</string>
+    <string name="comments_reply">回复</string>
+    <string name="comments_replies_title">回复</string>
+    <string name="comments_input_hint">说点什么…</string>
+    <string name="comments_reply_hint">回复 %1$s</string>
+    <string name="comments_send">发送</string>
+    <string name="comments_sent">已发送</string>
+    <string name="comments_empty">还没有评论</string>
+    <string name="comments_no_replies">还没有回复</string>
+    <string name="comments_anonymous">匿名用户</string>
+    <string name="comments_level">Lv.%1$d</string>
+    <string name="comments_like">点赞</string>
+    <string name="comments_hidden">这条评论已被隐藏</string>
+</resources>
