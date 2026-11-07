@@ -17,26 +17,28 @@
           };
         };
 
-        buildToolsVersion = "36.0.0";
-        platformVersion = "36";
+        buildToolsVersion = "37.0.0";
+        platformVersions = [ "37.0" ];
 
-        android = pkgs.androidenv.composeAndroidPackages {
-          platformVersions = [ platformVersion ];
+        mkAndroid = withEmulator: pkgs.androidenv.composeAndroidPackages {
+          inherit platformVersions;
           buildToolsVersions = [ buildToolsVersion ];
-          includeEmulator = true;
-          includeSystemImages = true;
+          # Emulator + API 37 system image (~1.8 GB) only in the `emulator` shell.
+          includeEmulator = withEmulator;
+          includeSystemImages = withEmulator;
           systemImageTypes = [ "google_apis" ];
           abiVersions = [ "x86_64" ];
           includeNDK = false;
           includeSources = false;
         };
 
-        sdk = android.androidsdk;
+        sdk = (mkAndroid false).androidsdk;
         sdkRoot = "${sdk}/libexec/android-sdk";
+        sdkEmu = (mkAndroid true).androidsdk;
+        sdkEmuRoot = "${sdkEmu}/libexec/android-sdk";
         jdk = pkgs.jdk21;
-      in
-      {
-        devShells.default = pkgs.mkShell {
+
+        mkDevShell = sdk: sdkRoot: pkgs.mkShell {
           packages = [
             sdk
             jdk
@@ -64,5 +66,10 @@
             export PATH="${sdkRoot}/emulator:${sdkRoot}/platform-tools:$PATH"
           '';
         };
+      in
+      {
+        devShells.default = mkDevShell sdk sdkRoot;
+        # `nix develop .#emulator` — same toolchain plus emulator and the API 37 google_apis x86_64 image.
+        devShells.emulator = mkDevShell sdkEmu sdkEmuRoot;
       });
 }

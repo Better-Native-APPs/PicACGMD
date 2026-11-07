@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Pikapika</string>
+    <string name="nav_discover">发现</string>
+    <string name="nav_bookshelf">书架</string>
+    <string name="nav_downloads">下载</string>
+    <string name="scaffold_placeholder">应用骨架已就绪</string>
+</resources>
