@@ -52,7 +52,7 @@ private val activeStatuses = setOf(DownloadStatus.QUEUED, DownloadStatus.RUNNING
 
 /** Android-free orchestration; the worker owns its lifetime and the DAO owns persisted queue state. */
 internal class DownloadEngine(
-    private val api: PicaApi,
+    private val apiProvider: () -> PicaApi,
     imageClientProvider: () -> OkHttpClient,
     private val dao: DownloadDao,
     private val settings: Flow<AppSettings>,
@@ -333,7 +333,7 @@ internal class DownloadEngine(
         val eps = mutableListOf<Ep>()
         var page = 1
         do {
-            val result = retry { api.comicEpPage(comicId, page).getOrThrow() }
+            val result = retry { apiProvider().comicEpPage(comicId, page).getOrThrow() }
             eps.addAll(result.docs)
             page++
         } while (page <= maxOf(1, result.pages))
@@ -413,7 +413,7 @@ internal class DownloadEngine(
             var index = 0
             do {
                 val result = retry {
-                    api.comicPicturePageWithQuality(
+                    apiProvider().comicPicturePageWithQuality(
                         ep.comicId, ep.epOrder, page, ImageQuality.valueOf(latestSettings.value.imageQuality.name),
                     ).getOrThrow()
                 }.pages

@@ -209,7 +209,7 @@ class DownloadEngineTest {
     }
 
     private fun engine(scope: TestScope) = DownloadEngine(
-        api = PicaApi(baseUrl = apiServer.url("/").toString(), client = client),
+        apiProvider = { PicaApi(baseUrl = apiServer.url("/").toString(), client = client) },
         imageClientProvider = { client }, dao = dao, settings = settings, network = network,
         files = DownloadFileStore(root),
         retryPolicy = DownloadRetryPolicy(jitter = { 0 }),

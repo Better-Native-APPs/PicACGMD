@@ -29,7 +29,7 @@ import okhttp3.OkHttpClient
 
 /** Application-scoped facade. Enqueue persists snapshots; it never waits for chapter API requests. */
 class DownloadManager(
-    api: PicaApi,
+    apiProvider: () -> PicaApi,
     imageClientProvider: () -> OkHttpClient,
     private val dao: DownloadDao,
     settingsRepository: SettingsRepository,
@@ -43,7 +43,7 @@ class DownloadManager(
         File(external, "downloads")
     }
     private val engine = DownloadEngine(
-        api = api,
+        apiProvider = apiProvider,
         imageClientProvider = imageClientProvider,
         dao = dao,
         settings = settingsRepository.settings,
