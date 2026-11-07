@@ -19,12 +19,16 @@ android {
 
 kotlin { jvmToolchain(21) }
 
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+    arg("room.incremental", "true")
+}
+
 dependencies {
-    api(project(":core:network"))
     api(libs.kotlinx.coroutines.core)
     api(libs.kotlinx.serialization.json)
-    implementation(libs.androidx.datastore.preferences)
-    implementation(libs.androidx.room.runtime)
+    api(libs.androidx.datastore.preferences)
+    api(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.work.runtime.ktx)
