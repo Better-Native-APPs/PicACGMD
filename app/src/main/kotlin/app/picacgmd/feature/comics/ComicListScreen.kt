@@ -118,13 +118,15 @@ fun ComicListScreen(
     onBatchDownload: (List<ComicSimple>) -> Unit,
     modifier: Modifier = Modifier,
     chineseTeam: String? = null,
+    creatorId: String? = null,
+    title: String? = null,
 ) {
     val container = LocalAppContainer.current
-    val viewModel = viewModel(key = "comics:$category:$tag:$author:$chineseTeam") {
-        ComicListViewModel(container, category, tag, author, chineseTeam)
+    val viewModel = viewModel(key = "comics:$category:$tag:$author:$chineseTeam:$creatorId") {
+        ComicListViewModel(container, category, tag, author, chineseTeam, creatorId)
     }
-    val title = category ?: tag ?: author ?: chineseTeam ?: stringResource(R.string.comics_all)
-    ComicListContent(viewModel, title, onBack, onComicClick, onBatchDownload, modifier)
+    val displayTitle = title ?: category ?: tag ?: author ?: chineseTeam ?: stringResource(R.string.comics_all)
+    ComicListContent(viewModel, displayTitle, onBack, onComicClick, onBatchDownload, modifier)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

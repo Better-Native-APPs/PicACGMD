@@ -75,4 +75,4 @@ fun NavDestination?.isTopLevelStart(): Boolean =
 
 /** Destinations that take the whole window, without navigation bar or rail. */
 fun NavDestination?.isFullscreen(): Boolean =
-    this != null && (hasRoute(ReaderRoute::class) || hasRoute(LoginRoute::class))
+    this != null && (hasRoute(ReaderRoute::class) || hasRoute(DownloadedReaderRoute::class) || hasRoute(LoginRoute::class))

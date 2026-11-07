@@ -144,6 +144,7 @@ fun RandomScreen(
 fun CollectionsScreen(
     onBack: () -> Unit,
     onOpenComic: (String) -> Unit,
+    onOpenCollection: (index: Int, title: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val viewModel = appViewModel { CollectionsViewModel(it) }
@@ -165,14 +166,18 @@ fun CollectionsScreen(
                 LoadState.Loading -> LoadingState(Modifier.fillMaxSize())
                 is LoadState.Failed -> ScrollableStatus { LoadFailure(state, onRetry = { viewModel.load(force = true) }) }
                 is LoadState.Ready -> {
-                    val groups = state.data.filter { it.comics.isNotEmpty() }
+                    val groups = state.data.withIndex().filter { it.value.comics.isNotEmpty() }
                     if (groups.isEmpty()) {
                         ScrollableStatus { EmptyState(title = stringResource(R.string.collections_empty)) }
                     } else {
                         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-                            groups.forEachIndexed { index, group ->
+                            groups.forEach { (index, group) ->
                                 item(key = "header-$index", contentType = "header") {
-                                    SectionHeader(title = group.title)
+                                    SectionHeader(
+                                        title = group.title,
+                                        actionLabel = stringResource(R.string.discover_action_all),
+                                        onActionClick = { onOpenCollection(index, group.title) },
+                                    )
                                 }
                                 item(key = "row-$index", contentType = "row") {
                                     CollectionRow(group, onOpenComic)

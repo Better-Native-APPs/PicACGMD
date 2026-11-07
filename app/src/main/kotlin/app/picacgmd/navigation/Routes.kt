@@ -30,15 +30,20 @@ import kotlinx.serialization.Serializable
 
 @Serializable data class SearchRoute(val keyword: String? = null)
 
-/** Comic list for a category, tag or author; all null = every comic. */
+/** Comic list filtered by category, tag, author, team or uploader; all null = every comic. */
 @Serializable
 data class ComicListRoute(
     val category: String? = null,
     val tag: String? = null,
     val author: String? = null,
+    val chineseTeam: String? = null,
+    val creatorId: String? = null,
+    val title: String? = null,
 )
 
 @Serializable data class ComicDetailRoute(val comicId: String)
+
+@Serializable data class ComicCommentsRoute(val comicId: String)
 
 @Serializable
 data class ReaderRoute(
@@ -46,6 +51,8 @@ data class ReaderRoute(
     val episodeOrder: Int = 1,
     val page: Int = 0,
 )
+
+@Serializable data class DownloadedReaderRoute(val comicId: String)
 
 @Serializable data object RankingsRoute
 
@@ -61,6 +68,9 @@ data class ReaderRoute(
 
 /** 推荐: official collections (home carousel 「全部」 and the 推荐 tile of the category grid). */
 @Serializable data object CollectionsRoute
+
+/** All comics in one recommendation collection, using its original catalogue index. */
+@Serializable data class CollectionRoute(val index: Int, val title: String)
 
 /** 全分类. */
 @Serializable data object CategoriesRoute
