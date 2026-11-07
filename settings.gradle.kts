@@ -29,4 +29,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Pikapika"
-include(":app", ":core:network", ":core:data", ":core:designsystem")
+include(":app", ":core:network", ":core:data", ":core:designsystem", ":core:domain", ":feature:reader")
