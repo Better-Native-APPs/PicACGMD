@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Page badge, e.g. 「14 / 22」. -->
+    <string name="reader_page_badge">%1$d / %2$d</string>
+    <!-- Page badge for a two-page spread, e.g. 「14-15 / 22」. -->
+    <string name="reader_spread_badge">%1$d-%2$d / %3$d</string>
+    <string name="reader_page_number">第 %1$d 页</string>
+    <string name="reader_page_loading_progress">第 %1$d 页 · %2$d%%</string>
+    <string name="reader_page_failed">第 %1$d 页加载失败</string>
+    <string name="reader_page_failed_timeout">图片服务器没有响应</string>
+    <string name="reader_page_failed_network">网络连接失败，请稍后重试</string>
+    <string name="reader_page_failed_local">本地文件无法读取，可能已被删除</string>
+    <string name="reader_page_failed_unknown">这张图无法显示</string>
+    <string name="reader_retry">重试</string>
+    <string name="reader_switch_server">换分流</string>
+
+    <string name="reader_chapter_loading">正在打开</string>
+    <string name="reader_chapter_failed">这一话没有加载出来</string>
+    <string name="reader_chapter_failed_detail">请检查网络后重试</string>
+    <string name="reader_chapter_empty">这一话没有图片</string>
+    <string name="reader_no_chapters">这本漫画还没有可阅读的章节</string>
+    <string name="reader_back">返回</string>
+</resources>
