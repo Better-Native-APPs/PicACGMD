@@ -1,0 +1,82 @@
+package app.picacgmd.core.domain.repository
+
+import app.picacgmd.core.data.db.ViewHistory
+import app.picacgmd.core.data.settings.AppSettings
+import app.picacgmd.core.domain.session.MemoryCredentialStore
+import app.picacgmd.core.domain.session.MemorySessionPreferences
+import app.picacgmd.core.domain.session.SessionManager
+import app.picacgmd.core.network.PicaApi
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.test.runTest
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
+
+class ComicRepositoryTest {
+    private lateinit var server: MockWebServer
+    private lateinit var preferences: MemorySessionPreferences
+    private lateinit var searches: FakeSearchHistoryDao
+    private lateinit var history: FakeViewHistoryDao
+
+    @BeforeTest
+    fun setUp() {
+        server = MockWebServer()
+        server.start()
+        preferences = MemorySessionPreferences(AppSettings(authToken = "token", autoPunchIn = false))
+        searches = FakeSearchHistoryDao()
+        history = FakeViewHistoryDao()
+    }
+
+    @AfterTest
+    fun tearDown() { server.close() }
+
+    @Test
+    fun searchRecordsHistoryAndRetainsRemotePagingMetadataAfterFiltering() = runTest {
+        preferences.settings.value = preferences.settings.value.copy(hiddenKeywords = listOf("hidden"))
+        enqueue("""{"comics":{"docs":[{"_id":"1","title":"visible"},{"_id":"2","title":"Hidden story"}],"page":12,"pages":20,"total":128,"limit":40}}""")
+        val result = repository(backgroundScope).search("  query  ", page = 12)
+        assertEquals(listOf("1"), result.items.map { it.id })
+        assertEquals(1, result.hiddenCount)
+        assertEquals(128, result.total)
+        assertEquals(12, result.page)
+        assertEquals(20, result.pages)
+        assertEquals(40, result.limit)
+        assertEquals("query", searches.entries.value.single().query)
+    }
+
+    @Test
+    fun cachedCollectionsAreRefilteredWhenPreferencesChange() = runTest {
+        val repository = repository(backgroundScope)
+        enqueue("""{"collections":[{"title":"推荐","comics":[{"_id":"1","title":"日常"},{"_id":"2","title":"冒险","categories":["冒险"]}]}]}""")
+        assertEquals(2, repository.collections().single().comics.size)
+        preferences.settings.value = preferences.settings.value.copy(shieldedCategories = listOf("冒险"))
+        val filtered = repository.collections().single()
+        assertEquals(listOf("1"), filtered.comics.map { it.id })
+        assertEquals(1, filtered.hiddenCount)
+        preferences.settings.value = preferences.settings.value.copy(shieldedCategories = emptyList())
+        assertEquals(2, repository.collections().single().comics.size)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun hideViewedUsesTheHistoryDao() = runTest {
+        preferences.settings.value = preferences.settings.value.copy(hideViewedComics = true)
+        history.upsert(ViewHistory("read", "读过"))
+        enqueue("""{"comics":[{"_id":"read","title":"读过"},{"_id":"new","title":"未读"}]}""")
+        val result = repository(backgroundScope).random()
+        assertEquals(listOf("new"), result.items.map { it.id })
+        assertEquals(1, result.hiddenCount)
+    }
+
+    private fun repository(scope: CoroutineScope): ComicRepository {
+        lateinit var session: SessionManager
+        val api = PicaApi(tokenProvider = { session.token }, baseUrl = server.url("/").toString())
+        session = SessionManager(preferences, MemoryCredentialStore(), { api }, scope)
+        return ComicRepository(session, preferences.settings, FakeApiCacheDao(), searches, history)
+    }
+
+    private fun enqueue(data: String) { server.enqueue(MockResponse.Builder().body("""{"code":200,"data":$data}""").build()) }
+}
