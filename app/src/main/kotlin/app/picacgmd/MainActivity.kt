@@ -1,42 +1,160 @@
 package app.picacgmd
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import app.picacgmd.core.data.settings.AppSettings
+import app.picacgmd.core.data.settings.AppTheme
+import app.picacgmd.core.designsystem.component.StatusPane
 import app.picacgmd.core.designsystem.theme.DarkMode
 import app.picacgmd.core.designsystem.theme.PikapikaTheme
 import app.picacgmd.core.designsystem.theme.ThemeChoice
 import app.picacgmd.core.designsystem.theme.isDark
+import app.picacgmd.core.domain.session.SessionState
+import app.picacgmd.di.LocalAppContainer
+import app.picacgmd.feature.account.LoginScreen
+import app.picacgmd.navigation.ExternalNavigation
+import app.picacgmd.navigation.externalNavigation
 import app.picacgmd.ui.PikapikaApp
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import app.picacgmd.core.data.settings.DarkMode as SettingsDarkMode
 
 class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen()
-        super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContent {
-            // Appearance settings (board 25) will feed these once the preferences store exists.
-            val themeChoice = ThemeChoice.Dynamic
-            val darkMode = DarkMode.FollowSystem
-            val pureBlack = false
+    private val pikaApplication get() = application as PikapikaApplication
+    private var settings by mutableStateOf<AppSettings?>(null)
+    private var settingsError by mutableStateOf<String?>(null)
+    private var pendingNavigation by mutableStateOf<ExternalNavigation?>(null)
+    private var settingsJob: Job? = null
 
+    @OptIn(ExperimentalMaterial3ExpressiveApi::class)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        val splash = installSplashScreen()
+        super.onCreate(savedInstanceState)
+        splash.setKeepOnScreenCondition { settings == null && settingsError == null }
+        enableEdgeToEdge()
+        acceptIntent(intent)
+        observeSettings()
+        setContent {
+            val container = pikaApplication.appContainer
+            val preferences = settings ?: AppSettings.DEFAULT
+            val themeChoice = when (preferences.theme) {
+                AppTheme.DYNAMIC -> ThemeChoice.Dynamic
+                AppTheme.BRAND_PINK -> ThemeChoice.Brand
+                AppTheme.BOOK -> ThemeChoice.Book
+                AppTheme.GREY_BLUE -> ThemeChoice.Dusty
+            }
+            val darkMode = when (preferences.darkMode) {
+                SettingsDarkMode.SYSTEM -> DarkMode.FollowSystem
+                SettingsDarkMode.LIGHT -> DarkMode.Light
+                SettingsDarkMode.DARK -> DarkMode.Dark
+            }
             val dark = darkMode.isDark()
             DisposableEffect(dark) {
-                // Keep system bar icons readable when the app overrides the system dark setting.
                 enableEdgeToEdge(
                     statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark },
                     navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark },
                 )
                 onDispose {}
             }
+            val session by container.sessionManager.state.collectAsStateWithLifecycle()
+            val progress by pikaApplication.downloadManager.progress.collectAsStateWithLifecycle()
+            val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+            LaunchedEffect(progress.activeComics, session) {
+                if (Build.VERSION.SDK_INT >= 33 && session is SessionState.SignedIn && progress.activeComics > 0) {
+                    val history = getSharedPreferences("system_permissions", MODE_PRIVATE)
+                    if (!history.getBoolean("notifications_requested", false)) {
+                        history.edit().putBoolean("notifications_requested", true).apply()
+                        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                            permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    }
+                }
+            }
+            CompositionLocalProvider(LocalAppContainer provides container) {
+                PikapikaTheme(themeChoice, darkMode, preferences.pureBlack) {
+                    Surface(Modifier.fillMaxSize()) {
+                        when {
+                            settingsError != null -> StatusPane(
+                                title = "读取设置失败",
+                                description = settingsError,
+                                actions = { Button(onClick = ::observeSettings) { Text("重试") } },
+                            )
+                            settings == null || session == SessionState.Initializing -> Box(
+                                Modifier.fillMaxSize(), contentAlignment = Alignment.Center,
+                            ) { LoadingIndicator() }
+                            session is SessionState.SignedIn -> PikapikaApp(
+                                externalNavigation = pendingNavigation,
+                                onExternalNavigationConsumed = { pendingNavigation = null },
+                                onExternalComicExit = ::finish,
+                            )
+                            else -> LoginScreen()
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-            PikapikaTheme(themeChoice = themeChoice, darkMode = darkMode, pureBlack = pureBlack) {
-                PikapikaApp()
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        acceptIntent(intent)
+    }
+
+    private fun acceptIntent(intent: Intent) {
+        val target = intent.externalNavigation()
+        if (target != null) pendingNavigation = target
+        else if (intent.action in setOf(Intent.ACTION_SEND, Intent.ACTION_VIEW)) {
+            Toast.makeText(this, "没有找到有效的漫画链接", Toast.LENGTH_SHORT).show()
+            if (settings == null) finish()
+        }
+    }
+
+    private fun observeSettings() {
+        settingsJob?.cancel()
+        settingsError = null
+        settingsJob = lifecycleScope.launch {
+            try {
+                pikaApplication.appContainer.settingsRepository.settings.collect { snapshot ->
+                    if (snapshot.preventScreenshots) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                    else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                    settings = snapshot
+                }
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                settingsError = exception.localizedMessage ?: "无法读取本机设置"
             }
         }
     }

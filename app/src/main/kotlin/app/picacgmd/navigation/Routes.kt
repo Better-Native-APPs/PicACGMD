@@ -53,6 +53,12 @@ data class ReaderRoute(
 
 @Serializable data object GamesRoute
 
+@Serializable data class GameDetailRoute(val gameId: String)
+
+@Serializable data class GameCommentsRoute(val gameId: String, val title: String = "游戏评论")
+
+@Serializable data class GameRepliesRoute(val gameId: String, val commentId: String)
+
 /** 推荐: official collections (home carousel 「全部」 and the 推荐 tile of the category grid). */
 @Serializable data object CollectionsRoute
 

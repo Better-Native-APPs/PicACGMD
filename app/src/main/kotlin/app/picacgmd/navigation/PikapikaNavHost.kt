@@ -22,9 +22,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.toRoute
 import app.picacgmd.R
-import app.picacgmd.core.designsystem.component.HomeChannel
-import app.picacgmd.feature.discover.DiscoverScreen
-import app.picacgmd.feature.discover.rememberSampleDiscoverContent
+import app.picacgmd.feature.account.LoginScreen
+import app.picacgmd.feature.games.GameCommentsScreen
+import app.picacgmd.feature.games.GameDetailScreen
+import app.picacgmd.feature.games.GamesScreen
 import app.picacgmd.ui.PlaceholderLink
 import app.picacgmd.ui.PlaceholderScreen
 
@@ -44,6 +45,8 @@ fun PikapikaNavHost(
     navController: NavHostController,
     compactNavigation: Boolean,
     modifier: Modifier = Modifier,
+    externalComicId: String? = null,
+    onExternalComicExit: () -> Unit = {},
 ) {
     val motion = MaterialTheme.motionScheme
     val slideSpec = motion.defaultSpatialSpec<IntOffset>()
@@ -52,6 +55,8 @@ fun PikapikaNavHost(
     val fastFadeSpec = motion.fastEffectsSpec<Float>()
     // Read through State so the graph builder lambda stays the same across window size changes.
     val compact = rememberUpdatedState(compactNavigation)
+    val externalId = rememberUpdatedState(externalComicId)
+    val externalExit = rememberUpdatedState(onExternalComicExit)
 
     NavHost(
         navController = navController,
@@ -88,7 +93,7 @@ fun PikapikaNavHost(
         sizeTransform = null,
     ) {
         topLevelGraphs(navController, compact)
-        sharedDestinations(navController)
+        sharedDestinations(navController, externalId, externalExit)
     }
 }
 
@@ -104,22 +109,17 @@ private fun NavHostController.backAction(): () -> Unit = dropUnlessResumed { pop
 private fun NavGraphBuilder.topLevelGraphs(navController: NavHostController, compact: State<Boolean>) {
     navigation<DiscoverGraph>(startDestination = DiscoverRoute) {
         composable<DiscoverRoute> {
-            DiscoverScreen(
-                content = rememberSampleDiscoverContent(),
-                showProfileEntry = compact.value,
-                onSearchClick = { navController.navigate(SearchRoute()) },
-                onProfileClick = { navController.navigateToTopLevel(TopLevelDestination.Me) },
-                onChannelClick = { channel ->
-                    when (channel) {
-                        HomeChannel.Rankings -> navController.navigate(RankingsRoute)
-                        HomeChannel.Random -> navController.navigate(RandomRoute)
-                        HomeChannel.Games -> navController.navigate(GamesRoute)
-                    }
-                },
-                onCategoryClick = { name -> navController.navigate(ComicListRoute(category = name)) },
-                onCollectionsClick = { navController.navigate(CollectionsRoute) },
-                onAllCategoriesClick = { navController.navigate(CategoriesRoute) },
-                onComicClick = { id -> navController.navigate(ComicDetailRoute(id)) },
+            PlaceholderScreen(
+                title = stringResource(R.string.nav_discover),
+                links = listOf(
+                    PlaceholderLink("搜索") { navController.navigate(SearchRoute()) },
+                    PlaceholderLink("排行榜") { navController.navigate(RankingsRoute) },
+                    PlaceholderLink("随机") { navController.navigate(RandomRoute) },
+                    PlaceholderLink("游戏专区") { navController.navigate(GamesRoute) },
+                    PlaceholderLink("全部分类") { navController.navigate(CategoriesRoute) },
+                    PlaceholderLink("推荐") { navController.navigate(CollectionsRoute) },
+                    PlaceholderLink("我的") { navController.navigateToTopLevel(TopLevelDestination.Me) },
+                ),
             )
         }
     }
@@ -157,7 +157,7 @@ private fun NavGraphBuilder.topLevelGraphs(navController: NavHostController, com
     }
 }
 
-private fun NavGraphBuilder.sharedDestinations(navController: NavHostController) {
+private fun NavGraphBuilder.sharedDestinations(navController: NavHostController, externalComicId: State<String?>, onExternalComicExit: State<() -> Unit>) {
     composable<SettingsRoute> {
         PlaceholderScreen(stringResource(R.string.title_settings), onBack = navController.backAction())
     }
@@ -185,7 +185,7 @@ private fun NavGraphBuilder.sharedDestinations(navController: NavHostController)
         val comicId = entry.toRoute<ComicDetailRoute>().comicId
         PlaceholderScreen(
             title = stringResource(R.string.title_comic_detail),
-            onBack = navController.backAction(),
+            onBack = if (comicId == externalComicId.value) ({ onExternalComicExit.value() }) else navController.backAction(),
             links = listOf(
                 PlaceholderLink(stringResource(R.string.placeholder_link_reader)) {
                     navController.navigate(ReaderRoute(comicId))
@@ -211,7 +211,31 @@ private fun NavGraphBuilder.sharedDestinations(navController: NavHostController)
         )
     }
     composable<GamesRoute> {
-        PlaceholderScreen(stringResource(R.string.title_games), onBack = navController.backAction())
+        GamesScreen(onBack = navController.backAction(), onGameClick = { navController.navigate(GameDetailRoute(it)) })
+    }
+    composable<GameDetailRoute> { entry ->
+        val route = entry.toRoute<GameDetailRoute>()
+        GameDetailScreen(
+            gameId = route.gameId,
+            onBack = navController.backAction(),
+            onComments = { title -> navController.navigate(GameCommentsRoute(route.gameId, title)) },
+        )
+    }
+    composable<GameCommentsRoute> { entry ->
+        val route = entry.toRoute<GameCommentsRoute>()
+        GameCommentsScreen(
+            gameId = route.gameId,
+            title = route.title,
+            onBack = navController.backAction(),
+            onReplies = { navController.navigate(GameRepliesRoute(route.gameId, it)) },
+        )
+    }
+    composable<GameRepliesRoute> { entry ->
+        val route = entry.toRoute<GameRepliesRoute>()
+        GameCommentsScreen(
+            gameId = route.gameId, title = "评论回复", parentCommentId = route.commentId,
+            onBack = navController.backAction(),
+        )
     }
     composable<CollectionsRoute> {
         PlaceholderScreen(
@@ -224,7 +248,7 @@ private fun NavGraphBuilder.sharedDestinations(navController: NavHostController)
         PlaceholderScreen(stringResource(R.string.title_categories), onBack = navController.backAction())
     }
     composable<LoginRoute> {
-        PlaceholderScreen(stringResource(R.string.title_login), onBack = navController.backAction())
+        LoginScreen(onBack = navController.backAction())
     }
 }
 

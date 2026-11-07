@@ -1,5 +1,6 @@
 package app.picacgmd.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -13,15 +14,22 @@ import androidx.compose.material3.adaptive.navigationsuite.rememberNavigationSui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
+import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.toRoute
 import androidx.navigation.compose.rememberNavController
 import app.picacgmd.R
 import app.picacgmd.navigation.PikapikaNavHost
+import app.picacgmd.navigation.ComicDetailRoute
+import app.picacgmd.navigation.ExternalNavigation
 import app.picacgmd.navigation.SearchRoute
 import app.picacgmd.navigation.TopLevelDestination
 import app.picacgmd.navigation.currentTopLevelDestination
@@ -65,12 +73,18 @@ private fun currentNavigationLayout(): NavigationLayout {
 fun PikapikaApp(
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController(),
+    externalNavigation: ExternalNavigation? = null,
+    onExternalNavigationConsumed: () -> Unit = {},
+    onExternalComicExit: () -> Unit = {},
 ) {
     val layout = currentNavigationLayout()
     val usesRail = layout != NavigationLayout.Bar
     val backStack by navController.currentBackStack.collectAsStateWithLifecycle()
     val currentDestination = backStack.lastOrNull()?.destination
     val currentTab = backStack.currentTopLevelDestination()
+    var externalComicId by rememberSaveable { mutableStateOf<String?>(null) }
+    val isExternalComic = currentDestination?.hasRoute(ComicDetailRoute::class) == true &&
+        backStack.lastOrNull()?.toRoute<ComicDetailRoute>()?.comicId == externalComicId
 
     val showNavigation = currentDestination == null || when {
         currentDestination.isFullscreen() -> false
@@ -123,6 +137,20 @@ fun PikapikaApp(
             }
         },
     ) {
-        PikapikaNavHost(navController = navController, compactNavigation = !usesRail)
+        PikapikaNavHost(
+            navController = navController, compactNavigation = !usesRail,
+            externalComicId = externalComicId, onExternalComicExit = onExternalComicExit,
+        )
     }
+    LaunchedEffect(externalNavigation) {
+        externalNavigation?.let { target ->
+            if (target.downloads) navController.navigateToTopLevel(TopLevelDestination.Downloads)
+            target.comicId?.let {
+                externalComicId = it
+                navController.navigate(ComicDetailRoute(it)) { launchSingleTop = true }
+            }
+            onExternalNavigationConsumed()
+        }
+    }
+    BackHandler(isExternalComic) { onExternalComicExit() }
 }
