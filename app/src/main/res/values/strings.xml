@@ -1,8 +1,81 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Pikapika</string>
+
+    <!-- Navigation -->
     <string name="nav_discover">发现</string>
     <string name="nav_bookshelf">书架</string>
     <string name="nav_downloads">下载</string>
-    <string name="scaffold_placeholder">应用骨架已就绪</string>
+    <string name="nav_me">我的</string>
+    <string name="nav_search">搜索</string>
+    <string name="action_back">返回</string>
+
+    <!-- Page titles -->
+    <string name="title_settings">设置</string>
+    <string name="title_search">搜索</string>
+    <string name="title_search_keyword">搜索「%1$s」</string>
+    <string name="title_comic_list">漫画列表</string>
+    <string name="title_comic_detail">漫画详情</string>
+    <string name="title_reader">阅读</string>
+    <string name="title_rankings">排行榜</string>
+    <string name="title_random">随机本子</string>
+    <string name="title_games">游戏专区</string>
+    <string name="title_collections">推荐</string>
+    <string name="title_categories">全分类</string>
+    <string name="title_login">登录</string>
+
+    <!-- Discover -->
+    <string name="discover_search_placeholder">搜索漫画、作者、标签</string>
+    <string name="discover_profile">我的</string>
+    <string name="discover_channel_rankings">排行榜</string>
+    <string name="discover_channel_random">随机</string>
+    <string name="discover_channel_games">游戏专区</string>
+    <string name="discover_section_recommend">推荐</string>
+    <string name="discover_section_categories">分类</string>
+    <string name="discover_action_all">全部</string>
+    <string name="discover_action_all_categories">全分类</string>
+    <string name="discover_category_recommend">推荐</string>
+
+    <!-- Placeholder pages (until each screen is implemented) -->
+    <string name="placeholder_title">这一页还在制作中</string>
+    <string name="placeholder_description">页面框架和导航已经接好，内容会在后续版本补上。</string>
+    <string name="placeholder_link_settings">设置</string>
+    <string name="placeholder_link_login">登录</string>
+    <string name="placeholder_link_detail">打开一本漫画</string>
+    <string name="placeholder_link_reader">开始阅读</string>
+
+    <!-- Static discover content shown until the discover data layer is wired in. -->
+    <string-array name="discover_sample_pinned">
+        <item>大家都在看</item>
+        <item>大湿推荐</item>
+    </string-array>
+    <string-array name="discover_sample_categories">
+        <item>全彩</item>
+        <item>长篇</item>
+        <item>同人</item>
+        <item>短篇</item>
+        <item>单行本</item>
+        <item>校园</item>
+        <item>日常</item>
+        <item>奇幻</item>
+        <item>科幻</item>
+        <item>悬疑</item>
+        <item>治愈</item>
+    </string-array>
+    <string-array name="discover_sample_titles">
+        <item>机巧图书馆</item>
+        <item>星屑列车</item>
+        <item>夜行邮差</item>
+        <item>灯塔看守人</item>
+        <item>午后猫咖物语</item>
+        <item>云上面包店</item>
+    </string-array>
+    <string-array name="discover_sample_authors">
+        <item>八云透</item>
+        <item>白川凪</item>
+        <item>葛城遥</item>
+        <item>远野朔</item>
+        <item>栗原千夏</item>
+        <item>栗原千夏</item>
+    </string-array>
 </resources>

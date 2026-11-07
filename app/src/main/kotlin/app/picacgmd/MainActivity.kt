@@ -1,32 +1,18 @@
 package app.picacgmd
 
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Book
-import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.Explore
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ShortNavigationBar
-import androidx.compose.material3.ShortNavigationBarItem
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
+import androidx.compose.runtime.DisposableEffect
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import app.picacgmd.core.designsystem.PikapikaTheme
+import app.picacgmd.core.designsystem.theme.DarkMode
+import app.picacgmd.core.designsystem.theme.PikapikaTheme
+import app.picacgmd.core.designsystem.theme.ThemeChoice
+import app.picacgmd.core.designsystem.theme.isDark
+import app.picacgmd.ui.PikapikaApp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -34,39 +20,24 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            PikapikaTheme {
-                PikapikaScaffold()
-            }
-        }
-    }
-}
+            // Appearance settings (board 25) will feed these once the preferences store exists.
+            val themeChoice = ThemeChoice.Dynamic
+            val darkMode = DarkMode.FollowSystem
+            val pureBlack = false
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun PikapikaScaffold() {
-    var selectedItem by rememberSaveable { mutableIntStateOf(0) }
-    val labels = listOf(R.string.nav_discover, R.string.nav_bookshelf, R.string.nav_downloads)
-    val icons = listOf(Icons.Outlined.Explore, Icons.Outlined.Book, Icons.Outlined.Download)
-
-    Scaffold(
-        bottomBar = {
-            ShortNavigationBar {
-                labels.forEachIndexed { index, label ->
-                    ShortNavigationBarItem(
-                        selected = selectedItem == index,
-                        onClick = { selectedItem = index },
-                        icon = { Icon(icons[index], contentDescription = null) },
-                        label = { Text(stringResource(label)) },
-                    )
-                }
+            val dark = darkMode.isDark()
+            DisposableEffect(dark) {
+                // Keep system bar icons readable when the app overrides the system dark setting.
+                enableEdgeToEdge(
+                    statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark },
+                    navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark },
+                )
+                onDispose {}
             }
-        },
-    ) { innerPadding ->
-        Box(
-            modifier = Modifier.fillMaxSize().padding(innerPadding),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(stringResource(R.string.scaffold_placeholder))
+
+            PikapikaTheme(themeChoice = themeChoice, darkMode = darkMode, pureBlack = pureBlack) {
+                PikapikaApp()
+            }
         }
     }
 }
