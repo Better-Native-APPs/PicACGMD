@@ -30,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.carousel.HorizontalMultiBrowseCarousel
 import androidx.compose.material3.carousel.rememberCarouselState
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -50,6 +51,8 @@ import app.picacgmd.core.designsystem.component.CategoryTile
 import app.picacgmd.core.designsystem.component.HomeChannel
 import app.picacgmd.core.designsystem.component.HomeChannelButton
 import app.picacgmd.core.designsystem.component.HomeChannelDefaults
+import app.picacgmd.core.designsystem.component.OfflineBanner
+import app.picacgmd.core.designsystem.component.SkeletonBlock
 import app.picacgmd.core.designsystem.component.SearchEntryBar
 import app.picacgmd.core.designsystem.component.SectionHeader
 import app.picacgmd.core.designsystem.component.ShapedAvatar
@@ -69,9 +72,10 @@ private sealed interface CategoryCell {
  *
  * @param showProfileEntry false on large screens, where 「我的」 is a rail item instead (board 31).
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiscoverScreen(
-    content: DiscoverContent,
+    content: DiscoverContent?,
     showProfileEntry: Boolean,
     onSearchClick: () -> Unit,
     onProfileClick: () -> Unit,
@@ -81,6 +85,10 @@ fun DiscoverScreen(
     onAllCategoriesClick: () -> Unit,
     onComicClick: (String) -> Unit,
     modifier: Modifier = Modifier,
+    failure: LoadState.Failed? = null,
+    isRefreshing: Boolean = false,
+    onRefresh: () -> Unit = {},
+    onRetry: () -> Unit = {},
 ) {
     Column(
         modifier
@@ -102,56 +110,111 @@ fun DiscoverScreen(
                 null
             },
         )
-        BoxWithConstraints(Modifier.weight(1f)) {
-            val columns = when {
-                maxWidth < 600.dp -> 3
-                maxWidth < 840.dp -> 4
-                else -> 6
-            }
-            val cells = remember(content.categories) {
-                listOf<CategoryCell>(CategoryCell.Recommend) + content.categories.map { CategoryCell.Server(it) }
-            }
-            LazyColumn(Modifier.fillMaxSize()) {
-                item(key = "channels", contentType = "channels") {
-                    ChannelRow(
-                        pinned = content.pinnedCategories,
-                        onChannelClick = onChannelClick,
-                        onPinnedClick = onCategoryClick,
-                    )
+        OfflineBanner(
+            visible = content != null && failure != null,
+            message = if (failure?.offline == false) {
+                stringResource(R.string.discover_state_refresh_failed)
+            } else {
+                stringResource(R.string.discover_state_offline_banner)
+            },
+            actionLabel = stringResource(R.string.discover_state_retry),
+            onAction = onRetry,
+        )
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = onRefresh,
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+        ) {
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                val columns = when {
+                    maxWidth < 600.dp -> 3
+                    maxWidth < 840.dp -> 4
+                    else -> 6
                 }
-                if (content.carousel.isNotEmpty()) {
-                    item(key = "recommend-header", contentType = "header") {
-                        SectionHeader(
-                            title = stringResource(R.string.discover_section_recommend),
-                            actionLabel = stringResource(R.string.discover_action_all),
-                            onActionClick = onCollectionsClick,
+                val cells = remember(content?.categories) {
+                    listOf<CategoryCell>(CategoryCell.Recommend) +
+                        content?.categories.orEmpty().map { CategoryCell.Server(it) }
+                }
+                LazyColumn(Modifier.fillMaxSize()) {
+                    // Fixed channels need no data, so they stay usable while loading or offline.
+                    item(key = "channels", contentType = "channels") {
+                        ChannelRow(
+                            pinned = content?.pinnedCategories.orEmpty(),
+                            onChannelClick = onChannelClick,
+                            onPinnedClick = onCategoryClick,
                         )
                     }
-                    item(key = "carousel", contentType = "carousel") {
-                        RecommendCarousel(items = content.carousel, onComicClick = onComicClick)
+                    when {
+                        content != null -> {
+                            if (content.carousel.isNotEmpty()) {
+                                item(key = "recommend-header", contentType = "header") {
+                                    SectionHeader(
+                                        title = stringResource(R.string.discover_section_recommend),
+                                        actionLabel = stringResource(R.string.discover_action_all),
+                                        onActionClick = onCollectionsClick,
+                                    )
+                                }
+                                item(key = "carousel", contentType = "carousel") {
+                                    RecommendCarousel(items = content.carousel, onComicClick = onComicClick)
+                                }
+                            }
+                            item(key = "category-header", contentType = "header") {
+                                SectionHeader(
+                                    title = stringResource(R.string.discover_section_categories),
+                                    actionLabel = stringResource(R.string.discover_action_all_categories),
+                                    onActionClick = onAllCategoriesClick,
+                                )
+                            }
+                            itemsIndexed(
+                                items = cells.chunked(columns),
+                                key = { index, _ -> "category-row-$columns-$index" },
+                                contentType = { _, _ -> "category-row" },
+                            ) { _, row ->
+                                CategoryRow(
+                                    row = row,
+                                    columns = columns,
+                                    onRecommendClick = onCollectionsClick,
+                                    onCategoryClick = onCategoryClick,
+                                )
+                            }
+                        }
+                        failure != null -> item(key = "failure", contentType = "status") {
+                            LoadFailure(failure = failure, onRetry = onRetry)
+                        }
+                        else -> item(key = "skeleton", contentType = "status") {
+                            DiscoverSkeleton(columns = columns)
+                        }
+                    }
+                    item(key = "bottom-inset", contentType = "spacer") {
+                        Spacer(Modifier.padding(bottom = 8.dp).windowInsetsBottomHeight(WindowInsets.safeDrawing))
                     }
                 }
-                item(key = "category-header", contentType = "header") {
-                    SectionHeader(
-                        title = stringResource(R.string.discover_section_categories),
-                        actionLabel = stringResource(R.string.discover_action_all_categories),
-                        onActionClick = onAllCategoriesClick,
-                    )
-                }
-                itemsIndexed(
-                    items = cells.chunked(columns),
-                    key = { index, _ -> "category-row-$columns-$index" },
-                    contentType = { _, _ -> "category-row" },
-                ) { _, row ->
-                    CategoryRow(
-                        row = row,
-                        columns = columns,
-                        onRecommendClick = onCollectionsClick,
-                        onCategoryClick = onCategoryClick,
-                    )
-                }
-                item(key = "bottom-inset", contentType = "spacer") {
-                    Spacer(Modifier.padding(bottom = 8.dp).windowInsetsBottomHeight(WindowInsets.safeDrawing))
+            }
+        }
+    }
+}
+
+/** Carousel and grid placeholders shown on the very first load. */
+@Composable
+private fun DiscoverSkeleton(columns: Int) {
+    Column(Modifier.fillMaxWidth()) {
+        SkeletonBlock(
+            Modifier.padding(horizontal = 16.dp, vertical = 16.dp).fillMaxWidth(0.3f).height(20.dp),
+        )
+        SkeletonBlock(
+            Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(192.dp),
+            MaterialTheme.shapes.extraLarge,
+        )
+        SkeletonBlock(
+            Modifier.padding(horizontal = 16.dp, vertical = 16.dp).fillMaxWidth(0.25f).height(20.dp),
+        )
+        repeat(3) {
+            Row(
+                Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                repeat(columns) {
+                    SkeletonBlock(Modifier.weight(1f).height(88.dp), MaterialTheme.shapes.large)
                 }
             }
         }

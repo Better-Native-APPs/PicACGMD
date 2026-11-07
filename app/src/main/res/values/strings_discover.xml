@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 发现：状态 -->
+    <string name="discover_state_offline_banner">网络不可用，显示的是上次加载的内容</string>
+    <string name="discover_state_refresh_failed">刷新失败，显示的是上次加载的内容</string>
+    <string name="discover_state_retry">重试</string>
+    <string name="discover_state_back">返回</string>
+    <string name="discover_comic_pages">%1$dP · %2$d 话</string>
+
+    <!-- 排行榜 -->
+    <string name="rankings_title">排行榜</string>
+    <string name="rankings_tab_day">24 小时</string>
+    <string name="rankings_tab_week">7 天</string>
+    <string name="rankings_tab_month">30 天</string>
+    <string name="rankings_tab_knight">骑士榜</string>
+    <string name="rankings_empty">榜单暂时是空的</string>
+    <string name="rankings_knight_level">Lv.%1$d</string>
+    <string name="rankings_knight_uploads">上传 %1$d 本</string>
+    <string name="rankings_hidden_count">已按屏蔽设置隐藏 %1$d 本</string>
+
+    <!-- 随机 -->
+    <string name="random_title">随机本子</string>
+    <string name="random_reroll">换一批</string>
+    <string name="random_empty">这一批都被屏蔽了，换一批试试</string>
+
+    <!-- 推荐 -->
+    <string name="collections_title">推荐</string>
+    <string name="collections_empty">暂时没有推荐合集</string>
+
+    <!-- 排序与隐藏 -->
+    <string name="categories_title">排序与隐藏</string>
+    <string name="categories_pinned_title">固定到首页</string>
+    <string name="categories_pinned_hint">显示在排行榜、随机、游戏专区后面。按住左侧把手拖动调整顺序。</string>
+    <string name="categories_pinned_empty">还没有固定的分类，在下方点图钉即可固定</string>
+    <string name="categories_all_title">全部分类</string>
+    <string name="categories_all_hint">拖动调整首页分类网格的顺序；关闭开关后不在首页显示。</string>
+    <string name="categories_show_on_home">在首页显示「%1$s」</string>
+    <string name="categories_pin">把「%1$s」固定到首页</string>
+    <string name="categories_unpin">取消固定「%1$s」</string>
+    <string name="categories_drag">拖动调整「%1$s」的位置</string>
+</resources>
