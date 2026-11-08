@@ -7,10 +7,9 @@ import app.picacgmd.core.data.db.DownloadPicture
 import app.picacgmd.core.data.db.DownloadStatus
 import app.picacgmd.core.data.db.acceptsResult
 import app.picacgmd.core.data.settings.AppSettings
-import app.picacgmd.core.data.settings.RoutingMode
+import app.picacgmd.core.domain.session.toImageServer
 import app.picacgmd.core.network.Ep
 import app.picacgmd.core.network.ImageQuality
-import app.picacgmd.core.network.ImageServer
 import app.picacgmd.core.network.PicaApi
 import app.picacgmd.core.network.PicaException
 import app.picacgmd.core.network.PicaImage
@@ -687,13 +686,7 @@ internal class DownloadEngine(
 
     private fun imageUrl(image: PicaImage): String = imageUrlProvider?.invoke(image) ?: PicaImageUrls.build(
         image,
-        when (latestSettings.value.imageRoutingMode) {
-            RoutingMode.NONE -> ImageServer.Original
-            RoutingMode.ROUTE_1 -> ImageServer.Split1
-            RoutingMode.ROUTE_2 -> ImageServer.Split2
-            RoutingMode.ROUTE_3 -> ImageServer.Split3
-            RoutingMode.CUSTOM -> ImageServer.Custom(latestSettings.value.customImageHost)
-        },
+        latestSettings.value.toImageServer(),
     )
 
     private suspend fun removeDeletingComic(comicId: String) = withComicLock(comicId) {

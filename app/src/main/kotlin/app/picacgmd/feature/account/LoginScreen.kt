@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.domain.session.SessionState
+import app.picacgmd.core.domain.session.apiRouteState
 import app.picacgmd.di.LocalAppContainer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -181,7 +182,7 @@ private fun LoginForm(onBack: (() -> Unit)?, onRegister: () -> Unit, onForgot: (
         Card(Modifier.fillMaxWidth()) {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(settings.apiRoutingMode.label(), style = MaterialTheme.typography.titleSmall)
+                    Text(apiRouteState(settings).selected.label, style = MaterialTheme.typography.titleSmall)
                     Text(if (settings.proxyUrl.isBlank()) "代理未设置" else "已设置代理", style = MaterialTheme.typography.bodySmall)
                 }
                 FilledTonalButton(onNetwork, enabled = !busy) { Text("更改") }

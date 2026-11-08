@@ -18,8 +18,20 @@ internal object SettingsPreferencesMapper {
             accountEmail = preferences[Keys.accountEmail] ?: d.accountEmail,
             authToken = token,
             authTokenUpdatedAt = if (token != null) preferences[Keys.authTokenUpdatedAt] else null,
-            apiRoutingMode = preferences.readEnum(Keys.apiRoutingMode, d.apiRoutingMode),
+            apiRouteAddress = if (preferences[Keys.apiRouteAddress] != null) {
+                preferences[Keys.apiRouteAddress]?.takeIf(String::isNotEmpty)
+            } else {
+                when (preferences.readEnum(Keys.apiRoutingMode, RoutingMode.ROUTE_1)) {
+                    RoutingMode.NONE -> null
+                    RoutingMode.ROUTE_1 -> defaultApiAddresses[0]
+                    RoutingMode.ROUTE_2 -> defaultApiAddresses[1]
+                    RoutingMode.ROUTE_3 -> defaultApiAddresses[2]
+                    RoutingMode.CUSTOM -> preferences[Keys.customApiIp]?.trim().orEmpty()
+                }
+            },
             customApiIp = preferences[Keys.customApiIp] ?: d.customApiIp,
+            syncedApiAddresses = preferences.readList(Keys.syncedApiAddresses, emptyList()),
+            apiRoutesSyncedAt = preferences[Keys.apiRoutesSyncedAt],
             imageRoutingMode = preferences.readEnum(Keys.imageRoutingMode, d.imageRoutingMode),
             customImageHost = preferences[Keys.customImageHost] ?: d.customImageHost,
             proxyUrl = preferences[Keys.proxyUrl] ?: d.proxyUrl,

@@ -34,14 +34,32 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         }
     }
 
-    /** A null custom value preserves the previously configured address when switching built-in routes. */
-    suspend fun setApiRouting(mode: RoutingMode, customIp: String? = null) {
+    /** Empty is the persisted sentinel for system DNS, distinct from an absent (legacy) key. */
+    suspend fun setApiRouteAddress(address: String?) {
+        require(address == null || address.isNotBlank()) { "请填写分流 IP 地址" }
+        set(Keys.apiRouteAddress, address.orEmpty())
+    }
+
+    suspend fun setCustomApiRoute(ip: String) {
+        require(ip.isNotBlank()) { "请填写分流 IP 地址" }
         dataStore.edit { preferences ->
-            require(mode != RoutingMode.CUSTOM || !(customIp ?: preferences[Keys.customApiIp]).isNullOrBlank()) {
-                "Custom API routing requires an IP address"
-            }
-            preferences[Keys.apiRoutingMode] = mode.name
-            if (customIp != null) preferences[Keys.customApiIp] = customIp
+            preferences[Keys.apiRouteAddress] = ip
+            preferences[Keys.customApiIp] = ip
+        }
+    }
+
+    suspend fun setSyncedApiAddresses(addresses: List<String>, syncedAt: Long) {
+        require(addresses.isNotEmpty() && addresses.all(String::isNotBlank)) { "服务器未返回有效的分流地址" }
+        dataStore.edit { preferences ->
+            preferences[Keys.syncedApiAddresses] = Json.encodeToString(addresses.distinct())
+            preferences[Keys.apiRoutesSyncedAt] = syncedAt
+        }
+    }
+
+    suspend fun resetApiRoutes() {
+        dataStore.edit { preferences ->
+            preferences.remove(Keys.syncedApiAddresses)
+            preferences.remove(Keys.apiRoutesSyncedAt)
         }
     }
 

@@ -1,6 +1,8 @@
 package app.picacgmd.core.data.settings
 
 enum class RoutingMode { NONE, ROUTE_1, ROUTE_2, ROUTE_3, CUSTOM }
+
+val defaultApiAddresses: List<String> = listOf("172.67.7.24", "104.20.180.50", "172.67.208.169")
 enum class ImageQuality { ORIGINAL, LOW, MEDIUM, HIGH }
 enum class AppTheme { DYNAMIC, BRAND_PINK, BOOK, GREY_BLUE }
 enum class DarkMode { SYSTEM, LIGHT, DARK }
@@ -25,7 +27,7 @@ enum class CacheCleanupInterval(val seconds: Long) {
 
 /**
  * Immutable app preferences. Defaults:
- * - No saved account/token/proxy/custom hosts. API and image routing use route 1; quality is original.
+ * - No saved account/token/proxy/custom hosts. API uses the first default address; images use original hosts.
  * - Dynamic theme (brand-pink fallback on Android < 12), system dark mode, pure black off.
  * - Detail lists, automatic columns (0; explicit values 2–7), infinite pagination (B1).
  * - No shields/hidden words/categories; blacklist mode. Home pins are ordered server category names
@@ -46,8 +48,11 @@ data class AppSettings(
     val accountEmail: String = "",
     val authToken: String? = null,
     val authTokenUpdatedAt: Long? = null,
-    val apiRoutingMode: RoutingMode = RoutingMode.ROUTE_1,
+    /** Null uses system DNS; address identity is independent of the current list order. */
+    val apiRouteAddress: String? = defaultApiAddresses.first(),
     val customApiIp: String = "",
+    val syncedApiAddresses: List<String> = emptyList(),
+    val apiRoutesSyncedAt: Long? = null,
     // Original file servers by default: with a working proxy they are the fastest and most reliable;
     // the image 分流 hosts stay available in 设置 › 网络 for networks where the originals are blocked.
     val imageRoutingMode: RoutingMode = RoutingMode.NONE,

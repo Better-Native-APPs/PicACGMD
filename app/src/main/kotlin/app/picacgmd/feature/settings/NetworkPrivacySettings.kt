@@ -13,8 +13,9 @@ import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material3.Icon
-import app.picacgmd.core.domain.session.formatApiRouteLatency
-import app.picacgmd.core.domain.session.toApiRoute
+import app.picacgmd.core.domain.session.formatRouteLatency
+import app.picacgmd.core.domain.session.apiRouteState
+import app.picacgmd.core.domain.session.RouteSource
 import app.picacgmd.core.network.ApiRoute
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -52,7 +53,7 @@ private enum class NetworkDialog { ApiCustom, ImageCustom, Proxy, Quality, Conne
 private val Timeouts = listOf(10, 15, 30, 60)
 
 /**
- * Board 27 网络: API / image routing (built-in routes, no remote list), proxy, image quality,
+ * Board 27 网络: API / image routing, proxy, image quality,
  * timeouts and time offset. A configured proxy carries every request, so routing no longer applies.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -63,6 +64,7 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val writer = remember(container) { SettingsWriter(container.settingsRepository, scope, snackbar) }
     val settings = rememberAppSettings()
+    val apiRoutes = settings?.let(::apiRouteState)
     var dialog by rememberSaveable { mutableStateOf<NetworkDialog?>(null) }
     var latencies by remember { mutableStateOf<Map<ApiRoute, Long?>?>(null) }
     var measuring by remember { mutableStateOf(false) }
@@ -71,7 +73,15 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
             measuring = true
             scope.launch {
                 try {
-                    latencies = container.networkConfigProvider.measureApiRoutes()
+                    latencies = emptyMap()
+                    kotlinx.coroutines.coroutineScope {
+                        apiRoutes?.options?.forEach { option ->
+                            launch {
+                                val latency = container.routingRepository.measureApiRoute(option.value)
+                                latencies = latencies.orEmpty() + (option.value to latency)
+                            }
+                        }
+                    }
                 } catch (exception: kotlinx.coroutines.CancellationException) {
                     throw exception
                 } catch (exception: Exception) {
@@ -97,39 +107,39 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
         }
         item {
             SettingsGroup("API 分流") {
-                RoutingMode.entries.forEach { mode ->
+                apiRoutes?.options?.forEach { option ->
                     row { shapes ->
                         RadioRow(
                             shapes = shapes,
-                            title = mode.label(),
-                            summary = if (mode == RoutingMode.CUSTOM) {
-                                settings.customApiIp.ifBlank { "填入 IP，例如 104.21.0.1" }
-                            } else {
-                                null
-                            },
-                            latency = if (mode == RoutingMode.CUSTOM) null else {
-                                val route = mode.toApiRoute()
+                            title = option.label,
+                            summary = option.address,
+                            latency = run {
+                                val route = option.value
                                 when {
+                                    latencies?.containsKey(route) == true -> formatRouteLatency(latencies?.get(route))
                                     measuring -> "测速中…"
-                                    latencies?.containsKey(route) == true -> formatApiRouteLatency(latencies?.get(route))
                                     else -> null
                                 }
                             },
-                            latencyFailed = mode != RoutingMode.CUSTOM && !measuring &&
-                                latencies?.containsKey(mode.toApiRoute()) == true && latencies?.get(mode.toApiRoute()) == null,
-                            selected = settings.apiRoutingMode == mode,
+                            latencyFailed = latencies?.containsKey(option.value) == true && latencies?.get(option.value) == null,
+                            selected = apiRoutes.selected == option,
                             enabled = !proxyOn,
                             onClick = {
-                                if (mode == RoutingMode.CUSTOM && settings.customApiIp.isBlank()) dialog = NetworkDialog.ApiCustom
-                                else writer.update { setApiRouting(mode) }
+                                writer.update { container.routingRepository.selectApiRoute(option.value) }
                             },
-                            trailing = if (mode == RoutingMode.CUSTOM) {
+                            trailing = if (option.source == RouteSource.CUSTOM) {
                                 { TextButton(onClick = { dialog = NetworkDialog.ApiCustom }, enabled = !proxyOn) { Text("填写") } }
                             } else {
                                 null
                             },
                         )
                     }
+                }
+                if (settings.customApiIp.isBlank()) row { shapes ->
+                    RadioRow(
+                        shapes, "自定义", false, { dialog = NetworkDialog.ApiCustom },
+                        summary = "填入 IP，例如 104.21.0.1", enabled = !proxyOn,
+                    )
                 }
             }
         }
@@ -141,7 +151,7 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
                         summary = if (proxyOn) {
                             "测速直接连接各条线路，不经过代理；结果只作参考，不会切换线路"
                         } else {
-                            "依次测试内置线路的响应时间，超过 5 秒算失败；不会切换线路"
+                            "分别测试各条线路的响应时间，超过 5 秒算失败；不会切换线路"
                         },
                         value = if (measuring) "测速中" else if (latencies == null) "开始" else "重新测速",
                         enabled = !measuring,
@@ -217,7 +227,7 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
         }
         item {
             NoticeCard(
-                text = "只会连接哔咔服务器、图片服务器，以及你自己设置的代理服务器。分流列表内置在应用里，不从其他服务器获取。",
+                text = "只会连接哔咔服务器、图片服务器，以及你自己设置的代理服务器。分流可从哔咔服务器同步。",
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
             )
         }
@@ -232,7 +242,7 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
             initial = settings?.customApiIp.orEmpty(),
             keyboardType = KeyboardType.Uri,
             validate = { if (it.isBlank()) "请填写 IP 地址" else null },
-            onSave = { value -> writer.update { setApiRouting(RoutingMode.CUSTOM, value.trim()) } },
+            onSave = { value -> writer.update { container.routingRepository.setCustomApiRoute(value) } },
             onDismiss = dismiss,
         )
         NetworkDialog.ImageCustom -> TextInputDialog(
@@ -242,7 +252,7 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
             initial = settings?.customImageHost.orEmpty(),
             keyboardType = KeyboardType.Uri,
             validate = { if (it.isBlank()) "请填写地址" else null },
-            onSave = { value -> writer.update { setImageRouting(RoutingMode.CUSTOM, value.trim()) } },
+            onSave = { value -> writer.update { container.routingRepository.setCustomImageHost(value) } },
             onDismiss = dismiss,
         )
         NetworkDialog.Proxy -> ProxyDialog(

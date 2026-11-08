@@ -21,35 +21,31 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import app.picacgmd.core.data.settings.RoutingMode
-import app.picacgmd.core.domain.session.NetworkConfiguration
+import app.picacgmd.core.data.settings.AppSettings
+import app.picacgmd.core.domain.session.apiRouteState
+import app.picacgmd.core.domain.session.RouteSource
 import app.picacgmd.core.network.ApiRoute
-import app.picacgmd.core.network.PicaDns
 import app.picacgmd.di.LocalAppContainer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-internal fun RoutingMode.label(): String = when (this) {
-    RoutingMode.NONE -> "不分流"
-    RoutingMode.ROUTE_1 -> "分流 1"
-    RoutingMode.ROUTE_2 -> "分流 2"
-    RoutingMode.ROUTE_3 -> "分流 3"
-    RoutingMode.CUSTOM -> "自定义 IP"
-}
-
 @Composable
 internal fun LoginRoutingDialog(onDismiss: () -> Unit) {
     val container = LocalAppContainer.current
     val scope = rememberCoroutineScope()
-    var mode by remember { mutableStateOf(RoutingMode.ROUTE_1) }
+    var route by remember { mutableStateOf<ApiRoute>(ApiRoute.None) }
+    var custom by remember { mutableStateOf(false) }
+    var routes by remember { mutableStateOf(apiRouteState(AppSettings.DEFAULT)) }
     var customIp by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var ready by remember { mutableStateOf(false) }
     LaunchedEffect(container) {
         val settings = container.settingsRepository.settings.first()
-        mode = settings.apiRoutingMode
+        routes = apiRouteState(settings)
+        route = routes.selected.value
+        custom = routes.selected.source == RouteSource.CUSTOM
         customIp = settings.customApiIp
         ready = true
     }
@@ -58,14 +54,20 @@ internal fun LoginRoutingDialog(onDismiss: () -> Unit) {
         title = { Text("API 分流") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text("访问不了时可以更换分流。只连接内容平台，不从其他服务器获取节点。")
-                RoutingMode.entries.forEach { option ->
-                    Row(Modifier.fillMaxWidth().clickable(enabled = !busy) { mode = option }, verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(mode == option, { mode = option }, enabled = !busy)
-                        Text(option.label())
+                Text("访问不了时可以更换分流。分流地址由哔咔提供。")
+                routes.options.filter { it.source != RouteSource.CUSTOM }.forEach { option ->
+                    val selected = !custom && route == option.value
+                    val select = { route = option.value; custom = false }
+                    Row(Modifier.fillMaxWidth().clickable(enabled = !busy, onClick = select), verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected, select, enabled = !busy)
+                        Text(option.label)
                     }
                 }
-                if (mode == RoutingMode.CUSTOM) OutlinedTextField(customIp, { customIp = it }, Modifier.fillMaxWidth(), label = { Text("自定义 IP 地址") }, enabled = !busy, singleLine = true)
+                Row(Modifier.fillMaxWidth().clickable(enabled = !busy) { custom = true }, verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(custom, { custom = true }, enabled = !busy)
+                    Text("自定义")
+                }
+                if (custom) OutlinedTextField(customIp, { customIp = it }, Modifier.fillMaxWidth(), label = { Text("自定义 IP 地址") }, enabled = !busy, singleLine = true)
                 error?.let { AccountError(it) }
             }
         },
@@ -75,10 +77,8 @@ internal fun LoginRoutingDialog(onDismiss: () -> Unit) {
                 error = null
                 scope.launch {
                     try {
-                        val settings = container.settingsRepository.settings.first()
-                        if (mode == RoutingMode.CUSTOM) PicaDns(ApiRoute.Custom(customIp.trim()))
-                        NetworkConfiguration.from(settings.copy(apiRoutingMode = mode, customApiIp = customIp.trim()))
-                        container.settingsRepository.setApiRouting(mode, customIp.trim())
+                        if (custom) container.routingRepository.setCustomApiRoute(customIp)
+                        else container.routingRepository.selectApiRoute(route)
                         container.networkConfigProvider.awaitReady()
                         onDismiss()
                     } catch (exception: CancellationException) {

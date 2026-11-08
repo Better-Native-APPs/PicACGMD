@@ -78,7 +78,7 @@ class SettingsRepositoryTest {
         val repository = SettingsRepository(MemoryPreferencesStore())
         repository.setAccountEmail("reader@example.com")
         repository.setAuthToken("saved-token", 123L)
-        repository.setApiRouting(RoutingMode.CUSTOM, "203.0.113.1")
+        repository.setCustomApiRoute("203.0.113.1")
         repository.setImageRouting(RoutingMode.CUSTOM, "images.example.com")
         repository.setProxyUrl("socks5://localhost:1080")
         repository.setImageQuality(ImageQuality.HIGH)
@@ -115,7 +115,7 @@ class SettingsRepositoryTest {
         assertEquals(
             AppSettings.DEFAULT.copy(
                 accountEmail = "reader@example.com", authToken = "saved-token", authTokenUpdatedAt = 123L,
-                apiRoutingMode = RoutingMode.CUSTOM, customApiIp = "203.0.113.1",
+                apiRouteAddress = "203.0.113.1", customApiIp = "203.0.113.1",
                 imageRoutingMode = RoutingMode.CUSTOM, customImageHost = "images.example.com",
                 proxyUrl = "socks5://localhost:1080", imageQuality = ImageQuality.HIGH,
                 theme = AppTheme.GREY_BLUE, darkMode = DarkMode.DARK, pureBlack = true,
@@ -250,11 +250,12 @@ class SettingsRepositoryTest {
     @Test
     fun customRoutesRequireAddressesAndRememberThemWhenChangingRoutes() = runTest {
         val repository = SettingsRepository(MemoryPreferencesStore())
-        assertFailsWith<IllegalArgumentException> { repository.setApiRouting(RoutingMode.CUSTOM) }
+        assertFailsWith<IllegalArgumentException> { repository.setCustomApiRoute("") }
         assertFailsWith<IllegalArgumentException> { repository.setImageRouting(RoutingMode.CUSTOM) }
-        repository.setApiRouting(RoutingMode.CUSTOM, "203.0.113.1")
-        repository.setApiRouting(RoutingMode.NONE)
-        repository.setApiRouting(RoutingMode.CUSTOM)
+        repository.setCustomApiRoute("203.0.113.1")
+        repository.setApiRouteAddress(null)
+        assertNull(repository.settings.first().apiRouteAddress)
+        repository.setApiRouteAddress(repository.settings.first().customApiIp)
         repository.setImageRouting(RoutingMode.CUSTOM, "images.example.com")
         repository.setImageRouting(RoutingMode.ROUTE_2)
         repository.setImageRouting(RoutingMode.CUSTOM)
@@ -268,6 +269,27 @@ class SettingsRepositoryTest {
         assertFailsWith<IllegalArgumentException> { repository.setReaderZoom(2f, 2f, 1.5f) }
         assertFailsWith<IllegalArgumentException> { repository.setReaderZoom(Float.NaN, 3f, 2f) }
         assertEquals(AppSettings.DEFAULT, repository.settings.first())
+    }
+
+    @Test
+    fun syncAndResetPersistAtomicallyWithoutChangingSelectionOrCustomAddress() = runTest {
+        val store = MemoryPreferencesStore()
+        val repository = SettingsRepository(store)
+        repository.setCustomApiRoute("203.0.113.8")
+        repository.setApiRouteAddress("104.19.53.76")
+        repository.setSyncedApiAddresses(listOf("104.19.53.76", "104.19.53.76", "172.67.7.24"), 1234L)
+        val synced = SettingsRepository(store).settings.first()
+        assertEquals(listOf("104.19.53.76", "172.67.7.24"), synced.syncedApiAddresses)
+        assertEquals(1234L, synced.apiRoutesSyncedAt)
+        assertEquals("104.19.53.76", synced.apiRouteAddress)
+        repository.resetApiRoutes()
+        val reset = SettingsRepository(store).settings.first()
+        assertEquals(emptyList(), reset.syncedApiAddresses)
+        assertNull(reset.apiRoutesSyncedAt)
+        assertEquals("104.19.53.76", reset.apiRouteAddress)
+        assertEquals("203.0.113.8", reset.customApiIp)
+        assertNull(store.data.first()[SettingsKeys.syncedApiAddresses])
+        assertNull(store.data.first()[SettingsKeys.apiRoutesSyncedAt])
     }
 
     @Test
