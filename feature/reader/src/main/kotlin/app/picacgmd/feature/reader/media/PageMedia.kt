@@ -45,7 +45,7 @@ internal data class PageLabel(val comicTitle: String, val chapterTitle: String, 
 /** Pixel size and file size of a page's original image. */
 internal data class PageFileInfo(val width: Int, val height: Int, val bytes: Long)
 
-private const val GALLERY_FOLDER = "Pikapika"
+private const val GALLERY_FOLDER = "PicACG"
 private const val SHARE_FOLDER = "reader_share"
 private const val CROP_SUFFIX = "-crop"
 private const val JPEG_QUALITY = 95
@@ -62,7 +62,7 @@ internal suspend fun readPageFileInfo(context: Context, image: PageImage): PageF
         }
     }
 
-/** 保存到相册: copies the original file into `Pictures/Pikapika`; needs no storage permission. */
+/** 保存到相册: copies the original file into `Pictures/PicACG`; needs no storage permission. */
 internal suspend fun savePageToGallery(context: Context, image: PageImage, label: PageLabel): Boolean =
     guarded(false) {
         withPageFile(context, image) { file ->

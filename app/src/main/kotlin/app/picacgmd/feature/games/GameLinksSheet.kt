@@ -76,7 +76,7 @@ internal fun GameLinksSheet(links: List<String>, onDismiss: () -> Unit) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(Uri.parse(url).host.orEmpty(), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     SelectionContainer { Text(url) }
-                    Text("这个网站不属于 Pikapika，也不属于哔咔。继续后它可以记录你的 IP 地址。")
+                    Text("这个网站不属于哔咔。继续后它可以记录你的 IP 地址。")
                     Text("即将离开本应用。外部文件没有经过检查，请自行判断。")
                 }
             },

@@ -390,7 +390,7 @@ internal fun AboutSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier
                     Image(icon, contentDescription = null, modifier = Modifier.size(96.dp).clip(MaterialShapes.Cookie9Sided.toShape()))
                 }
                 Spacer(Modifier.height(16.dp))
-                Text("Pikapika", style = MaterialTheme.typography.headlineMedium)
+                Text("PicACG", style = MaterialTheme.typography.headlineMedium)
                 Text(
                     "版本 ${version?.versionName ?: "—"}",
                     style = MaterialTheme.typography.bodyMedium,

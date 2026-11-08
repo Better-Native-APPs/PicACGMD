@@ -93,7 +93,7 @@ private fun NoticeScreen(onContinue: () -> Unit) {
                 .background(MaterialTheme.colorScheme.primaryContainer).padding(24.dp),
             tint = MaterialTheme.colorScheme.onPrimaryContainer,
         )
-        Text("欢迎使用 Pikapika", style = MaterialTheme.typography.headlineLarge)
+        Text("欢迎使用 PicACG", style = MaterialTheme.typography.headlineLarge)
         Text("开始前请阅读以下内容。", color = MaterialTheme.colorScheme.onSurfaceVariant)
         Card {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
