@@ -57,6 +57,7 @@ import app.picacgmd.feature.reader.logic.doubleTapAction
 import app.picacgmd.feature.reader.logic.effectiveDirection
 import app.picacgmd.feature.reader.logic.fitSize
 import app.picacgmd.feature.reader.logic.forwardSwipeFor
+import app.picacgmd.feature.reader.logic.rememberReaderMemoryBudget
 import app.picacgmd.feature.reader.logic.screenToContent
 import app.picacgmd.feature.reader.logic.singleTapAction
 import app.picacgmd.feature.reader.logic.spreadAnchor
@@ -99,6 +100,7 @@ internal fun PagedReader(
     spreads: Boolean = false,
 ) {
     val scope = rememberCoroutineScope()
+    val memoryBudget = rememberReaderMemoryBudget()
     val pageCount = pages.size
     val slots = PageSlots(pageCount, spreads, config.twoPageCoverAlone)
     val hasEndPage = endContent != null
@@ -234,24 +236,32 @@ internal fun PagedReader(
         val preloadSize = if (spreads) halfSize else requestSize
         val currentSlot = pagerState.currentPage
         val anchorPage = slots.pagesOf(currentSlot).firstOrNull() ?: (pageCount - 1)
+        val preloadWindow = memoryBudget.preloadWindow(
+            ahead = config.preloadAhead * slots.perSlot + (slots.perSlot - 1),
+            behind = ReaderConfig.PRELOAD_BEHIND * slots.perSlot,
+            pagesPerSlot = slots.perSlot,
+        )
 
         PreloadPages(
             pages = pages,
             current = anchorPage,
             // Counted in pages from the first page of the current screen.
-            ahead = config.preloadAhead * slots.perSlot + (slots.perSlot - 1),
-            behind = ReaderConfig.PRELOAD_BEHIND * slots.perSlot,
+            ahead = preloadWindow.ahead,
+            behind = preloadWindow.behind,
             size = preloadSize,
             skip = slots.pagesAround(currentSlot, PAGES_BEYOND_VIEWPORT),
             reloads = host.reloads,
+            pagesPerSlot = slots.perSlot,
         )
-        if (upcomingPages != null) {
+        if (upcomingPages != null && memoryBudget.preloadNextChapterImages) {
             PreloadPages(
                 pages = upcomingPages,
                 current = 0,
                 ahead = config.preloadAhead * slots.perSlot,
                 behind = 0,
                 size = preloadSize,
+                pagesPerSlot = slots.perSlot,
+                nextChapter = true,
             )
         }
 

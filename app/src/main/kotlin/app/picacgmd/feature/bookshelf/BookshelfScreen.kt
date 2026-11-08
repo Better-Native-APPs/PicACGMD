@@ -104,7 +104,6 @@ fun BookshelfScreen(
     val subscriptions by remember(container) { container.subscriptionRepository.subscriptions }
         .collectAsStateWithLifecycle(initialValue = null)
     val history by remember(container) { container.historyRepository.history }.collectAsStateWithLifecycle(initialValue = null)
-    val checkState by container.subscriptionRepository.checkState.collectAsStateWithLifecycle()
     val unseen = rememberBookshelfUnseenCount()
     val batch by viewModel.batch.collectAsStateWithLifecycle()
     val messages by viewModel.messages.collectAsStateWithLifecycle()
@@ -257,7 +256,6 @@ fun BookshelfScreen(
                         )
                         ShelfView.Follow -> FollowView(
                             subscriptions = subscriptions,
-                            checkState = checkState,
                             onRefresh = { viewModel.run("检查更新失败") { subscriptionRepository.refresh() } },
                             selection = selection,
                             onToggle = ::toggle,

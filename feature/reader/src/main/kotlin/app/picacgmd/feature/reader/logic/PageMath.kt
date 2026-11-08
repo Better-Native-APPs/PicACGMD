@@ -72,11 +72,11 @@ internal fun decodeEdge(extent: Int): Int = extent.coerceIn(1, MAX_DECODE_EDGE)
 /**
  * Height of the box a strip page is decoded into (with the viewport width as its width, fit
  * inside). Ordinary pages fit by width, so they decode at the viewport width; only extremely tall
- * images are decoded narrower, which keeps every page bitmap under [MAX_STRIP_PAGE_PIXELS].
+ * images are decoded narrower, which keeps every page bitmap under [maxPagePixels].
  */
-internal fun stripDecodeHeight(viewportWidth: Int): Int {
+internal fun stripDecodeHeight(viewportWidth: Int, maxPagePixels: Int = MAX_STRIP_PAGE_PIXELS): Int {
     val width = viewportWidth.coerceAtLeast(1)
-    return minOf(width.toLong() * MAX_FULL_WIDTH_ASPECT, MAX_STRIP_PAGE_PIXELS.toLong() / width)
+    return minOf(width.toLong() * MAX_FULL_WIDTH_ASPECT, maxPagePixels.toLong() / width)
         .coerceAtLeast(1L)
         .toInt()
 }

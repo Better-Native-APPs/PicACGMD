@@ -147,14 +147,13 @@ fun DownloadsScreen(
     var query by rememberSaveable { mutableStateOf("") }
     val comics by remember(manager, query) { manager.observeQueue(search = query.trim()) }
         .collectAsStateWithLifecycle(initialValue = null)
-    val progress by manager.progress.collectAsStateWithLifecycle()
     var tabName by rememberSaveable { mutableStateOf<String?>(null) }
     var selection by rememberSaveable { mutableStateOf(emptySet<String>()) }
     var pendingDelete by remember { mutableStateOf<List<DownloadComic>?>(null) }
     var menu by remember { mutableStateOf(false) }
 
     val all = comics.orEmpty()
-    val byTab = all.groupBy { it.tab }
+    val byTab = remember(comics) { all.groupBy { it.tab } }
     val defaultTab = when {
         !byTab[DownloadTab.Active].isNullOrEmpty() -> DownloadTab.Active
         !byTab[DownloadTab.Failed].isNullOrEmpty() && byTab[DownloadTab.Done].isNullOrEmpty() -> DownloadTab.Failed
@@ -297,7 +296,7 @@ fun DownloadsScreen(
                         when (current) {
                             DownloadTab.Active -> ActiveList(
                                 items = items,
-                                progress = progress,
+                                manager = manager,
                                 contentPadding = bottom,
                                 onPause = { id -> act { pause(id) } },
                                 onResume = { id -> act { resume(id) } },
@@ -401,13 +400,14 @@ private fun DownloadComic.progressText(): String = when {
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun EngineCard(
-    progress: DownloadProgress,
+    manager: DownloadManager,
     running: Boolean,
     hasPaused: Boolean,
     onPauseAll: () -> Unit,
     onResumeAll: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val progress by manager.progress.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val colors = MaterialTheme.colorScheme
     val throttled = running && progress.effectiveThreads < progress.configuredThreads
@@ -487,7 +487,7 @@ private fun eta(progress: DownloadProgress): String? {
 @Composable
 private fun ActiveList(
     items: List<DownloadComic>,
-    progress: DownloadProgress,
+    manager: DownloadManager,
     contentPadding: PaddingValues,
     onPause: (String) -> Unit,
     onResume: (String) -> Unit,
@@ -510,7 +510,7 @@ private fun ActiveList(
     LazyColumn(Modifier.fillMaxSize(), contentPadding = contentPadding) {
         item {
             EngineCard(
-                progress = progress,
+                manager = manager,
                 running = running,
                 hasPaused = hasPaused,
                 onPauseAll = onPauseAll,
@@ -630,17 +630,19 @@ private fun DoneList(
     var folder by rememberSaveable { mutableStateOf<String?>(null) }
     var sortName by rememberSaveable { mutableStateOf(DoneSort.Recent.name) }
     val sort = DoneSort.valueOf(sortName)
-    val folders = items.map { it.folder }.filter { it.isNotBlank() }.distinct().sorted()
+    val folders = remember(items) { items.map { it.folder }.filter { it.isNotBlank() }.distinct().sorted() }
     val collator = remember { Collator.getInstance(Locale.CHINA) }
-    val visible = items
-        .filter { folder == null || it.folder == folder }
-        .let { list ->
-            when (sort) {
-                DoneSort.Recent -> list.sortedByDescending { it.completedAt ?: it.updatedAt }
-                DoneSort.Title -> list.sortedWith { a, b -> collator.compare(a.title, b.title) }
-                DoneSort.Size -> list.sortedByDescending { it.downloadedBytes }
+    val visible = remember(items, folder, sort) {
+        items
+            .filter { folder == null || it.folder == folder }
+            .let { list ->
+                when (sort) {
+                    DoneSort.Recent -> list.sortedByDescending { it.completedAt ?: it.updatedAt }
+                    DoneSort.Title -> list.sortedWith { a, b -> collator.compare(a.title, b.title) }
+                    DoneSort.Size -> list.sortedByDescending { it.downloadedBytes }
+                }
             }
-        }
+    }
     val selecting = selection.isNotEmpty()
     var sortMenu by remember { mutableStateOf(false) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = contentPadding) {

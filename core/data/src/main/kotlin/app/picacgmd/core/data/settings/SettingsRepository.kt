@@ -20,8 +20,11 @@ private val Context.appSettingsDataStore: DataStore<Preferences> by preferencesD
  * A Context factory shares the process-wide DataStore delegate; the constructor also accepts test stores.
  * Ordered category/keyword lists retain server spelling, remove duplicates, and reject blank entries.
  */
-class SettingsRepository(private val dataStore: DataStore<Preferences>) {
-    val settings: Flow<AppSettings> = dataStore.data.map(SettingsPreferencesMapper::decode).distinctUntilChanged()
+class SettingsRepository(
+    private val dataStore: DataStore<Preferences>,
+    private val defaults: AppSettings = AppSettings.DEFAULT,
+) {
+    val settings: Flow<AppSettings> = dataStore.data.map { SettingsPreferencesMapper.decode(it, defaults) }.distinctUntilChanged()
 
     suspend fun setAccountEmail(value: String) = set(Keys.accountEmail, value)
 
@@ -237,6 +240,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
     }
 
     companion object {
-        fun create(context: Context): SettingsRepository = SettingsRepository(context.applicationContext.appSettingsDataStore)
+        fun create(context: Context, defaults: AppSettings = AppSettings.DEFAULT): SettingsRepository =
+            SettingsRepository(context.applicationContext.appSettingsDataStore, defaults)
     }
 }

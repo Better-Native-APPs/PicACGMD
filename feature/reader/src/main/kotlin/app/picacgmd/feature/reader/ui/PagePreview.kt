@@ -75,6 +75,7 @@ import app.picacgmd.feature.reader.logic.cropHandleAt
 import app.picacgmd.feature.reader.logic.decodeEdge
 import app.picacgmd.feature.reader.logic.dragged
 import app.picacgmd.feature.reader.logic.fitSize
+import app.picacgmd.feature.reader.logic.rememberReaderMemoryBudget
 import app.picacgmd.feature.reader.media.PageLabel
 import app.picacgmd.feature.reader.media.rememberGallerySavePermission
 import app.picacgmd.feature.reader.media.saveCropToGallery
@@ -84,9 +85,6 @@ import coil3.size.Size as CoilSize
 
 private const val PREVIEW_MAX_ZOOM = 5f
 private const val PREVIEW_DOUBLE_TAP_ZOOM = 2.5f
-
-/** The preview decodes larger than the screen, so that zooming in still shows detail. */
-private const val PREVIEW_DECODE_FACTOR = 2
 
 private val CropScrim = Color(0x8C000000)
 
@@ -135,6 +133,7 @@ private fun PreviewContent(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
+    val memoryBudget = rememberReaderMemoryBudget()
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     val gallerySavePermission = rememberGallerySavePermission(snackbar)
@@ -155,8 +154,9 @@ private fun PreviewContent(
         val width = widthPx.toFloat()
         val height = heightPx.toFloat()
         val platformContext = LocalPlatformContext.current
-        val request = remember(image, widthPx, heightPx) {
-            val size = CoilSize(decodeEdge(widthPx * PREVIEW_DECODE_FACTOR), decodeEdge(heightPx * PREVIEW_DECODE_FACTOR))
+        val request = remember(image, widthPx, heightPx, memoryBudget) {
+            val factor = memoryBudget.previewDecodeFactor
+            val size = CoilSize(decodeEdge(widthPx * factor), decodeEdge(heightPx * factor))
             pageRequest(platformContext, image, size)
         }
         val painter = rememberAsyncImagePainter(model = request)

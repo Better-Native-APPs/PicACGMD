@@ -12,6 +12,36 @@ import kotlin.test.assertTrue
 
 class SettingsPreferencesMapperTest {
     @Test
+    fun deviceDefaultsChangeOnlyTheDownloadThreadCount() {
+        assertEquals(AppSettings.DEFAULT, AppSettings.defaultsForDevice(isLowRamDevice = false))
+        assertEquals(AppSettings.DEFAULT.copy(downloadThreads = 2), AppSettings.defaultsForDevice(isLowRamDevice = true))
+    }
+
+    @Test
+    fun missingDownloadThreadPreferenceUsesDeviceDefaults() {
+        val defaults = AppSettings.defaultsForDevice(isLowRamDevice = true)
+        assertEquals(defaults, SettingsPreferencesMapper.decode(emptyPreferences(), defaults))
+    }
+
+    @Test
+    fun everySavedThreadCountOverridesTheLowRamDefault() {
+        val defaults = AppSettings.defaultsForDevice(isLowRamDevice = true)
+        for (threads in 1..16) {
+            val preferences = mutablePreferencesOf(SettingsKeys.downloadThreads to threads)
+            assertEquals(threads, SettingsPreferencesMapper.decode(preferences, defaults).downloadThreads)
+        }
+    }
+
+    @Test
+    fun unsupportedThreadCountsUseTheDeviceDefaultWithoutDroppingOtherPreferences() {
+        val defaults = AppSettings.defaultsForDevice(isLowRamDevice = true)
+        for (threads in listOf(0, 17)) {
+            val preferences = mutablePreferencesOf(SettingsKeys.downloadThreads to threads, SettingsKeys.pureBlack to true)
+            assertEquals(defaults.copy(pureBlack = true), SettingsPreferencesMapper.decode(preferences, defaults))
+        }
+    }
+
+    @Test
     fun everyLegacyApiModeKeepsItsEffectiveAddress() {
         val addresses = listOf(null, "172.67.7.24", "104.20.180.50", "172.67.208.169", "203.0.113.7")
         RoutingMode.entries.zip(addresses).forEach { (mode, expected) ->

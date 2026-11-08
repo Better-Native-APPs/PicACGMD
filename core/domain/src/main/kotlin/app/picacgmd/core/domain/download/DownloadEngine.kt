@@ -28,8 +28,11 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ClosedSendChannelException
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -62,6 +65,7 @@ internal class DownloadEngine(
     private val limiter: AdaptiveDownloadLimiter = AdaptiveDownloadLimiter(),
     private val nowMillis: () -> Long = System::currentTimeMillis,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val progressClockMillis: () -> Long = { System.nanoTime() / 1_000_000 },
 ) {
     private val runMutex = Mutex()
     private val comicLocks = ConcurrentHashMap<String, Mutex>()
@@ -78,6 +82,7 @@ internal class DownloadEngine(
     private val downloader = StreamingImageDownloader(imageClientProvider, files, ::recordBytes, nowMillis)
 
     @Volatile private var activeComic: ActiveComic? = null
+    @Volatile private var activePictureResults: ActivePictureResults? = null
     @Volatile private var running = false
 
     suspend fun enqueue(requests: Collection<DownloadRequest>) = withContext(ioDispatcher) {
@@ -135,6 +140,8 @@ internal class DownloadEngine(
     }
 
     suspend fun pause(comicId: String) {
+        // Persist already completed transfers before the DAO invalidates unfinished claims.
+        flushActivePictureResults(comicId)
         val job = withComicLock(comicId) {
             val comic = dao.getComic(comicId)
             if (comic?.status in activeStatuses || comic?.status == DownloadStatus.FAILED) {
@@ -455,7 +462,12 @@ internal class DownloadEngine(
     private suspend fun downloadPendingPictures(comicId: String) = coroutineScope {
         val tasks = Channel<PictureTask>(100, onUndeliveredElement = { it.finished.cancel() })
         val results = Channel<PictureEvent>(32, onUndeliveredElement = { it.discard() })
-        val collector = launch { collectPictureResults(comicId, results) }
+        // Keep the bounded result drain alive until workers exit and their channel is closed.
+        val collector = launch(start = CoroutineStart.UNDISPATCHED) {
+            withContext(NonCancellable) { collectPictureResults(comicId, results) }
+        }
+        val collecting = ActivePictureResults(comicId, results, collector)
+        activePictureResults = collecting
         val workers = List(16) {
             launch {
                 for (task in tasks) {
@@ -467,29 +479,40 @@ internal class DownloadEngine(
                 }
             }
         }
+        var finishedNormally = false
         try {
+            var previousEpId: String? = null
             while (dao.getComic(comicId)?.status in activeStatuses) {
                 val pending = dao.nextPendingPictures(comicId, 100)
                 if (pending.isEmpty()) break
-                val batch = pending.map { PictureTask(it, CompletableDeferred()) }
+                val epId = pending.first().epId
+                if (previousEpId != null && previousEpId != epId) {
+                    val flushed = CompletableDeferred<Unit>()
+                    results.send(PictureEvent.Flush(flushed))
+                    flushed.await()
+                }
+                previousEpId = epId
+                val batch = pending.takeWhile { it.epId == epId }.map { PictureTask(it, CompletableDeferred()) }
                 batch.forEach { tasks.send(it) }
                 batch.forEach { it.finished.await() }
-                val flushed = CompletableDeferred<Unit>()
-                results.send(PictureEvent.Flush(flushed))
-                flushed.await()
             }
+            finishedNormally = true
         } finally {
             tasks.close()
-            try {
+            if (!finishedNormally) workers.forEach { it.cancel() }
+            withContext(NonCancellable) {
                 try {
-                    workers.joinAll()
+                    try {
+                        workers.joinAll()
+                    } finally {
+                        results.close()
+                    }
+                    collector.join()
                 } finally {
-                    results.close()
+                    tasks.cancel()
+                    results.cancel()
+                    if (activePictureResults === collecting) activePictureResults = null
                 }
-                collector.join()
-            } finally {
-                tasks.cancel()
-                results.cancel()
             }
         }
     }
@@ -534,37 +557,84 @@ internal class DownloadEngine(
 
     private suspend fun collectPictureResults(comicId: String, results: Channel<PictureEvent>) {
         val pending = mutableListOf<PictureEvent.Ready>()
+        val flushPolicy = DownloadProgressFlushPolicy(progressClockMillis)
+        suspend fun flush() {
+            if (pending.isEmpty()) return
+            try {
+                commitPictureResults(comicId, pending)
+                flushPolicy.onFlushed()
+            } finally {
+                pending.clear()
+            }
+        }
+        suspend fun flushAndNotify(event: PictureEvent.Flush) {
+            try {
+                flush()
+                event.finished.complete(Unit)
+            } catch (exception: Throwable) {
+                event.finished.completeExceptionally(exception)
+                throw exception
+            }
+        }
         try {
             while (true) {
+                if (flushPolicy.shouldFlush(pending.size)) {
+                    flush()
+                    continue
+                }
                 val next = if (pending.isEmpty()) results.receiveCatching() else {
-                    withTimeoutOrNull(200) { results.receiveCatching() }
+                    withTimeoutOrNull(flushPolicy.timeUntilFlushMillis()) { results.receiveCatching() }
                 }
                 if (next == null) {
-                    commitPictureResults(comicId, pending)
-                    pending.clear()
+                    flush()
                     continue
                 }
                 if (next.isClosed) break
                 when (val event = next.getOrThrow()) {
                     is PictureEvent.Ready -> {
                         pending.add(event)
-                        if (pending.size >= 16) {
-                            commitPictureResults(comicId, pending)
-                            pending.clear()
-                        }
+                        if (event.picture.status == DownloadStatus.FAILED) flush()
                     }
-                    is PictureEvent.Flush -> {
-                        commitPictureResults(comicId, pending)
-                        pending.clear()
-                        event.finished.complete(Unit)
-                    }
+                    is PictureEvent.Flush -> flushAndNotify(event)
                 }
             }
-            commitPictureResults(comicId, pending)
-            pending.clear()
         } finally {
-            pending.forEach { it.discard() }
-            while (true) (results.tryReceive().getOrNull() ?: break).discard()
+            try {
+                // Completion, cancellation, engine failure and shutdown all persist buffered results.
+                withContext(NonCancellable) {
+                    while (true) {
+                        when (val event = results.tryReceive().getOrNull() ?: break) {
+                            is PictureEvent.Ready -> {
+                                pending.add(event)
+                                if (pending.size >= 16) flush()
+                            }
+                            is PictureEvent.Flush -> flushAndNotify(event)
+                        }
+                    }
+                    flush()
+                }
+            } finally {
+                pending.forEach { it.discard() }
+                while (true) (results.tryReceive().getOrNull() ?: break).discard()
+            }
+        }
+    }
+
+    private suspend fun flushActivePictureResults(comicId: String) {
+        val collecting = activePictureResults?.takeIf { it.comicId == comicId } ?: return
+        if (!collecting.collector.isActive) {
+            collecting.collector.join()
+            return
+        }
+        val flushed = CompletableDeferred<Unit>()
+        try {
+            collecting.results.send(PictureEvent.Flush(flushed))
+            flushed.await()
+        } catch (_: ClosedSendChannelException) {
+            collecting.collector.join()
+        } catch (_: CancellationException) {
+            currentCoroutineContext().ensureActive()
+            collecting.collector.join()
         }
     }
 
@@ -734,6 +804,7 @@ internal class DownloadEngine(
     }
 
     private data class ActiveComic(val comicId: String, val job: Job)
+    private data class ActivePictureResults(val comicId: String, val results: Channel<PictureEvent>, val collector: Job)
     private data class PictureTask(val picture: DownloadPicture, val finished: CompletableDeferred<Unit>)
     private class PictureNotClaimed : Exception()
     private class ComicStopped : CancellationException("Comic paused or deleted")

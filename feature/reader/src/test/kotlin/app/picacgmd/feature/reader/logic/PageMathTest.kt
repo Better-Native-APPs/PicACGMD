@@ -81,6 +81,22 @@ class PageMathTest {
     }
 
     @Test
+    fun stripDecodeHeightHonorsTheLowRamPixelBudget() {
+        val maxPixels = ReaderMemoryBudget(isLowRam = true).maxStripPagePixels
+        assertEquals(5555, stripDecodeHeight(1080, maxPixels))
+        assertEquals(2343, stripDecodeHeight(2560, maxPixels))
+        for (width in listOf(1, 320, 720, 1080, 1440, 1600, 2560, 4096, MAX_DECODE_EDGE)) {
+            val height = stripDecodeHeight(width, maxPixels)
+            assertTrue(width.toLong() * height <= 6_000_000)
+            assertTrue(height <= stripDecodeHeight(width))
+            // Ordinary pages still fit by width whenever the lower pixel cap permits it.
+            assertTrue(height >= (width * 1.42f).toInt() || width.toLong() * width * 1.42f > maxPixels)
+        }
+        assertEquals(stripDecodeHeight(720), stripDecodeHeight(720, maxPixels))
+        assertEquals(stripDecodeHeight(1, maxPixels), stripDecodeHeight(0, maxPixels))
+    }
+
+    @Test
     fun decodeEdgeIsAlwaysPositiveAndFinite() {
         assertEquals(1, decodeEdge(0))
         assertEquals(1080, decodeEdge(1080))

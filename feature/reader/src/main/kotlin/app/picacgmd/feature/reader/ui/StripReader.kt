@@ -66,6 +66,7 @@ import app.picacgmd.feature.reader.logic.clampPage
 import app.picacgmd.feature.reader.logic.decodeEdge
 import app.picacgmd.feature.reader.logic.doubleTapAction
 import app.picacgmd.feature.reader.logic.panToPagePoint
+import app.picacgmd.feature.reader.logic.rememberReaderMemoryBudget
 import app.picacgmd.feature.reader.logic.screenToList
 import app.picacgmd.feature.reader.logic.singleTapAction
 import app.picacgmd.feature.reader.logic.stripCurrentPage
@@ -119,6 +120,7 @@ internal fun StripReader(
     free: Boolean = false,
 ) {
     val scope = rememberCoroutineScope()
+    val memoryBudget = rememberReaderMemoryBudget()
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = clampPage(initialPage, pages.size))
     val zoom = remember(listState) {
         ZoomState(scope).also { state ->
@@ -258,25 +260,30 @@ internal fun StripReader(
         val widthPx = constraints.maxWidth
         val heightPx = constraints.maxHeight
         SideEffect { zoom.setGeometry(widthPx.toFloat(), heightPx.toFloat()) }
-        val requestSize = remember(widthPx) { CoilSize(decodeEdge(widthPx), stripDecodeHeight(decodeEdge(widthPx))) }
+        val requestSize = remember(widthPx, memoryBudget) {
+            val decodeWidth = decodeEdge(widthPx)
+            CoilSize(decodeWidth, stripDecodeHeight(decodeWidth, memoryBudget.maxStripPagePixels))
+        }
         val pageWidth = maxWidth
+        val preloadWindow = memoryBudget.preloadWindow(config.preloadAhead, ReaderConfig.PRELOAD_BEHIND)
 
         PreloadPages(
             pages = pages,
             current = currentPage,
-            ahead = config.preloadAhead,
-            behind = ReaderConfig.PRELOAD_BEHIND,
+            ahead = preloadWindow.ahead,
+            behind = preloadWindow.behind,
             size = requestSize,
             skip = visiblePages,
             reloads = host.reloads,
         )
-        if (upcomingPages != null) {
+        if (upcomingPages != null && memoryBudget.preloadNextChapterImages) {
             PreloadPages(
                 pages = upcomingPages,
                 current = 0,
                 ahead = config.preloadAhead,
                 behind = 0,
                 size = requestSize,
+                nextChapter = true,
             )
         }
 
