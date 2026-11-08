@@ -23,6 +23,15 @@ internal interface PageNavigator {
 
     /** Straight to [page], without animating. */
     suspend fun jumpTo(page: Int)
+
+    /**
+     * 自动滚动: pixels left before the end of the chapter's last page reaches the bottom of the screen,
+     * or 0 when this mode does not scroll continuously.
+     */
+    fun autoScrollRemaining(): Float = 0f
+
+    /** 自动滚动: moves the strip by [pixels] without taking the scroll away from a finger. */
+    fun autoScrollBy(pixels: Float) {}
 }
 
 /** Holds the navigator of whichever reading mode is on screen. */
