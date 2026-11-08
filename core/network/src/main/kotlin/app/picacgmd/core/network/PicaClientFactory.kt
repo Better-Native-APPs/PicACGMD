@@ -12,10 +12,7 @@ import okhttp3.OkHttpClient
 
 sealed interface ApiRoute {
     data object None : ApiRoute
-    data object Split1 : ApiRoute
-    data object Split2 : ApiRoute
-    data object Split3 : ApiRoute
-    data class Custom(val ip: String) : ApiRoute
+    data class Address(val ip: String) : ApiRoute
 }
 
 /** Changes only DNS resolution: the HTTPS URL, certificate identity, Host and SNI stay unchanged. */
@@ -25,10 +22,7 @@ class PicaDns(
 ) : Dns {
     private val address: InetAddress? = when (route) {
         ApiRoute.None -> null
-        ApiRoute.Split1 -> literalAddress("172.67.7.24")
-        ApiRoute.Split2 -> literalAddress("104.20.180.50")
-        ApiRoute.Split3 -> literalAddress("172.67.208.169")
-        is ApiRoute.Custom -> literalAddress(route.ip)
+        is ApiRoute.Address -> InetAddress.getByAddress(PicaProtocol.API_HOST, IpLiteral.parse(route.ip).address)
     }
 
     override fun lookup(hostname: String): List<InetAddress> =
@@ -38,15 +32,6 @@ class PicaDns(
             systemDns.lookup(hostname)
         }
 
-    private fun literalAddress(ip: String): InetAddress {
-        val literal = ip.removeSurrounding("[", "]")
-        val ipv4 = literal.matches(Regex("[0-9]{1,3}(\\.[0-9]{1,3}){3}")) &&
-            literal.split('.').all { it.toInt() in 0..255 }
-        val ipv6 = ':' in literal && literal.matches(Regex("[0-9a-fA-F:.]+"))
-        require(ipv4 || ipv6) { "分流地址必须是 IPv4 或 IPv6 地址" }
-        // Input is a literal, so getByName cannot cause an external DNS lookup.
-        return InetAddress.getByAddress(PicaProtocol.API_HOST, InetAddress.getByName(literal).address)
-    }
 }
 
 data class PicaNetworkConfig(

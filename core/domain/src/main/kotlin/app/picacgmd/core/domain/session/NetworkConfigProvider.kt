@@ -1,7 +1,6 @@
 package app.picacgmd.core.domain.session
 
 import app.picacgmd.core.data.settings.AppSettings
-import app.picacgmd.core.data.settings.RoutingMode
 import app.picacgmd.core.domain.image.ImageLoadProgressInterceptor
 import app.picacgmd.core.domain.image.ImageLoadProgressRegistry
 import app.picacgmd.core.network.ApiRoute
@@ -14,6 +13,7 @@ import app.picacgmd.core.network.PicaImage
 import app.picacgmd.core.network.PicaImageUrls
 import app.picacgmd.core.network.PicaNetworkConfig
 import app.picacgmd.core.network.PicaResult
+import app.picacgmd.core.network.ROUTE_PROBE_TIMEOUT_MILLIS
 import java.net.Proxy
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
@@ -26,7 +26,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
-import okhttp3.HttpUrl.Companion.toHttpUrl
 
 data class NetworkConfiguration(
     val networkConfig: PicaNetworkConfig,
@@ -40,23 +39,10 @@ data class NetworkConfiguration(
     companion object {
         fun from(settings: AppSettings): NetworkConfiguration = NetworkConfiguration(
             networkConfig = PicaNetworkConfig(
-                apiRoute = settings.apiRoutingMode.toApiRoute(settings.customApiIp),
+                apiRoute = settings.apiRouteAddress?.let(ApiRoute::Address) ?: ApiRoute.None,
                 proxyUrl = settings.proxyUrl.trim().takeIf(String::isNotEmpty),
             ),
-            imageServer = when (settings.imageRoutingMode) {
-                RoutingMode.NONE -> ImageServer.Original
-                RoutingMode.ROUTE_1 -> ImageServer.Split1
-                RoutingMode.ROUTE_2 -> ImageServer.Split2
-                RoutingMode.ROUTE_3 -> ImageServer.Split3
-                RoutingMode.CUSTOM -> {
-                    val host = settings.customImageHost.trim()
-                    val url = (if ("://" in host) host else "https://$host").toHttpUrl()
-                    require(url.username.isEmpty() && url.password.isEmpty() && url.query == null && url.fragment == null) {
-                        "图片分流地址不能包含账号、查询或片段"
-                    }
-                    ImageServer.Custom(url.toString())
-                }
-            },
+            imageServer = settings.toImageServer(),
             imageQuality = ImageQuality.valueOf(settings.imageQuality.name),
             connectTimeoutSeconds = settings.connectTimeoutSeconds,
             readTimeoutSeconds = settings.readTimeoutSeconds,
@@ -113,13 +99,13 @@ class NetworkConfigProvider(
     suspend fun awaitReady() { api() }
 
     /**
-     * One signed keyword request per built-in route, in parallel, with a five-second ceiling.
+     * One independently measured signed keyword request with a five-second ceiling.
      * Probes connect directly (not through a proxy, which would bypass route DNS) and never update
      * the selected route, session, or retained transports. Values are milliseconds; failures are null.
      */
-    suspend fun measureApiRoutes(): Map<ApiRoute, Long?> {
+    suspend fun measureApiRoute(route: ApiRoute): Long? = measureRouteLatency {
         val timeOffsetHours = settings.first().timeOffsetHours
-        return measureBuiltinApiRoutes(probe = { route -> probeApiRoute(route, timeOffsetHours) })
+        probeApiRoute(route, timeOffsetHours)
     }
 
     fun imageUrl(image: PicaImage): String = PicaImageUrls.build(image, current.configuration.imageServer)
@@ -168,10 +154,10 @@ class NetworkConfigProvider(
     private suspend fun probeApiRoute(route: ApiRoute, timeOffsetHours: Int): Boolean {
         val client = PicaClientFactory.apiClient(PicaNetworkConfig(apiRoute = route)).newBuilder()
             .proxy(Proxy.NO_PROXY)
-            .callTimeout(API_ROUTE_PROBE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
-            .connectTimeout(API_ROUTE_PROBE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
-            .readTimeout(API_ROUTE_PROBE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
-            .writeTimeout(API_ROUTE_PROBE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+            .callTimeout(ROUTE_PROBE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+            .connectTimeout(ROUTE_PROBE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+            .readTimeout(ROUTE_PROBE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+            .writeTimeout(ROUTE_PROBE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
             .build()
         try {
             val api = PicaApi(

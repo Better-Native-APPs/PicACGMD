@@ -15,12 +15,12 @@ import okhttp3.Request
 
 class PicaTransportTest {
     @Test
-    fun builtInDnsRoutesResolveWithoutSystemDnsAndPreserveHostIdentity() {
+    fun arbitraryDnsRoutesResolveWithoutSystemDnsAndPreserveHostIdentity() {
         val unexpectedDns = Dns { error("System DNS must not be used for a split API route") }
         listOf(
-            ApiRoute.Split1 to "172.67.7.24",
-            ApiRoute.Split2 to "104.20.180.50",
-            ApiRoute.Split3 to "172.67.208.169",
+            ApiRoute.Address("172.67.7.24") to "172.67.7.24",
+            ApiRoute.Address("104.20.180.50") to "104.20.180.50",
+            ApiRoute.Address("104.19.53.76") to "104.19.53.76",
         ).forEach { (route, expected) ->
             val resolved = PicaDns(route, unexpectedDns).lookup(PicaProtocol.API_HOST).single()
             assertEquals(expected, resolved.hostAddress)
@@ -34,19 +34,20 @@ class PicaTransportTest {
         val addresses = listOf(InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1)))
         val system = Dns { hostname -> calls.add(hostname); addresses }
         assertEquals(addresses, PicaDns(ApiRoute.None, system).lookup(PicaProtocol.API_HOST))
-        assertEquals(addresses, PicaDns(ApiRoute.Split1, system).lookup("s2.picacomic.com"))
+        assertEquals(addresses, PicaDns(ApiRoute.Address("172.67.7.24"), system).lookup("s2.picacomic.com"))
         assertEquals(listOf(PicaProtocol.API_HOST, "s2.picacomic.com"), calls)
     }
 
     @Test
     fun customDnsSupportsIpv4AndIpv6LiteralsOnly() {
-        assertEquals("192.0.2.8", PicaDns(ApiRoute.Custom("192.0.2.8")).lookup(PicaProtocol.API_HOST).single().hostAddress)
+        assertEquals("192.0.2.8", PicaDns(ApiRoute.Address("192.0.2.8")).lookup(PicaProtocol.API_HOST).single().hostAddress)
         assertEquals(
             InetAddress.getByName("2001:db8::8"),
-            PicaDns(ApiRoute.Custom("2001:db8::8")).lookup(PicaProtocol.API_HOST).single(),
+            PicaDns(ApiRoute.Address("2001:db8::8")).lookup(PicaProtocol.API_HOST).single(),
         )
-        assertFailsWith<IllegalArgumentException> { PicaDns(ApiRoute.Custom("example.com")) }
-        assertFailsWith<IllegalArgumentException> { PicaDns(ApiRoute.Custom("256.2.3.4")) }
+        listOf("example.com", "256.2.3.4", "1:2:3", "[::gg]", "1.2.3", "2001:db8::1%eth0").forEach { invalid ->
+            assertFailsWith<IllegalArgumentException> { PicaDns(ApiRoute.Address(invalid)) }
+        }
     }
 
     @Test

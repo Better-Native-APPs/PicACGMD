@@ -18,6 +18,7 @@ import app.picacgmd.core.domain.repository.UserRepository
 import app.picacgmd.core.domain.session.CredentialStore
 import app.picacgmd.core.domain.session.KeystoreCredentialStore
 import app.picacgmd.core.domain.session.NetworkConfigProvider
+import app.picacgmd.core.domain.session.RoutingRepository
 import app.picacgmd.core.domain.session.SessionManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -38,6 +39,7 @@ class AppContainer(context: Context) : AutoCloseable {
     val sessionManager: SessionManager = SessionManager(
         settingsRepository, credentialStore, { networkConfigProvider.api() }, scope,
     )
+    val routingRepository: RoutingRepository = RoutingRepository(settingsRepository, networkConfigProvider)
     val comicRepository: ComicRepository = ComicRepository(
         sessionManager, settingsRepository.settings, database.apiCacheDao(), database.searchHistoryDao(), database.viewHistoryDao(),
     )

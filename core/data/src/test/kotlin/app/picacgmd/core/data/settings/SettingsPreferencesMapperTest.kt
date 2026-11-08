@@ -12,6 +12,30 @@ import kotlin.test.assertTrue
 
 class SettingsPreferencesMapperTest {
     @Test
+    fun everyLegacyApiModeKeepsItsEffectiveAddress() {
+        val addresses = listOf(null, "172.67.7.24", "104.20.180.50", "172.67.208.169", "203.0.113.7")
+        RoutingMode.entries.zip(addresses).forEach { (mode, expected) ->
+            val preferences = mutablePreferencesOf(
+                SettingsKeys.apiRoutingMode to mode.name,
+                SettingsKeys.customApiIp to "203.0.113.7",
+            )
+            assertEquals(expected, SettingsPreferencesMapper.decode(preferences).apiRouteAddress, mode.name)
+        }
+    }
+
+    @Test
+    fun addressSelectionOverridesLegacyModeIncludingExplicitSystemDns() {
+        val preferences = mutablePreferencesOf(
+            SettingsKeys.apiRoutingMode to RoutingMode.ROUTE_3.name,
+            SettingsKeys.apiRouteAddress to "104.19.53.76",
+        )
+        assertEquals("104.19.53.76", SettingsPreferencesMapper.decode(preferences).apiRouteAddress)
+        preferences[SettingsKeys.apiRouteAddress] = ""
+        assertNull(SettingsPreferencesMapper.decode(preferences).apiRouteAddress)
+        assertEquals("172.67.7.24", SettingsPreferencesMapper.decode(emptyPreferences()).apiRouteAddress)
+    }
+
+    @Test
     fun obsoleteFolderPreferencesAreIgnored() {
         val preferences = mutablePreferencesOf(
             booleanPreferencesKey("show_local_favourites") to false,

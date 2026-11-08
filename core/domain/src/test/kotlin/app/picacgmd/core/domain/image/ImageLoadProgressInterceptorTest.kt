@@ -1,7 +1,6 @@
 package app.picacgmd.core.domain.image
 
 import app.picacgmd.core.data.settings.AppSettings
-import app.picacgmd.core.data.settings.RoutingMode
 import app.picacgmd.core.domain.session.NetworkConfigProvider
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -163,7 +162,7 @@ class ImageLoadProgressInterceptorTest {
     @Test
     fun apiTransportOptionKeepsProgressOffTheApiClient() = runTest {
         val provider = NetworkConfigProvider(
-            MutableStateFlow(AppSettings(useApiClientForImages = true, apiRoutingMode = RoutingMode.NONE)), backgroundScope,
+            MutableStateFlow(AppSettings(useApiClientForImages = true, apiRouteAddress = null)), backgroundScope,
         )
         try {
             provider.awaitReady()
