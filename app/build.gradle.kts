@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -19,6 +21,33 @@ android {
         versionName = "0.1.0"
     }
 
+    signingConfigs {
+        create("release") {
+            val keystorePropertiesFile = rootProject.file("keystore.properties")
+            if (keystorePropertiesFile.exists()) {
+                val properties = Properties().apply {
+                    keystorePropertiesFile.inputStream().use { load(it) }
+                }
+                storeFile = rootProject.file(properties.getProperty("storeFile"))
+                storePassword = properties.getProperty("storePassword")
+                keyAlias = properties.getProperty("keyAlias")
+                keyPassword = properties.getProperty("keyPassword")
+            } else {
+                initWith(getByName("debug"))
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            isDebuggable = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            signingConfig = signingConfigs.getByName("release")
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
+
     androidResources { localeFilters += "zh-rCN" }
     buildFeatures { compose = true }
     compileOptions {
@@ -28,6 +57,11 @@ android {
 }
 
 kotlin { jvmToolchain(21) }
+
+composeCompiler {
+    // The optional Compose mapping producer is not cached in the offline toolchain.
+    includeComposeMappingFile.set(false)
+}
 
 dependencies {
     implementation(project(":core:network"))
