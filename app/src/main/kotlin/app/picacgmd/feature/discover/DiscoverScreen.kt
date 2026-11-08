@@ -89,6 +89,8 @@ fun DiscoverScreen(
     isRefreshing: Boolean = false,
     onRefresh: () -> Unit = {},
     onRetry: () -> Unit = {},
+    avatarUrl: String? = null,
+    avatarInitial: String? = null,
 ) {
     Column(
         modifier
@@ -102,6 +104,8 @@ fun DiscoverScreen(
             trailingContent = if (showProfileEntry) {
                 {
                     ShapedAvatar(
+                        imageUrl = avatarUrl,
+                        initial = avatarInitial,
                         contentDescription = stringResource(R.string.discover_profile),
                         onClick = onProfileClick,
                     )

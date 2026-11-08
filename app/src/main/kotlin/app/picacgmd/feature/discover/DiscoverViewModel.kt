@@ -1,12 +1,14 @@
 package app.picacgmd.feature.discover
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.picacgmd.core.designsystem.component.HomeChannel
 import app.picacgmd.core.domain.di.AppContainer
@@ -14,6 +16,7 @@ import app.picacgmd.core.domain.repository.HomeChannelKind
 import app.picacgmd.core.domain.repository.HomeModel
 import app.picacgmd.core.domain.repository.RepositoryState
 import app.picacgmd.di.LocalAppContainer
+import app.picacgmd.feature.bookshelf.safeImageUrl
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -97,6 +100,21 @@ fun DiscoverScreen(
     val container = LocalAppContainer.current
     val model = viewModel.model
     val content = remember(model, container) { model?.toContent(container) }
+    // The avatar entry shows the signed-in user's real picture; the profile is fetched once if
+    // nothing (e.g. 我的) has loaded it yet.
+    val profile by container.userRepository.currentProfile.collectAsStateWithLifecycle()
+    LaunchedEffect(showProfileEntry) {
+        if (showProfileEntry && container.userRepository.currentProfile.value == null) {
+            try {
+                container.userRepository.profile()
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                // Keep the placeholder; 我的 retries with its own error state.
+            }
+        }
+    }
+    val avatarUrl = remember(profile, container) { container.safeImageUrl(profile?.avatar) }
     DiscoverScreen(
         content = content,
         showProfileEntry = showProfileEntry,
@@ -112,6 +130,8 @@ fun DiscoverScreen(
         isRefreshing = viewModel.isRefreshing,
         onRefresh = viewModel::refresh,
         onRetry = viewModel::retry,
+        avatarUrl = avatarUrl,
+        avatarInitial = profile?.name?.take(1)?.takeIf { it.isNotBlank() },
     )
 }
 

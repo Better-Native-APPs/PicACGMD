@@ -88,7 +88,8 @@ data class AppSettings(
     val confirmCopy: Boolean = true,
     val readerMode: ReaderMode = ReaderMode.WEBTOON,
     val readerDirection: ReaderDirection = ReaderDirection.TOP_TO_BOTTOM,
-    val readerTapZones: ReaderTapZones = ReaderTapZones.CONTROLLER,
+    // A single tap shows/hides the reader controls (design default); 控制器 needs the 全屏 button to hide them.
+    val readerTapZones: ReaderTapZones = ReaderTapZones.SINGLE_TAP,
     val volumeKeyPaging: Boolean = false,
     val volumeKeyChapterPaging: Boolean = true,
     val readerBackground: ReaderBackground = ReaderBackground.BLACK,
