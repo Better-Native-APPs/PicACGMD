@@ -107,6 +107,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
     suspend fun setCategoryShieldMode(value: CategoryShieldMode) = setEnum(Keys.categoryShieldMode, value)
     suspend fun setHiddenKeywords(values: List<String>) = setList(Keys.hiddenKeywords, values)
     suspend fun setHideViewedComics(value: Boolean) = set(Keys.hideViewedComics, value)
+    suspend fun setHideAiComics(value: Boolean) = set(Keys.hideAiComics, value)
     suspend fun setHiddenCategories(values: List<String>) = setList(Keys.hiddenCategories, values)
     suspend fun setCategoryOrder(values: List<String>) = setList(Keys.categoryOrder, values)
     suspend fun setPinnedHomeCategories(values: List<String>) = setList(Keys.pinnedHomeCategories, values)

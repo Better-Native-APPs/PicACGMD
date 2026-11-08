@@ -105,6 +105,48 @@ class PicaApiTest {
     }
 
     @Test
+    fun announcementsUsesSignedPagedGetAndDecodesAnnouncementMetadata() = runTest {
+        enqueue("""{"announcements":{"docs":[{"_id":"notice","title":"维护通知","content":"正文",
+            "thumb":{"originalName":"cover.jpg","path":"cover.jpg","fileServer":"https://s2.picacomic.com"},
+            "created_at":"2026-11-08T00:00:00.000Z","unknown":true},{}],"total":2,"limit":20,"page":"3","pages":4}}""")
+        val page = api.announcements(3).getOrThrow()
+        assertEquals(3, page.page)
+        assertEquals(4, page.pages)
+        assertEquals(2, page.total)
+        assertEquals(20, page.limit)
+        assertEquals("notice", page.docs.first().id)
+        assertEquals("正文", page.docs.first().content)
+        assertEquals("cover.jpg", page.docs.first().thumb?.originalName)
+        assertEquals("2026-11-08T00:00:00.000Z", page.docs.first().createdAt)
+        assertEquals(Announcement(), page.docs.last())
+        assertSignedRequest(takeRequest(), "GET", "/announcements?page=3")
+    }
+
+    @Test
+    fun gameLikeUsesSignedPostAndReturnsBothServerActions() = runTest {
+        for (action in listOf("like", "unlike")) {
+            enqueue("""{"action":"$action"}""")
+            assertEquals(action, api.switchLikeGame("game").getOrThrow())
+            val request = takeRequest()
+            assertSignedRequest(request, "POST", "/games/game/like")
+            assertEquals("{}", request.body!!.utf8())
+        }
+    }
+
+    @Test
+    fun reportUsesSignedPostEmptyJsonAndAcceptsSuccessful2xxEnvelopes() = runTest {
+        for (status in listOf(200, 201, 202)) {
+            server.enqueue(MockResponse.Builder().code(status).body("""{"code":200,"message":"reported"}""").build())
+            assertEquals(Unit, api.reportComment("comment").getOrThrow())
+            val request = takeRequest()
+            assertSignedRequest(request, "POST", "/comments/comment/report")
+            assertEquals("{}", request.body!!.utf8())
+        }
+        server.enqueue(MockResponse.Builder().body("""{"code":400,"message":"cannot report"}""").build())
+        assertEquals(400, assertIs<PicaResult.Failure>(api.reportComment("comment")).exception.code)
+    }
+
+    @Test
     fun businessErrorRetainsEnvelopeFields() = runTest {
         server.enqueue(MockResponse.Builder().body("""{"code":400,"error":"1004","message":"请求有误","detail":{"field":"email"}}""").build())
         val exception = assertIs<PicaResult.Failure>(api.categories()).exception
@@ -211,6 +253,17 @@ class PicaApiTest {
     }
 
     private fun takeRequest(): RecordedRequest = assertNotNull(server.takeRequest(5, TimeUnit.SECONDS))
+
+    private fun assertSignedRequest(request: RecordedRequest, method: String, pathAndQuery: String) {
+        val actualPath = request.url.encodedPath + (request.url.encodedQuery?.let { "?$it" } ?: "")
+        assertEquals(method, request.method)
+        assertEquals(pathAndQuery, actualPath)
+        assertEquals(PicaProtocol.API_KEY, request.headers["api-key"])
+        assertEquals("1582250000", request.headers["time"])
+        assertEquals(NONCE, request.headers["nonce"])
+        assertEquals("test-token", request.headers["authorization"])
+        assertEquals(PicaSigner().sign(actualPath, method, "1582250000", NONCE), request.headers["signature"])
+    }
 
     private companion object {
         const val NONCE = "b1ab87b4800d4d4590a11701b8551afa"

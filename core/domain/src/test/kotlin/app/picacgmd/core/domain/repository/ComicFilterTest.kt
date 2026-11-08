@@ -2,6 +2,7 @@ package app.picacgmd.core.domain.repository
 
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.data.settings.CategoryShieldMode
+import app.picacgmd.core.network.ComicInfo
 import app.picacgmd.core.network.ComicSimple
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -72,5 +73,56 @@ class ComicFilterTest {
     fun defaultCategoryAliasAlsoWorksForShielding() {
         val comic = ComicSimple(categories = listOf("大湿推荐"))
         assertTrue(isComicHidden(comic, AppSettings(shieldedCategories = listOf("大濕推薦"))))
+    }
+
+    @Test
+    fun aiMarkersMatchTitlesCategoriesAndTagsIgnoringCase() {
+        val markers = listOf("AI作画", "AI作畫", "AI创作", "AI生成", "AI画作", "AI绘画", "AI艺术", "AI繪畫", "AI藝術")
+        val samples = markers.flatMap { marker ->
+            listOf(
+                ComicSimple(title = "[$marker] 漫画"),
+                ComicSimple(categories = listOf("分类 ${marker.replaceFirst("AI", "ai")}")),
+                ComicSimple(tags = listOf("标签 ${marker.replaceFirst("AI", "aI")}")),
+            )
+        }
+        samples.forEach { assertTrue(isAiComic(it), it.toString()) }
+        val result = filterComics(samples, AppSettings(hideAiComics = true))
+        assertTrue(result.items.isEmpty())
+        assertEquals(samples.size, result.hiddenCount)
+    }
+
+    @Test
+    fun aiFilterIsOptInAndDoesNotMatchPlainAiOrAuthors() {
+        val samples = listOf(
+            ComicSimple(id = "ai", title = "AI作画"),
+            ComicSimple(id = "normal", title = "AI 教程", author = "AI藝術", tags = listOf("AI")),
+            ComicSimple(id = "empty"),
+        )
+        assertEquals(FilteredComics(samples, 0), filterComics(samples, AppSettings()))
+        val result = filterComics(samples, AppSettings(hideAiComics = true))
+        assertEquals(listOf("normal", "empty"), result.items.map { it.id })
+        assertEquals(1, result.hiddenCount)
+    }
+
+    @Test
+    fun aiAndOtherFiltersCountOverlappingComicsOnce() {
+        val comic = ComicSimple(id = "ai", title = "AI作画", categories = listOf("AI藝術"), tags = listOf("AI生成"))
+        val result = filterComics(
+            listOf(comic, ComicSimple(id = "visible")),
+            AppSettings(
+                hideAiComics = true, hideViewedComics = true,
+                hiddenKeywords = listOf("AI"), shieldedCategories = listOf("AI藝術"),
+            ),
+            viewedIds = setOf("ai"),
+        )
+        assertEquals(listOf("visible"), result.items.map { it.id })
+        assertEquals(1, result.hiddenCount)
+    }
+
+    @Test
+    fun detailConversionPreservesTagsForAiFiltering() {
+        val simple = ComicInfo(id = "detail", tags = listOf("AI繪畫")).toSimple()
+        assertEquals(listOf("AI繪畫"), simple.tags)
+        assertTrue(isComicHidden(simple, AppSettings(hideAiComics = true)))
     }
 }

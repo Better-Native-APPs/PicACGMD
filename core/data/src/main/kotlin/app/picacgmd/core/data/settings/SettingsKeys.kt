@@ -38,6 +38,7 @@ internal object SettingsKeys {
     val categoryShieldMode = stringPreferencesKey("category_shield_mode")
     val hiddenKeywords = stringPreferencesKey("hidden_keywords")
     val hideViewedComics = booleanPreferencesKey("hide_viewed_comics")
+    val hideAiComics = booleanPreferencesKey("hide_ai_comics")
     val hiddenCategories = stringPreferencesKey("hidden_categories")
     val categoryOrder = stringPreferencesKey("category_order")
     val pinnedHomeCategories = stringPreferencesKey("pinned_home_categories")

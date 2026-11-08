@@ -75,6 +75,7 @@ data class AppSettings(
     val categoryShieldMode: CategoryShieldMode = CategoryShieldMode.BLACKLIST,
     val hiddenKeywords: List<String> = emptyList(),
     val hideViewedComics: Boolean = false,
+    val hideAiComics: Boolean = false,
     val hiddenCategories: List<String> = emptyList(),
     val categoryOrder: List<String> = emptyList(),
     val pinnedHomeCategories: List<String> = listOf("大家都在看", "大濕推薦"),

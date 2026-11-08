@@ -71,6 +71,21 @@ class ComicRepositoryTest {
         assertEquals(1, result.hiddenCount)
     }
 
+    @Test
+    fun aiFilterUsesOptionalTagsAndRetainsRemotePageMetadata() = runTest {
+        preferences.settings.value = preferences.settings.value.copy(hideAiComics = true)
+        enqueue("""{"comics":{"docs":[{"_id":"title","title":"AI作画"},
+            {"_id":"category","categories":["AI藝術"]},{"_id":"tag","tags":["ai生成"]},
+            {"_id":"visible","title":"日常"}],"page":2,"pages":5,"total":84,"limit":20}}""")
+        val result = repository(backgroundScope).comics(page = 2)
+        assertEquals(listOf("visible"), result.items.map { it.id })
+        assertEquals(3, result.hiddenCount)
+        assertEquals(84, result.total)
+        assertEquals(2, result.page)
+        assertEquals(5, result.pages)
+        assertEquals(20, result.limit)
+    }
+
     private fun repository(scope: CoroutineScope): ComicRepository {
         lateinit var session: SessionManager
         val api = PicaApi(tokenProvider = { session.token }, baseUrl = server.url("/").toString())

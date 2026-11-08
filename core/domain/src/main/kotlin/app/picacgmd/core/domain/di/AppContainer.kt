@@ -5,6 +5,7 @@ import coil3.ImageLoader
 import app.picacgmd.core.data.db.PikapikaDatabase
 import app.picacgmd.core.data.settings.SettingsRepository
 import app.picacgmd.core.domain.image.createImageLoader
+import app.picacgmd.core.domain.repository.AnnouncementRepository
 import app.picacgmd.core.domain.repository.ComicRepository
 import app.picacgmd.core.domain.repository.CommentRepository
 import app.picacgmd.core.domain.repository.GameRepository
@@ -43,6 +44,7 @@ class AppContainer(context: Context) : AutoCloseable {
     val homeRepository: HomeRepository = HomeRepository(comicRepository, settingsRepository.settings, scope)
     val commentRepository: CommentRepository = CommentRepository(sessionManager)
     val gameRepository: GameRepository = GameRepository(sessionManager)
+    val announcementRepository: AnnouncementRepository = AnnouncementRepository(sessionManager)
     val userRepository: UserRepository = UserRepository(sessionManager, scope)
     val historyRepository: HistoryRepository = HistoryRepository(database.viewHistoryDao(), settingsRepository.settings)
     val subscriptionRepository: SubscriptionRepository = SubscriptionRepository(

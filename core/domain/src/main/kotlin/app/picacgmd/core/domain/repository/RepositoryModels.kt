@@ -58,6 +58,15 @@ internal fun categoryKey(name: String): String = when (val trimmed = name.trim()
     else -> trimmed
 }
 
+private val aiComicMarkers = listOf(
+    "AI作画", "AI作畫", "AI创作", "AI生成", "AI画作", "AI绘画", "AI艺术", "AI繪畫", "AI藝術",
+)
+
+fun isAiComic(comic: ComicSimple): Boolean =
+    (sequenceOf(comic.title) + comic.categories.asSequence() + comic.tags.asSequence()).any { text ->
+        aiComicMarkers.any { marker -> text.contains(marker, ignoreCase = true) }
+    }
+
 fun isComicHidden(comic: ComicSimple, settings: AppSettings, viewedIds: Set<String> = emptySet()): Boolean {
     val shielded = settings.shieldedCategories.map(::categoryKey).toSet()
     val matchesCategory = comic.categories.any { categoryKey(it) in shielded }
@@ -70,7 +79,8 @@ fun isComicHidden(comic: ComicSimple, settings: AppSettings, viewedIds: Set<Stri
         keyword.isNotEmpty() &&
             (comic.title.contains(keyword, ignoreCase = true) || comic.author.contains(keyword, ignoreCase = true))
     }
-    return categoryHidden || keywordHidden || (settings.hideViewedComics && comic.id in viewedIds)
+    return categoryHidden || keywordHidden || (settings.hideViewedComics && comic.id in viewedIds) ||
+        (settings.hideAiComics && isAiComic(comic))
 }
 
 fun filterComics(
@@ -87,7 +97,7 @@ internal fun Page<ComicSimple>.filtered(result: FilteredComics): FilteredPage<Co
 
 fun ComicInfo.toSimple(): ComicSimple = ComicSimple(
     id = id, title = title, author = author, pagesCount = pagesCount, epsCount = epsCount,
-    finished = finished, categories = categories, thumb = thumb, likesCount = likesCount,
+    finished = finished, categories = categories, thumb = thumb, likesCount = likesCount, tags = tags,
 )
 
 fun buildHomeModel(

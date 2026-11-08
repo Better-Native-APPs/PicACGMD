@@ -25,5 +25,6 @@ class CommentRepository(private val session: SessionManager) {
 
     suspend fun toggleLike(commentId: String): Boolean = session.withApi { it.switchLikeComment(commentId) } == "like"
     suspend fun hide(commentId: String) = session.withApi { it.hideComment(commentId) }
+    suspend fun report(commentId: String): Unit = session.withApi { it.reportComment(commentId) }
     suspend fun myComments(page: Int = 1): Page<MyComment> = session.withApi { it.myComments(page) }
 }

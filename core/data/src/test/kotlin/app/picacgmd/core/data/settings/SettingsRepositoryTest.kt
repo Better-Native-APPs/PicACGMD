@@ -16,8 +16,21 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class SettingsRepositoryTest {
+    @Test
+    fun aiFilterDefaultsOffAndPersistsAcrossRepositoryInstances() = runTest {
+        val store = MemoryPreferencesStore()
+        val repository = SettingsRepository(store)
+        assertFalse(repository.settings.first().hideAiComics)
+        repository.setHideAiComics(true)
+        assertEquals(true, store.data.first()[SettingsKeys.hideAiComics])
+        assertTrue(SettingsRepository(store).settings.first().hideAiComics)
+        repository.setHideAiComics(false)
+        assertFalse(SettingsRepository(store).settings.first().hideAiComics)
+    }
+
     @Test
     fun readerAdditionsRoundTripAndSurviveNewRepositoryInstances() = runTest {
         val store = MemoryPreferencesStore()

@@ -10,6 +10,7 @@ import app.picacgmd.core.network.Page
 class GameRepository(private val session: SessionManager) {
     suspend fun games(page: Int = 1): Page<GameSimple> = session.withApi { it.games(page) }
     suspend fun game(gameId: String): GameInfo = session.withApi { it.game(gameId) }
+    suspend fun switchLike(gameId: String): Boolean = session.withApi { it.switchLikeGame(gameId) } == "like"
     suspend fun comments(gameId: String, page: Int = 1): CommentsPage = session.withApi { it.gameComments(gameId, page) }
     suspend fun replies(commentId: String, page: Int = 1): Page<Comment> =
         session.withApi { it.gameCommentChildren(commentId, page) }

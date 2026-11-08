@@ -79,6 +79,9 @@ data class UserProfile(
 
 typealias Knight = UserProfile
 
+/** Like toggles return the server's "like" or "unlike" action, shared by comics and games. */
+typealias LikeAction = String
+
 @Serializable
 data class PunchStatus(val status: String = "", val punchInLastDay: String = "")
 
@@ -104,6 +107,15 @@ data class Category(
 )
 
 @Serializable
+data class Announcement(
+    @SerialName("_id") val id: String = "",
+    val title: String = "",
+    val content: String = "",
+    val thumb: PicaImage? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+)
+
+@Serializable
 data class ComicSimple(
     @SerialName("_id") val id: String = "",
     val title: String = "",
@@ -114,6 +126,7 @@ data class ComicSimple(
     val categories: List<String> = emptyList(),
     val thumb: PicaImage? = null,
     val likesCount: Int = 0,
+    val tags: List<String> = emptyList(),
 )
 
 @Serializable

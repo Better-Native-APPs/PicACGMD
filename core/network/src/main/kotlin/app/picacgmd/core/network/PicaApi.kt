@@ -87,6 +87,9 @@ class PicaApi(
 
     suspend fun categories(): PicaResult<List<Category>> = fetch("GET", listOf("categories"), key = "categories")
 
+    suspend fun announcements(page: Int): PicaResult<Page<Announcement>> =
+        fetch("GET", listOf("announcements"), key = "announcements", query = pageQuery(page))
+
     suspend fun comics(
         category: String? = null,
         tag: String? = null,
@@ -138,7 +141,7 @@ class PicaApi(
     suspend fun recommendation(comicId: String): PicaResult<List<ComicSimple>> =
         fetch("GET", listOf("comics", comicId, "recommendation"), key = "comics")
 
-    suspend fun switchLike(comicId: String): PicaResult<String> =
+    suspend fun switchLike(comicId: String): PicaResult<LikeAction> =
         fetch("POST", listOf("comics", comicId, "like"), key = "action")
 
     suspend fun switchFavourite(comicId: String): PicaResult<String> =
@@ -179,6 +182,9 @@ class PicaApi(
     suspend fun hideComment(commentId: String): PicaResult<Unit> =
         mutate("POST", listOf("comments", commentId, "delete"))
 
+    suspend fun reportComment(commentId: String): PicaResult<Unit> =
+        mutate("POST", listOf("comments", commentId, "report"), buildJsonObject { })
+
     suspend fun myComments(page: Int = 1): PicaResult<Page<MyComment>> =
         fetch("GET", listOf("users", "my-comments"), key = "comments", query = pageQuery(page))
 
@@ -186,6 +192,9 @@ class PicaApi(
         fetch("GET", listOf("games"), key = "games", query = pageQuery(page))
 
     suspend fun game(gameId: String): PicaResult<GameInfo> = fetch("GET", listOf("games", gameId), key = "game")
+
+    suspend fun switchLikeGame(gameId: String): PicaResult<LikeAction> =
+        fetch("POST", listOf("games", gameId, "like"), key = "action", body = buildJsonObject { })
 
     suspend fun gameComments(gameId: String, page: Int = 1): PicaResult<CommentsPage> =
         fetch("GET", listOf("games", gameId, "comments"), query = pageQuery(page))

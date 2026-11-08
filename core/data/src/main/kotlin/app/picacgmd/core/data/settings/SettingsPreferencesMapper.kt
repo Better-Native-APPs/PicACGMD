@@ -45,6 +45,7 @@ internal object SettingsPreferencesMapper {
             categoryShieldMode = preferences.readEnum(Keys.categoryShieldMode, d.categoryShieldMode),
             hiddenKeywords = preferences.readList(Keys.hiddenKeywords, d.hiddenKeywords),
             hideViewedComics = preferences[Keys.hideViewedComics] ?: d.hideViewedComics,
+            hideAiComics = preferences[Keys.hideAiComics] ?: d.hideAiComics,
             hiddenCategories = preferences.readList(Keys.hiddenCategories, d.hiddenCategories),
             categoryOrder = preferences.readList(Keys.categoryOrder, d.categoryOrder),
             pinnedHomeCategories = preferences.readList(Keys.pinnedHomeCategories, d.pinnedHomeCategories),

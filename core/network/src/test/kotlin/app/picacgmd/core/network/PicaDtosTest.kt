@@ -8,6 +8,27 @@ import kotlin.test.assertTrue
 
 class PicaDtosTest {
     @Test
+    fun announcementsTolerateAbsentNullAndUnknownFields() {
+        assertEquals(Announcement(), PicaJson.decodeFromString<Announcement>("{}"))
+        assertEquals(
+            Announcement(),
+            PicaJson.decodeFromString<Announcement>(
+                """{"_id":null,"title":null,"content":null,"thumb":null,"created_at":null,"futureField":42}""",
+            ),
+        )
+    }
+
+    @Test
+    fun comicListsRetainOptionalTagsAndDefaultMissingOrNullTags() {
+        val comics = PicaJson.decodeFromString<List<ComicSimple>>(
+            """[{"tags":["ai绘画"]},{"tags":null},{}]""",
+        )
+        assertEquals(listOf("ai绘画"), comics.first().tags)
+        assertEquals(emptyList(), comics[1].tags)
+        assertEquals(emptyList(), comics[2].tags)
+    }
+
+    @Test
     fun comicsPageDecodesSearchResultsWithMissingCountsAndUnknownFields() {
         val page = PicaJson.decodeFromString<Page<ComicSimple>>(
             """{"total":1,"limit":20,"page":"2","pages":4,"newField":true,"docs":[
