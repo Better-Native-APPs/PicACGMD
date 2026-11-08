@@ -97,15 +97,15 @@ private fun NoticeScreen(onContinue: () -> Unit) {
             tint = MaterialTheme.colorScheme.onPrimaryContainer,
         )
         Text("欢迎使用 PicACG", style = MaterialTheme.typography.headlineLarge)
-        Text("开始前请阅读以下内容。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("使用须知", color = MaterialTheme.colorScheme.onSurfaceVariant)
         Card {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text("内容分级", style = MaterialTheme.typography.titleMedium)
-                Text("社区内容可能包含限制级内容，仅面向 18 岁及以上用户。")
+                Text("可能含限制级内容，仅限 18 岁及以上用户")
                 Text("独立客户端", style = MaterialTheme.typography.titleMedium)
-                Text("与内容平台无隶属关系，账号和内容由平台提供。")
+                Text("与内容平台无隶属关系，账号和内容由平台提供")
                 Text("本机隐私", style = MaterialTheme.typography.titleMedium)
-                Text("不收集使用统计。账号和本机记录保存在设备上；浏览内容时会连接内容平台和图片服务。")
+                Text("不收集使用数据，记录只保存在本机")
             }
         }
         Row(Modifier.fillMaxWidth().clickable { adult = !adult }, verticalAlignment = Alignment.CenterVertically) {
@@ -138,7 +138,7 @@ private fun LoginForm(onBack: (() -> Unit)?, onRegister: () -> Unit, onForgot: (
             tint = MaterialTheme.colorScheme.onPrimary,
         )
         Text("登录账号", style = MaterialTheme.typography.headlineLarge)
-        Text("使用你的哔咔账号登录", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("使用哔咔账号登录", color = MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedTextField(
             account, { account = it; error = null }, Modifier.fillMaxWidth(), label = { Text("账号") },
             enabled = !busy, singleLine = true, isError = error != null,
@@ -147,11 +147,11 @@ private fun LoginForm(onBack: (() -> Unit)?, onRegister: () -> Unit, onForgot: (
         PasswordField(password, { password = it; error = null }, enabled = !busy, isError = error != null)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Checkbox(rememberCredentials, { rememberCredentials = it }, enabled = !busy)
-            Text("记住账号和密码（加密保存在本机）", style = MaterialTheme.typography.bodyMedium)
+            Text("记住账号和密码（本机加密保存）", style = MaterialTheme.typography.bodyMedium)
         }
         error?.let {
             AccountError(it)
-            TextButton(onNetwork) { Text("也可能是网络被拦截，试试切换分流") }
+            TextButton(onNetwork) { Text("切换分流") }
         }
         Button(
             onClick = {
@@ -165,7 +165,7 @@ private fun LoginForm(onBack: (() -> Unit)?, onRegister: () -> Unit, onForgot: (
                     } catch (exception: CancellationException) {
                         throw exception
                     } catch (exception: Exception) {
-                        error = exception.localizedMessage ?: "登录失败，请重试"
+                        error = exception.localizedMessage ?: "登录失败"
                     } finally {
                         submitting = false
                     }
@@ -190,7 +190,7 @@ private fun LoginForm(onBack: (() -> Unit)?, onRegister: () -> Unit, onForgot: (
                         style = MaterialTheme.typography.titleSmall,
                     )
                     Text(
-                        if (settings.proxyUrl.isBlank()) "代理未设置 · 登录不上时可以换一条分流" else "已设置代理，分流暂不生效",
+                        if (settings.proxyUrl.isBlank()) "未设置代理" else "已启用代理，分流暂不生效",
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
