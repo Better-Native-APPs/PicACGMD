@@ -50,6 +50,10 @@ internal class ReaderSession(
     /** Zero-based page the reader is on inside the open chapter. */
     var page by mutableIntStateOf(startPage.coerceAtLeast(0))
         private set
+
+    /** Last page on screen: [page] itself, or the second page of a two-page spread. */
+    var pageEnd by mutableIntStateOf(startPage.coerceAtLeast(0))
+        private set
     var content: ChapterContent by mutableStateOf(ChapterContent.Loading)
         private set
 
@@ -77,10 +81,11 @@ internal class ReaderSession(
     fun open(index: Int = chapterIndex, startPage: Int = page) {
         job?.cancel()
         (content as? ChapterContent.Ready)?.let { ready ->
-            if (page >= ready.pages.lastIndex) finishedChapters = finishedChapters + ready.chapter.id
+            if (maxOf(page, pageEnd) >= ready.pages.lastIndex) finishedChapters = finishedChapters + ready.chapter.id
         }
         chapterIndex = index.coerceAtLeast(0)
         page = startPage.coerceAtLeast(0)
+        pageEnd = page
         nextChapterPages = null
         content = ChapterContent.Loading
         job = scope.launch(start = CoroutineStart.UNDISPATCHED) {
@@ -97,6 +102,7 @@ internal class ReaderSession(
                         ChapterContent.Empty(chapter)
                     } else {
                         page = clampPage(page, pages.size)
+                        pageEnd = page
                         ChapterContent.Ready(resolved, chapter, pages, page, ++generation)
                     }
                 }
@@ -159,9 +165,11 @@ internal class ReaderSession(
         return current.pages.await()
     }
 
-    fun onPageChanged(index: Int) {
+    /** The page on screen is [index]; a two-page spread also shows the pages up to [lastVisible]. */
+    fun onPageChanged(index: Int, lastVisible: Int = index) {
         val ready = content as? ChapterContent.Ready ?: return
         page = clampPage(index, ready.pages.size)
+        pageEnd = clampPage(maxOf(index, lastVisible), ready.pages.size)
     }
 
     /** Current position, or null while nothing is open. */

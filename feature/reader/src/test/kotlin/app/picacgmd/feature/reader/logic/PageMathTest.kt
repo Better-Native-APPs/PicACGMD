@@ -145,4 +145,13 @@ class PageMathTest {
         assertEquals(null, stripItemAt(visible, 1020f))
         assertEquals(null, stripItemAt(emptyList(), 0f))
     }
+
+    @Test
+    fun loadPercentRoundsAndClamps() {
+        assertEquals(62, loadPercent(0.62f))
+        assertEquals(0, loadPercent(-0.2f))
+        assertEquals(100, loadPercent(1.4f))
+        assertEquals(1, loadPercent(0.012f))
+        assertEquals(null, loadPercent(Float.NaN))
+    }
 }

@@ -21,11 +21,13 @@ import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.input.pointer.util.VelocityTracker
+import app.picacgmd.feature.reader.logic.ZOOM_EPSILON
 import app.picacgmd.feature.reader.logic.ZoomTransform
 import app.picacgmd.feature.reader.logic.atPanEdge
 import app.picacgmd.feature.reader.logic.distributeVerticalShift
 import app.picacgmd.feature.reader.logic.doubleTapTarget
-import app.picacgmd.feature.reader.logic.maxOffset
+import app.picacgmd.feature.reader.logic.panLimit
+import app.picacgmd.feature.reader.logic.stripListHeight
 import app.picacgmd.feature.reader.logic.zoomAround
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -38,6 +40,9 @@ private val ZoomSpring = spring<Float>(dampingRatio = Spring.DampingRatioNoBounc
 /**
  * Zoom of the page (paged modes) or of the whole strip. All values are screen pixels; the
  * transform is applied with [applyTo] inside `graphicsLayer`, pivot in the centre.
+ *
+ * A strip (see [listScroller]) keeps its translation small: vertical moves scroll the list, and the
+ * translation only takes what the list cannot, at its two ends.
  */
 @Stable
 internal class ZoomState(private val scope: CoroutineScope) {
@@ -55,20 +60,34 @@ internal class ZoomState(private val scope: CoroutineScope) {
     var gestureSpeed: Float = 1f
 
     /**
-     * Continuous strips only: takes a vertical move in screen pixels, scrolls the list by it and
-     * returns how much it consumed. Without it, vertical moves translate the page.
+     * Continuous strips only: scrolls the list by the given list pixels (positive scrolls forward)
+     * and returns how many it consumed. Without it, vertical moves translate the page.
      */
-    var verticalScroller: ((Float) -> Float)? = null
+    var listScroller: ((Float) -> Float)? = null
 
-    private var containerWidth = 0f
-    private var containerHeight = 0f
+    /**
+     * The strip is laid out [stripListHeight] tall, so below 1× it grows with the zoom. Its centre
+     * has to stay put while it grows, which takes a scroll of half the growth.
+     */
+    var listGrowsWhenZoomedOut: Boolean = false
+
+    /** How far past the content edges a drag may go, as a fraction of the container (锁定拖动边界 off). */
+    var panSlack: Float = 0f
+
+    var containerWidth = 0f
+        private set
+    var containerHeight = 0f
+        private set
     private var contentWidth = 0f
     private var contentHeight = 0f
     private var animation: Job? = null
 
     val isZoomed: Boolean get() = isZoomedScale(scale)
-    val maxOffsetX: Float get() = maxOffset(containerWidth, contentWidth, scale)
-    val maxOffsetY: Float get() = maxOffset(containerHeight, contentHeight, scale)
+
+    /** Above 1×: part of the page is off screen. */
+    val isZoomedIn: Boolean get() = scale > 1f + ZOOM_EPSILON
+    val maxOffsetX: Float get() = panLimit(containerWidth, contentWidth, scale, panSlack)
+    val maxOffsetY: Float get() = panLimit(containerHeight, contentHeight, scale, panSlack)
     private val transform: ZoomTransform get() = ZoomTransform(scale, offsetX, offsetY)
 
     /** Container and (unzoomed) content size; the content defaults to filling the container. */
@@ -87,10 +106,15 @@ internal class ZoomState(private val scope: CoroutineScope) {
         this.containerHeight = containerHeight
         this.contentWidth = contentWidth
         this.contentHeight = contentHeight
+        clampToBounds()
+    }
+
+    /** Pulls the translation back inside the bounds, for example after 锁定拖动边界 was turned on. */
+    fun clampToBounds() {
         val mx = maxOffsetX
         val my = maxOffsetY
         offsetX = offsetX.coerceIn(-mx, mx)
-        if (verticalScroller == null) offsetY = offsetY.coerceIn(-my, my)
+        offsetY = offsetY.coerceIn(-my, my)
     }
 
     fun gestureStarted() {
@@ -111,7 +135,12 @@ internal class ZoomState(private val scope: CoroutineScope) {
 
     /** One-finger drag while zoomed. */
     fun drag(dx: Float, dy: Float) {
-        apply(ZoomTransform(scale, offsetX + dx * gestureSpeed, offsetY + dy * gestureSpeed))
+        panBy(dx * gestureSpeed, dy * gestureSpeed)
+    }
+
+    /** Moves the content by ([dx], [dy]) screen pixels, as far as the bounds allow. */
+    fun panBy(dx: Float, dy: Float) {
+        apply(ZoomTransform(scale, offsetX + dx, offsetY + dy))
     }
 
     /** Back to 1× without animation (page change, chapter change). */
@@ -158,15 +187,21 @@ internal class ZoomState(private val scope: CoroutineScope) {
 
     private fun apply(next: ZoomTransform) {
         val s = if (abs(next.scale - 1f) < 0.001f) 1f else next.scale
+        val previous = scale
         scale = s
-        val mx = maxOffset(containerWidth, contentWidth, s)
-        val my = maxOffset(containerHeight, contentHeight, s)
+        val scroller = listScroller
+        if (scroller != null && listGrowsWhenZoomedOut && s != previous) {
+            val growth = stripListHeight(containerHeight, s) - stripListHeight(containerHeight, previous)
+            if (growth != 0f) scroller(-growth / 2f)
+        }
+        val mx = panLimit(containerWidth, contentWidth, s, panSlack)
+        val my = panLimit(containerHeight, contentHeight, s, panSlack)
         offsetX = next.offsetX.coerceIn(-mx, mx)
-        val scroller = verticalScroller
         offsetY = if (scroller == null) {
             next.offsetY.coerceIn(-my, my)
         } else {
-            distributeVerticalShift(next.offsetY - offsetY, offsetY, my, scroller)
+            // A finger moving down by dy screen pixels scrolls the list back by dy / scale.
+            distributeVerticalShift(next.offsetY - offsetY, offsetY, my) { dy -> -scroller(-dy / s) * s }
         }
     }
 }
@@ -182,7 +217,7 @@ private fun PointerEvent.pinchInto(zoom: ZoomState, width: Int, height: Int) {
 
 /**
  * Continuous strip: two fingers zoom anywhere; while zoomed, one finger moves the strip sideways
- * and scrolls it (through [ZoomState.verticalScroller]); [onFling] gets the vertical release
+ * and scrolls it (through [ZoomState.listScroller]); [onFling] gets the vertical release
  * velocity. Runs in the initial pass so it can take the gesture away from the list; at 1× single
  * fingers are left to the list.
  */

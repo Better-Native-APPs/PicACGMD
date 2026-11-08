@@ -12,14 +12,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.East
 import androidx.compose.material.icons.rounded.South
 import androidx.compose.material.icons.rounded.West
+import androidx.compose.material.icons.rounded.ZoomIn
+import androidx.compose.material.icons.rounded.ZoomOut
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,15 +68,21 @@ internal fun HintPill(text: String, modifier: Modifier = Modifier, icon: ImageVe
  * Shows [content] for a moment each time [value] changes, but not for the first value: the hint
  * answers a change the reader just made, and has nothing to say on a fresh open. A null value means
  * nothing is known right now (a chapter is loading) and is passed over, so that the change is still
- * noticed when the next value arrives.
+ * noticed when the next value arrives. While [held] (a sheet covers the screen) a change waits, and a
+ * change that was undone in the meantime is not announced at all.
  */
 @Composable
-private fun <T : Any> ShowOnChange(value: T?, modifier: Modifier, content: @Composable (T) -> Unit) {
+private fun <T : Any> ShowOnChange(
+    value: T?,
+    modifier: Modifier,
+    held: Boolean = false,
+    content: @Composable (T) -> Unit,
+) {
     var shown by remember { mutableStateOf(value) }
     var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(value) {
+    LaunchedEffect(value, held) {
         val previous = shown
-        if (value == null) {
+        if (value == null || held) {
             visible = false
         } else if (value != previous) {
             shown = value
@@ -90,8 +100,8 @@ private fun <T : Any> ShowOnChange(value: T?, modifier: Modifier, content: @Comp
 
 /** 滤镜切换时左上角短暂提示当前滤镜. */
 @Composable
-internal fun FilterHint(filter: ReaderFilter, modifier: Modifier = Modifier) {
-    ShowOnChange(filter, modifier) { current ->
+internal fun FilterHint(filter: ReaderFilter, modifier: Modifier = Modifier, held: Boolean = false) {
+    ShowOnChange(filter, modifier, held) { current ->
         HintPill(
             text = stringResource(
                 R.string.reader_filter_hint,
@@ -109,8 +119,8 @@ internal fun FilterHint(filter: ReaderFilter, modifier: Modifier = Modifier) {
 
 /** 翻页模式切换方向后短暂提示一次. */
 @Composable
-internal fun DirectionHint(direction: ReaderDirection, modifier: Modifier = Modifier) {
-    ShowOnChange(direction, modifier) { current ->
+internal fun DirectionHint(direction: ReaderDirection, modifier: Modifier = Modifier, held: Boolean = false) {
+    ShowOnChange(direction, modifier, held) { current ->
         val (icon, text) = when (current) {
             ReaderDirection.TopToBottom -> Icons.Rounded.South to R.string.reader_direction_ttb
             ReaderDirection.LeftToRight -> Icons.Rounded.East to R.string.reader_direction_ltr
@@ -120,8 +130,24 @@ internal fun DirectionHint(direction: ReaderDirection, modifier: Modifier = Modi
     }
 }
 
+/**
+ * 自由缩放: 「200%」 for a moment while the zoom changes. [percent] is read here, so only this pill
+ * recomposes during a pinch.
+ */
+@Composable
+internal fun ZoomHint(percent: () -> Int, modifier: Modifier = Modifier) {
+    val latest by rememberUpdatedState(percent)
+    val value by remember { derivedStateOf { latest() } }
+    ShowOnChange(value, modifier) { current ->
+        HintPill(
+            text = stringResource(R.string.reader_zoom_percent, current),
+            icon = if (current >= 100) Icons.Rounded.ZoomIn else Icons.Rounded.ZoomOut,
+        )
+    }
+}
+
 /** Names the new chapter for a moment after moving into it; null while one is loading. */
 @Composable
-internal fun ChapterHint(chapterTitle: String?, modifier: Modifier = Modifier) {
-    ShowOnChange(chapterTitle, modifier) { current -> HintPill(text = current) }
+internal fun ChapterHint(chapterTitle: String?, modifier: Modifier = Modifier, held: Boolean = false) {
+    ShowOnChange(chapterTitle, modifier, held) { current -> HintPill(text = current) }
 }

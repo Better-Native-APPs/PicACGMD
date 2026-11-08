@@ -4,8 +4,11 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -51,6 +54,8 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
@@ -98,6 +103,11 @@ import app.picacgmd.feature.reader.ui.TopCapsuleHeight
 import app.picacgmd.feature.reader.ui.palette
 import app.picacgmd.feature.reader.ui.readerChromeInsets
 import app.picacgmd.feature.reader.ui.rememberPageColorFilter
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -182,6 +192,10 @@ fun ReaderScreen(
     var chapterEndVisible by remember { mutableStateOf(false) }
     var zoneOverlayVisible by remember { mutableStateOf(false) }
     var lastSeekMillis by remember { mutableLongStateOf(0L) }
+    // Only read inside effects, so a touch does not recompose the screen.
+    var touching by remember { mutableStateOf(false) }
+    // Changes only when the zoom crosses 1×, not on every step of a pinch.
+    var zoomedIn by remember { mutableStateOf(false) }
 
     val content = session.content
     val ready = content as? ChapterContent.Ready
@@ -189,6 +203,7 @@ fun ReaderScreen(
     // way does not count: moving between chapters while reading should not flash the controls.
     val controlsShown = controlsVisible || (ready == null && content != ChapterContent.Loading)
 
+    val latestControlsShown by rememberUpdatedState(controlsShown)
     val goPastEnd = remember(session) {
         { if (session.nextChapter != null) session.openNext() else allReadVisible = true }
     }
@@ -204,6 +219,9 @@ fun ReaderScreen(
             onLongPressPage = { page -> openSheet = OpenSheet.PageActions(page) },
             onPastEnd = goPastEnd,
             onChapterEndVisible = { chapterEndVisible = it },
+            loadProgress = source::imageLoadProgress,
+            onZoomedInChange = { zoomedIn = it },
+            controlsShown = { latestControlsShown },
         )
     }
 
@@ -257,6 +275,32 @@ fun ReaderScreen(
         if (windowFocused && settings.volumeKeyPaging) keyFocus.requestFocus()
     }
 
+    // 自动翻页: waits while the controls, a sheet, a dialog, the zone overlay or the chapter-end card are
+    // up, while a finger is on the screen and while the page is zoomed in; turning a page by hand starts
+    // the wait over. At the end of the chapter it stops, and it never leaves the chapter by itself.
+    // It also waits while the reader is not in the foreground.
+    val autoTurnHeld by rememberUpdatedState(
+        controlsShown || openSheet != null || preview != null || allReadVisible || zoneOverlayVisible || chapterEndVisible,
+    )
+    val lifecycleState = LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    LaunchedEffect(settings.autoTurn, settings.autoTurnSeconds, ready?.generation) {
+        if (!settings.autoTurn || ready == null) return@LaunchedEffect
+        val wait = settings.autoTurnSeconds * 1_000L
+        snapshotFlow {
+            val resumed = lifecycleState.value.isAtLeast(Lifecycle.State.RESUMED)
+            if (autoTurnHeld || touching || zoomedIn || !resumed) null else session.page
+        }.collectLatest { page ->
+            if (page == null) return@collectLatest
+            while (true) {
+                delay(wait)
+                // The turn runs in the screen's scope: the page it reaches restarts this wait, and
+                // that must not cut its own animation short half-way between two pages.
+                val turn = scope.async { navigator.active?.step(forward = true, leaveAtEnd = false) ?: false }
+                if (!turn.await()) awaitCancellation()
+            }
+        }
+    }
+
     ReaderSystemBars(
         hidden = settings.fullscreen && !controlsShown,
         lightBackground = palette.background.luminance() > 0.5f,
@@ -293,6 +337,20 @@ fun ReaderScreen(
             modifier = modifier
                 .fillMaxSize()
                 .background(palette.background)
+                .pointerInput(Unit) {
+                    // Watches without taking anything: a finger anywhere holds 自动翻页.
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        touching = true
+                        try {
+                            do {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                            } while (event.changes.any { it.pressed })
+                        } finally {
+                            touching = false
+                        }
+                    }
+                }
                 .onPreviewKeyEvent(::onKey)
                 .focusRequester(keyFocus)
                 .focusable(enabled = settings.volumeKeyPaging),
@@ -335,16 +393,22 @@ fun ReaderScreen(
                 }
             }
 
-            if (ready != null && !controlsShown && !chapterEndVisible) {
+            // In 自由缩放 the minimap takes the badge's corner while zoomed in.
+            val minimapShown = settings.mode == ReaderMode.FreeZoom && zoomedIn
+            if (ready != null && !controlsShown && !chapterEndVisible && !minimapShown) {
                 CurrentPageBadge(
                     page = { session.page },
+                    lastPage = { session.pageEnd },
                     pageCount = ready.pages.size,
                     onClick = if (settings.tapMode == TapMode.Controller) ({ controlsVisible = true }) else null,
                 )
             }
 
+            // Changes made in a sheet are announced once it has closed and the hint can be seen.
+            val hintsHeld = openSheet != null
             FilterHint(
                 filter = settings.filter,
+                held = hintsHeld,
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .windowInsetsPadding(chromeInsets.only(WindowInsetsSides.Top + WindowInsetsSides.Start))
@@ -352,6 +416,7 @@ fun ReaderScreen(
             )
             ChapterHint(
                 chapterTitle = ready?.chapter?.title,
+                held = hintsHeld,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .windowInsetsPadding(chromeInsets.only(WindowInsetsSides.Top))
@@ -359,6 +424,7 @@ fun ReaderScreen(
             )
             DirectionHint(
                 direction = direction,
+                held = hintsHeld,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .windowInsetsPadding(chromeInsets.only(WindowInsetsSides.Bottom))
@@ -554,8 +620,18 @@ private fun ChapterPages(
         slot
     }
     when (settings.mode) {
-        // 自由缩放 currently reads as a zoomable strip.
-        ReaderMode.Strip, ReaderMode.FreeZoom -> StripReader(
+        ReaderMode.Strip, ReaderMode.FreeZoom -> key(settings.mode) {
+            StripReader(
+                pages = content.pages,
+                initialPage = startAt,
+                config = settings,
+                host = host,
+                upcomingPages = upcomingPages,
+                endContent = endContent,
+                free = settings.mode == ReaderMode.FreeZoom,
+            )
+        }
+        ReaderMode.Paged -> PagedReader(
             pages = content.pages,
             initialPage = startAt,
             config = settings,
@@ -563,15 +639,23 @@ private fun ChapterPages(
             upcomingPages = upcomingPages,
             endContent = endContent,
         )
-        // 双页 currently reads one page at a time.
-        ReaderMode.Paged, ReaderMode.DoublePage -> PagedReader(
-            pages = content.pages,
-            initialPage = startAt,
-            config = settings,
-            host = host,
-            upcomingPages = upcomingPages,
-            endContent = endContent,
-        )
+        // Two pages side by side on a landscape screen; on a portrait one they would be too small,
+        // so it reads a page at a time there. Turning the phone keeps the page.
+        ReaderMode.DoublePage -> BoxWithConstraints(Modifier.fillMaxSize()) {
+            val spreads = maxWidth > maxHeight
+            key(spreads, settings.twoPageCoverAlone) {
+                val start = remember { Snapshot.withoutReadObservation { session.page } }
+                PagedReader(
+                    pages = content.pages,
+                    initialPage = start,
+                    config = settings,
+                    host = host,
+                    upcomingPages = upcomingPages,
+                    endContent = endContent,
+                    spreads = spreads,
+                )
+            }
+        }
     }
 }
 
@@ -580,7 +664,7 @@ private fun ChapterPages(
  * gets a finger-sized touch area without growing on screen.
  */
 @Composable
-private fun BoxScope.CurrentPageBadge(page: () -> Int, pageCount: Int, onClick: (() -> Unit)?) {
+private fun BoxScope.CurrentPageBadge(page: () -> Int, lastPage: () -> Int, pageCount: Int, onClick: (() -> Unit)?) {
     val label = stringResource(R.string.reader_show_controls)
     Box(
         modifier = Modifier
@@ -596,7 +680,8 @@ private fun BoxScope.CurrentPageBadge(page: () -> Int, pageCount: Int, onClick: 
             )
             .padding(horizontal = 8.dp, vertical = 15.dp),
     ) {
-        PageBadge(page = page() + 1, pageCount = pageCount)
+        val first = page()
+        PageBadge(page = first + 1, pageCount = pageCount, lastPage = maxOf(first, lastPage()) + 1)
     }
 }
 

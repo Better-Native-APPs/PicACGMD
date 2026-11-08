@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import app.picacgmd.feature.reader.ReaderBackground
 import app.picacgmd.feature.reader.ReaderChapter
 import app.picacgmd.feature.reader.ReaderConfig
+import app.picacgmd.feature.reader.ReaderMode
 import app.picacgmd.feature.reader.SliderPosition
 import app.picacgmd.feature.reader.TapMode
 import app.picacgmd.feature.reader.logic.ForwardSwipe
@@ -25,6 +26,19 @@ import app.picacgmd.feature.reader.logic.PagingAxis
 private fun PageLoadingPreview() {
     ReaderTheme(ReaderBackground.Black) {
         PageLoadingBlock(pageNumber = 15, reduceMotion = true, modifier = Modifier.fillMaxWidth().height(520.dp))
+    }
+}
+
+@Preview(name = "加载中 · 有进度", widthDp = 360, heightDp = 520)
+@Composable
+private fun PageLoadingProgressPreview() {
+    ReaderTheme(ReaderBackground.Black) {
+        PageLoadingBlock(
+            pageNumber = 15,
+            reduceMotion = true,
+            progress = { 0.62f },
+            modifier = Modifier.fillMaxWidth().height(520.dp),
+        )
     }
 }
 
@@ -53,6 +67,21 @@ private fun PageBadgePreview() {
                 .background(ReaderBackground.Paper.palette().background),
         ) {
             PageBadge(page = 14, pageCount = 22, modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp))
+        }
+    }
+}
+
+@Preview(name = "双页页码", widthDp = 200, heightDp = 80)
+@Composable
+private fun SpreadBadgePreview() {
+    ReaderTheme(ReaderBackground.Black) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(80.dp)
+                .background(ReaderBackground.Black.palette().background),
+        ) {
+            PageBadge(page = 14, lastPage = 15, pageCount = 22, modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp))
         }
     }
 }
@@ -161,6 +190,20 @@ private fun SettingsSheetPreview() {
     ReaderTheme(ReaderBackground.Black) {
         ReaderSettingsSheet(
             config = ReaderConfig(volumeKeyPaging = true, autoTurn = true),
+            onConfigChange = {},
+            onDismiss = {},
+            onOpenAllSettings = {},
+            onPreviewZones = {},
+        )
+    }
+}
+
+@Preview(name = "阅读设置 · 双页", widthDp = 412, heightDp = 915)
+@Composable
+private fun SettingsSheetDoublePagePreview() {
+    ReaderTheme(ReaderBackground.Black) {
+        ReaderSettingsSheet(
+            config = ReaderConfig(mode = ReaderMode.DoublePage, twoPageCoverAlone = true),
             onConfigChange = {},
             onDismiss = {},
             onOpenAllSettings = {},

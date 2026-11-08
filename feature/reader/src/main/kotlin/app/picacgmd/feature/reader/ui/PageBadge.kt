@@ -17,9 +17,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.picacgmd.feature.reader.R
 
-/** The only thing on screen while reading immersively: 「14 / 22」 in a small translucent pill. */
+/**
+ * The only thing on screen while reading immersively: 「14 / 22」 in a small translucent pill, or
+ * 「14-15 / 22」 while a two-page spread shows pages [page] to [lastPage] (1-based).
+ */
 @Composable
-internal fun PageBadge(page: Int, pageCount: Int, modifier: Modifier = Modifier) {
+internal fun PageBadge(page: Int, pageCount: Int, modifier: Modifier = Modifier, lastPage: Int = page) {
     Box(
         modifier = modifier
             .heightIn(min = 18.dp)
@@ -29,7 +32,11 @@ internal fun PageBadge(page: Int, pageCount: Int, modifier: Modifier = Modifier)
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = stringResource(R.string.reader_page_badge, page, pageCount),
+            text = if (lastPage > page) {
+                stringResource(R.string.reader_spread_badge, page, lastPage, pageCount)
+            } else {
+                stringResource(R.string.reader_page_badge, page, pageCount)
+            },
             style = MaterialTheme.typography.labelSmall
                 .copy(fontSize = 11.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium)
                 .withTabularFigures(),

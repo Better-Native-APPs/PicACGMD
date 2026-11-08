@@ -30,9 +30,12 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Animation
 import androidx.compose.material.icons.rounded.AutoStories
+import androidx.compose.material.icons.rounded.Book
+import androidx.compose.material.icons.rounded.CropFree
 import androidx.compose.material.icons.rounded.East
 import androidx.compose.material.icons.rounded.FormatColorFill
 import androidx.compose.material.icons.rounded.Fullscreen
@@ -95,6 +98,7 @@ import app.picacgmd.feature.reader.ReaderDirection
 import app.picacgmd.feature.reader.ReaderFilter
 import app.picacgmd.feature.reader.ReaderMode
 import app.picacgmd.feature.reader.TapMode
+import app.picacgmd.feature.reader.TwoPageArrangement
 import app.picacgmd.feature.reader.logic.availableDirections
 import app.picacgmd.feature.reader.logic.effectiveDirection
 import kotlinx.coroutines.launch
@@ -205,6 +209,55 @@ internal fun ReaderSettingsSheet(
                     Icon(icon, contentDescription = stringResource(label), modifier = Modifier.size(18.dp))
                 }
             }
+            // Settings that only mean something in the chosen mode sit right under it.
+            ExpandingRow(visible = config.mode == ReaderMode.DoublePage) {
+                Column {
+                    SettingRow(Icons.AutoMirrored.Rounded.MenuBook, stringResource(R.string.reader_setting_arrangement)) {
+                        ChoiceGroup(
+                            options = TwoPageArrangement.entries,
+                            selected = config.twoPageArrangement,
+                            onSelect = { onConfigChange(config.copy(twoPageArrangement = it)) },
+                        ) { arrangement ->
+                            Text(
+                                text = stringResource(
+                                    when (arrangement) {
+                                        TwoPageArrangement.CloseTo -> R.string.reader_arrangement_close
+                                        TwoPageArrangement.PullAway -> R.string.reader_arrangement_away
+                                        TwoPageArrangement.EachCentered -> R.string.reader_arrangement_centered
+                                    },
+                                ),
+                                maxLines = 1,
+                            )
+                        }
+                    }
+                    Text(
+                        text = stringResource(R.string.reader_arrangement_caption),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = SettingContentStart, end = 20.dp),
+                    )
+                    Column(Modifier.padding(horizontal = 4.dp)) {
+                        SwitchRow(
+                            icon = Icons.Rounded.Book,
+                            title = stringResource(R.string.reader_setting_cover_alone),
+                            supporting = stringResource(R.string.reader_setting_cover_alone_detail),
+                            checked = config.twoPageCoverAlone,
+                            onCheckedChange = { onConfigChange(config.copy(twoPageCoverAlone = it)) },
+                        )
+                    }
+                }
+            }
+            ExpandingRow(visible = config.mode == ReaderMode.FreeZoom) {
+                Column(Modifier.padding(horizontal = 4.dp)) {
+                    SwitchRow(
+                        icon = Icons.Rounded.CropFree,
+                        title = stringResource(R.string.reader_setting_lock_drag),
+                        supporting = stringResource(R.string.reader_setting_lock_drag_detail),
+                        checked = config.lockDragBounds,
+                        onCheckedChange = { onConfigChange(config.copy(lockDragBounds = it)) },
+                    )
+                }
+            }
             SettingRow(Icons.Rounded.FormatColorFill, stringResource(R.string.reader_setting_background)) {
                 BackgroundChoice(config.background) { onConfigChange(config.copy(background = it)) }
             }
@@ -293,7 +346,7 @@ internal fun ReaderSettingsSheet(
     }
 }
 
-/** A row that belongs to the switch above it and only shows while that switch is on. */
+/** A row that belongs to the setting above it (a switch, or the mode) and only shows while it applies. */
 @Composable
 private fun ColumnScope.ExpandingRow(visible: Boolean, content: @Composable () -> Unit) {
     val reduceMotion = LocalReaderReduceMotion.current
@@ -342,6 +395,9 @@ private fun SmallTextButton(text: String, onClick: () -> Unit) {
         Text(text, style = ButtonDefaults.textStyleFor(ButtonDefaults.ExtraSmallContainerHeight))
     }
 }
+
+/** Where a [SettingRow]'s content starts: padding 20, icon 24, gap 12, label 64, gap 12. */
+private val SettingContentStart = 132.dp
 
 @Composable
 private fun SettingRow(icon: ImageVector, label: String, content: @Composable () -> Unit) {

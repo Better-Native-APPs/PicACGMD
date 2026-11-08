@@ -87,6 +87,13 @@ internal fun stepTarget(current: Int, delta: Int, pageCount: Int): Int? {
     return if (target in 0 until pageCount) target else null
 }
 
+/**
+ * Whole percent for a download fraction (0..1) as shown on a loading page, or null when the
+ * fraction is not a number. Out-of-range fractions are clamped.
+ */
+internal fun loadPercent(fraction: Float): Int? =
+    if (fraction.isNaN()) null else (fraction.coerceIn(0f, 1f) * 100f).roundToInt()
+
 /** Slider value (0..1) for [page]; a single-page chapter sits at 0. */
 internal fun pageToSlider(page: Int, pageCount: Int): Float =
     if (pageCount <= 1) 0f else clampPage(page, pageCount).toFloat() / (pageCount - 1)

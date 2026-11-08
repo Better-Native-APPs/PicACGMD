@@ -123,4 +123,16 @@
     <string name="reader_back_to_details">返回详情</string>
     <string name="reader_see_comments">看评论</string>
     <string name="reader_related">也在看</string>
+    <!-- 双页 / 自由缩放 -->
+    <string name="reader_setting_arrangement">排列</string>
+    <string name="reader_arrangement_close">靠近</string>
+    <string name="reader_arrangement_away">远离</string>
+    <string name="reader_arrangement_centered">居中</string>
+    <string name="reader_arrangement_caption">横屏时两页并排，竖屏时一次一页</string>
+    <string name="reader_setting_cover_alone">封面单独一页</string>
+    <string name="reader_setting_cover_alone_detail">第 1 页不和后面的页拼在一起</string>
+    <string name="reader_setting_lock_drag">锁定拖动边界</string>
+    <string name="reader_setting_lock_drag_detail">拖动时不越过图片边缘</string>
+    <string name="reader_zoom_percent">%1$d%%</string>
+    <string name="reader_minimap">当前页的可见范围，拖动可移动画面</string>
 </resources>

@@ -151,4 +151,82 @@ class ZoomMathTest {
         // Moving the layer up by 100 screen pixels reveals content 50 pixels further down.
         assertEquals(300f, screenToContent(0f, center = 500f, scale = 2f, offset = -100f), eps)
     }
+
+    @Test
+    fun stripListGrowsOnlyBelowOneX() {
+        assertEquals(900f, stripListHeight(900f, 1f), eps)
+        assertEquals(900f, stripListHeight(900f, 2.5f), eps)
+        assertEquals(1800f, stripListHeight(900f, 0.5f), eps)
+    }
+
+    @Test
+    fun panLimitAddsSlackWhenUnlocked() {
+        assertEquals(500f, panLimit(1000f, 1000f, 2f, 0f), eps)
+        assertEquals(1000f, panLimit(1000f, 1000f, 2f, 0.5f), eps)
+        // Zoomed out the content no longer covers the screen: locked means centred.
+        assertEquals(0f, panLimit(1000f, 1000f, 0.5f, 0f), eps)
+        assertEquals(500f, panLimit(1000f, 1000f, 0.5f, 0.5f), eps)
+    }
+
+    @Test
+    fun screenToListMatchesScreenToContentWhenTheListFillsTheScreen() {
+        assertEquals(
+            screenToContent(120f, center = 500f, scale = 2f, offset = 40f),
+            screenToList(120f, screenSize = 1000f, listSize = 1000f, scale = 2f, offset = 40f),
+            eps,
+        )
+        // Zoomed out to 0.5×, the 2000 px list covers the 1000 px screen exactly.
+        assertEquals(0f, screenToList(0f, screenSize = 1000f, listSize = 2000f, scale = 0.5f, offset = 0f), eps)
+        assertEquals(2000f, screenToList(1000f, screenSize = 1000f, listSize = 2000f, scale = 0.5f, offset = 0f), eps)
+    }
+
+    @Test
+    fun visiblePageFractionAtTwoX() {
+        // 1000 × 1000 screen at 2×, centred: the middle quarter of a page that fills the list.
+        val r = visiblePageFraction(1000f, 1000f, 1000f, 2f, 0f, 0f, pageTop = 0f, pageHeight = 1000f)!!
+        assertEquals(0.25f, r.left, eps)
+        assertEquals(0.75f, r.right, eps)
+        assertEquals(0.25f, r.top, eps)
+        assertEquals(0.75f, r.bottom, eps)
+        // Content moved left by 500 screen px: the right half of the page is in view.
+        val moved = visiblePageFraction(1000f, 1000f, 1000f, 2f, -500f, 0f, pageTop = 0f, pageHeight = 1000f)!!
+        assertEquals(0.5f, moved.left, eps)
+        assertEquals(1f, moved.right, eps)
+    }
+
+    @Test
+    fun visiblePageFractionClipsToThePage() {
+        // A page starting half-way down the list: only its top part is visible, clipped at 0.
+        val r = visiblePageFraction(1000f, 1000f, 1000f, 1f, 0f, 0f, pageTop = 500f, pageHeight = 1000f)!!
+        assertEquals(0f, r.top, eps)
+        assertEquals(0.5f, r.bottom, eps)
+        assertEquals(null, visiblePageFraction(1000f, 1000f, 1000f, 1f, 0f, 0f, pageTop = 1200f, pageHeight = 400f))
+    }
+
+    @Test
+    fun panToPagePointCentresThatPoint() {
+        val (dx, dy) = panToPagePoint(
+            u = 1f, v = 0.5f,
+            screenWidth = 1000f, screenHeight = 1000f, listHeight = 1000f,
+            scale = 2f, offsetX = 0f, offsetY = 0f,
+            pageTop = 0f, pageHeight = 1000f,
+        )
+        // The right edge (content x 1000) is 500 content px right of centre: move the layer 1000 px left.
+        assertEquals(-1000f, dx, eps)
+        assertEquals(0f, dy, eps)
+        val after = visiblePageFraction(1000f, 1000f, 1000f, 2f, dx, 0f, pageTop = 0f, pageHeight = 1000f)!!
+        assertEquals(0.75f, after.left, eps)
+    }
+
+    @Test
+    fun minimapKeepsTheAspectWithinBounds() {
+        val (w, h) = minimapSize(1.42f, maxWidth = 96f, maxHeight = 160f, minWidth = 24f)
+        assertEquals(96f, w, eps)
+        assertEquals(136.32f, h, 0.01f)
+        val (tallW, tallH) = minimapSize(4f, maxWidth = 96f, maxHeight = 160f, minWidth = 24f)
+        assertEquals(40f, tallW, eps)
+        assertEquals(160f, tallH, eps)
+        val (stripW, _) = minimapSize(20f, maxWidth = 96f, maxHeight = 160f, minWidth = 24f)
+        assertEquals(24f, stripW, eps)
+    }
 }

@@ -1,5 +1,7 @@
 package app.picacgmd.feature.reader.ui
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BrokenImage
 import androidx.compose.material3.Button
@@ -17,25 +20,31 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.WavyProgressIndicatorDefaults
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.picacgmd.feature.reader.PageImage
 import app.picacgmd.feature.reader.R
+import app.picacgmd.feature.reader.logic.loadPercent
 import java.io.IOException
 import java.io.InterruptedIOException
 
@@ -104,10 +113,34 @@ internal fun pageFailureOf(throwable: Throwable, image: PageImage): PageFailure 
 /** Minimum height of the loading / failure block so the failure pane always fits. */
 internal val PageBlockMinHeight = 320.dp
 
-/** Loading block: keeps the page's height, shows 「第 N 页」 under an expressive indicator. */
+/**
+ * How far a page has downloaded: null when the source cannot tell for this page at all, otherwise a
+ * reader of the current fraction, which is null while the total size is unknown.
+ */
+@Composable
+internal fun rememberLoadProgress(image: PageImage, host: ReaderPageHost): (() -> Float?)? {
+    val flow = remember(image, host) { (image as? PageImage.Remote)?.let { host.loadProgress(it.url) } }
+        ?: return null
+    val fraction = flow.collectAsState()
+    return { fraction.value }
+}
+
+private val LoadingBarWidth = 160.dp
+private val LoadingBarWavelength = 16.dp
+
+/**
+ * Loading block: keeps the page's height and shows 「第 N 页」 under an expressive indicator. When the
+ * source reports [progress] and the size is known, the label becomes 「第 N 页 · 62%」 over a wavy
+ * bar; the bar's place is kept while the size is still unknown so nothing jumps when it appears.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-internal fun PageLoadingBlock(pageNumber: Int, reduceMotion: Boolean, modifier: Modifier = Modifier) {
+internal fun PageLoadingBlock(
+    pageNumber: Int,
+    reduceMotion: Boolean,
+    modifier: Modifier = Modifier,
+    progress: (() -> Float?)? = null,
+) {
     Box(modifier.background(PageBlockColors.Background), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             if (reduceMotion) {
@@ -116,11 +149,36 @@ internal fun PageLoadingBlock(pageNumber: Int, reduceMotion: Boolean, modifier: 
                 LoadingIndicator(modifier = Modifier.size(64.dp), color = ReaderDarkScheme.primary)
             }
             Spacer(Modifier.height(12.dp))
+            val fraction = progress?.invoke()
+            val percent = fraction?.let(::loadPercent)
             Text(
-                text = stringResource(R.string.reader_page_number, pageNumber),
+                text = if (percent != null) {
+                    stringResource(R.string.reader_page_loading_progress, pageNumber, percent)
+                } else {
+                    stringResource(R.string.reader_page_number, pageNumber)
+                },
                 style = MaterialTheme.typography.labelMedium.withTabularFigures(),
                 color = PageBlockColors.Label,
             )
+            if (progress != null) {
+                Spacer(Modifier.height(10.dp))
+                val shown by animateFloatAsState(
+                    targetValue = (percent ?: 0) / 100f,
+                    animationSpec = if (reduceMotion) snap() else WavyProgressIndicatorDefaults.ProgressAnimationSpec,
+                    label = "page download",
+                )
+                LinearWavyProgressIndicator(
+                    progress = { shown },
+                    modifier = Modifier
+                        .width(LoadingBarWidth)
+                        .alpha(if (percent != null) 1f else 0f),
+                    color = ReaderDarkScheme.primary,
+                    trackColor = ReaderDarkScheme.secondaryContainer,
+                    amplitude = if (reduceMotion) ({ 0f }) else WavyProgressIndicatorDefaults.indicatorAmplitude,
+                    wavelength = LoadingBarWavelength,
+                    waveSpeed = if (reduceMotion) 0.dp else LoadingBarWavelength,
+                )
+            }
         }
     }
 }

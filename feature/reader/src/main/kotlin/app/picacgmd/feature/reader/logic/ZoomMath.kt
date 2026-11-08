@@ -151,3 +151,93 @@ internal fun distributeVerticalShift(
  */
 internal fun screenToContent(screen: Float, center: Float, scale: Float, offset: Float): Float =
     center + (screen - center - offset) / scale.coerceAtLeast(0.01f)
+
+/** Smallest scale the strip layout accounts for; guards the divisions below. */
+private const val MIN_LAYOUT_SCALE: Float = 0.1f
+
+/**
+ * Height a zoomable strip is laid out at: the viewport at 1× and above, and proportionally more of
+ * the strip below 1× (自由缩放), so the zoomed-out strip still fills the screen from top to bottom.
+ */
+internal fun stripListHeight(viewportHeight: Float, scale: Float): Float =
+    viewportHeight / scale.coerceIn(MIN_LAYOUT_SCALE, 1f)
+
+/**
+ * Largest translation along one axis. The content edges stop at the container edges, and with
+ * 锁定拖动边界 off they may go [slack] × the container further.
+ */
+internal fun panLimit(container: Float, content: Float, scale: Float, slack: Float): Float =
+    maxOffset(container, content, scale) + container * slack.coerceAtLeast(0f)
+
+/**
+ * Where a screen position lands in a list laid out [listSize] tall (or wide), centred on a
+ * [screenSize] screen, scaled by [scale] around the centre and then moved by [offset].
+ */
+internal fun screenToList(screen: Float, screenSize: Float, listSize: Float, scale: Float, offset: Float): Float =
+    listSize / 2f + (screen - screenSize / 2f - offset) / scale.coerceAtLeast(MIN_LAYOUT_SCALE)
+
+/** A rectangle in fractions (0..1) of a page. */
+internal data class PageFraction(val left: Float, val top: Float, val right: Float, val bottom: Float)
+
+/**
+ * The part of a strip page that is on screen, in fractions of the page, for the minimap; null when
+ * none of it is. Strip pages span the full width at 1×; [pageTop] and [pageHeight] are the page's
+ * position in the list as laid out ([listHeight] tall, see [stripListHeight]).
+ */
+internal fun visiblePageFraction(
+    screenWidth: Float,
+    screenHeight: Float,
+    listHeight: Float,
+    scale: Float,
+    offsetX: Float,
+    offsetY: Float,
+    pageTop: Float,
+    pageHeight: Float,
+): PageFraction? {
+    if (screenWidth <= 0f || screenHeight <= 0f || pageHeight <= 0f) return null
+    val left = screenToList(0f, screenWidth, screenWidth, scale, offsetX) / screenWidth
+    val right = screenToList(screenWidth, screenWidth, screenWidth, scale, offsetX) / screenWidth
+    val top = (screenToList(0f, screenHeight, listHeight, scale, offsetY) - pageTop) / pageHeight
+    val bottom = (screenToList(screenHeight, screenHeight, listHeight, scale, offsetY) - pageTop) / pageHeight
+    val clipped = PageFraction(
+        left = left.coerceIn(0f, 1f),
+        top = top.coerceIn(0f, 1f),
+        right = right.coerceIn(0f, 1f),
+        bottom = bottom.coerceIn(0f, 1f),
+    )
+    return if (clipped.left < clipped.right && clipped.top < clipped.bottom) clipped else null
+}
+
+/**
+ * The pan, in screen pixels, that brings the point ([u], [v]) of a strip page (fractions) to the
+ * centre of the screen. Same geometry as [visiblePageFraction].
+ */
+internal fun panToPagePoint(
+    u: Float,
+    v: Float,
+    screenWidth: Float,
+    screenHeight: Float,
+    listHeight: Float,
+    scale: Float,
+    offsetX: Float,
+    offsetY: Float,
+    pageTop: Float,
+    pageHeight: Float,
+): Pair<Float, Float> {
+    val centerX = screenToList(screenWidth / 2f, screenWidth, screenWidth, scale, offsetX)
+    val centerY = screenToList(screenHeight / 2f, screenHeight, listHeight, scale, offsetY)
+    val targetX = u.coerceIn(0f, 1f) * screenWidth
+    val targetY = pageTop + v.coerceIn(0f, 1f) * pageHeight
+    return -(targetX - centerX) * scale to -(targetY - centerY) * scale
+}
+
+/**
+ * Size of the minimap for a page of [aspect] (height / width): [maxWidth] wide, but narrower for
+ * tall pages so that it is never taller than [maxHeight]; never narrower than [minWidth].
+ */
+internal fun minimapSize(aspect: Float, maxWidth: Float, maxHeight: Float, minWidth: Float): Pair<Float, Float> {
+    val a = if (aspect.isFinite() && aspect > 0f) aspect else 1f
+    val height = maxWidth * a
+    if (height <= maxHeight) return maxWidth to height
+    return (maxHeight / a).coerceAtLeast(minWidth) to maxHeight
+}
