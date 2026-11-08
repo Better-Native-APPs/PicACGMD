@@ -12,6 +12,28 @@ import okio.BufferedSource
 import okio.ForwardingSource
 import okio.buffer
 
+private const val PROGRESS_INTERVAL_MILLIS = 100L
+
+/** Suppress sub-percent read updates without delaying a visible percentage change. */
+internal class ImageProgressThrottle(
+    private val contentLength: Long,
+    private val clockMillis: () -> Long = { System.nanoTime() / 1_000_000 },
+) {
+    private var lastReportAt = clockMillis()
+    private var lastPercent = 0
+
+    fun shouldReport(bytesRead: Long): Boolean {
+        // Unknown-length bodies remain indeterminate until Transfer.finish; there is nothing to emit.
+        if (contentLength <= 0) return false
+        val percent = (bytesRead.toDouble() / contentLength * 100).coerceIn(0.0, 100.0).toInt()
+        val now = clockMillis()
+        if (percent == lastPercent && now - lastReportAt < PROGRESS_INTERVAL_MILLIS) return false
+        lastPercent = percent
+        lastReportAt = now
+        return true
+    }
+}
+
 /** Counts the wire response before transparent decompression; Content-Length describes those bytes. */
 class ImageLoadProgressInterceptor(private val registry: ImageLoadProgressRegistry) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
@@ -49,6 +71,7 @@ class ImageLoadProgressInterceptor(private val registry: ImageLoadProgressRegist
         private val delegate: ResponseBody,
         private val transfer: ImageLoadProgressRegistry.Transfer,
     ) : ResponseBody() {
+        private val throttle = ImageProgressThrottle(delegate.contentLength())
         private val countingSource: BufferedSource by lazy {
             object : ForwardingSource(delegate.source()) {
                 private var bytesRead = 0L
@@ -64,7 +87,7 @@ class ImageLoadProgressInterceptor(private val registry: ImageLoadProgressRegist
                         transfer.finish(completed = true)
                     } else if (read > 0) {
                         bytesRead += read
-                        transfer.report(bytesRead)
+                        if (throttle.shouldReport(bytesRead)) transfer.report(bytesRead)
                     }
                     return read
                 }

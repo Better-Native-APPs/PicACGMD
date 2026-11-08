@@ -60,10 +60,16 @@ class DownloadFileStore(private val rootProvider: () -> File) {
         }
     }
 
+    /** Once per process/root; new sessions must not rescan a large library or delete live staging files. */
     fun removeInterruptedTemporaryFiles() {
-        val root = rootDirectory()
-        root.walkTopDown().filter { it.isFile && it.name.startsWith('.') && it.name.endsWith(".part") }
-            .forEach { if (!it.delete()) throw IOException("无法清理未完成的下载文件") }
+        synchronized(temporaryFileCleanupRoots) {
+            val root = rootDirectory().absoluteFile
+            if (root !in temporaryFileCleanupRoots) {
+                root.walkTopDown().filter { it.isFile && it.name.startsWith('.') && it.name.endsWith(".part") }
+                    .forEach { if (!it.delete()) throw IOException("无法清理未完成的下载文件") }
+                temporaryFileCleanupRoots.add(root)
+            }
+        }
     }
 
     fun deleteComic(comicId: String) {
@@ -78,6 +84,7 @@ class DownloadFileStore(private val rootProvider: () -> File) {
 
     companion object {
         private const val ALL_EPISODES_MARKER = ".all-episodes"
+        private val temporaryFileCleanupRoots = mutableSetOf<File>()
 
         fun requireComicId(comicId: String) {
             require(comicId.isNotBlank() && comicId != "." && comicId != ".." &&

@@ -34,8 +34,8 @@ enum class CacheCleanupInterval(val seconds: Long) {
  *   ["大家都在看", "大濕推薦"]. All bookshelf/search feature entries are visible.
  * - Webtoon, top-to-bottom, controller tap zones, black background, normal filter, keep screen on.
  *   Volume paging and automatic fullscreen are off; double-volume chapter paging is on.
- * - Download concurrency 4 (allowed 1–16). Manual downloads may use mobile data. Auto-download is
- *   off, restricted to Wi-Fi when enabled; auto-delete and download comments are off.
+ * - Download concurrency 2 on low-RAM devices, 4 elsewhere (allowed 1–16). Manual downloads may use
+ *   mobile data. Auto-download is off, restricted to Wi-Fi when enabled; auto-delete and download comments are off.
  * - Automatic punch-in is on (B9). App lock/screenshot prevention are off; biometric unlock is
  *   available when locking is enabled. History/detail recording is on; automatic cache cleanup off.
  * - Connection/read timeouts 15/30 seconds; time offset 0; API image loading off.
@@ -146,6 +146,9 @@ data class AppSettings(
 
     companion object {
         val DEFAULT: AppSettings = AppSettings()
+
+        fun defaultsForDevice(isLowRamDevice: Boolean): AppSettings =
+            if (isLowRamDevice) DEFAULT.copy(downloadThreads = 2) else DEFAULT
     }
 }
 

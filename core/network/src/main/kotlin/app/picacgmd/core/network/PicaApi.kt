@@ -4,7 +4,9 @@ import java.io.IOException
 import java.util.Base64
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -253,12 +255,14 @@ class PicaApi(
             .method(method, requestBody).build()
         return try {
             val response = client.newCall(request).awaitBody()
-            when (val result = parser.parse(response.body, response.status)) {
-                is PicaResult.Failure -> result
-                is PicaResult.Success -> try {
-                    PicaResult.Success(decode(result.data))
-                } catch (exception: SerializationException) {
-                    PicaResult.Failure(PicaDecodingException(exception))
+            withContext(Dispatchers.Default) {
+                when (val result = parser.parse(response.body, response.status)) {
+                    is PicaResult.Failure -> result
+                    is PicaResult.Success -> try {
+                        PicaResult.Success(decode(result.data))
+                    } catch (exception: SerializationException) {
+                        PicaResult.Failure(PicaDecodingException(exception))
+                    }
                 }
             }
         } catch (exception: IOException) {
