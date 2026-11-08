@@ -1,11 +1,13 @@
 package app.picacgmd.core.domain.image
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import coil3.ImageLoader
 import coil3.disk.DiskCache
 import coil3.map.Mapper
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.Options
+import coil3.util.DebugLogger
 import app.picacgmd.core.domain.session.NetworkConfigProvider
 import app.picacgmd.core.network.PicaImage
 import okhttp3.Call
@@ -23,7 +25,10 @@ fun createImageLoader(
     val imageCalls = object : Call.Factory {
         override fun newCall(request: Request): Call = networkConfigProvider.current.imageClient.newCall(request)
     }
+    val debuggable = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
     return ImageLoader.Builder(context.applicationContext)
+        // Debug builds log failed requests (URL + cause) to logcat under the "ImageLoader" tag.
+        .apply { if (debuggable) logger(DebugLogger()) }
         .components {
             add(PicaImageMapper(networkConfigProvider))
             add(OkHttpNetworkFetcherFactory(callFactory = { imageCalls }))

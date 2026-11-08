@@ -62,6 +62,14 @@ class PicaTransportTest {
     }
 
     @Test
+    fun imageClientFollowsStorageRedirects() {
+        val client = PicaClientFactory.imageClient()
+        assertEquals(true, client.followRedirects)
+        assertEquals(true, client.followSslRedirects)
+        assertEquals(false, PicaClientFactory.apiClient().followSslRedirects)
+    }
+
+    @Test
     fun parsesExplicitHttpAndSocksProxies() {
         val http = PicaClientFactory.parseProxy("http://127.0.0.1:8080")
         assertEquals(Proxy.Type.HTTP, http.type())

@@ -138,6 +138,9 @@ class NetworkConfigProvider(
             PicaClientFactory.imageClient(configuration.networkConfig).withTimeouts(configuration)
         val progress = ImageLoadProgressInterceptor(imageLoadProgress)
         val imageClient = imageTransport.newBuilder()
+            // Image storage hosts redirect; safe because image requests carry no signed headers.
+            .followRedirects(true)
+            .followSslRedirects(true)
             .addNetworkInterceptor(progress)
             .eventListenerFactory(progress.eventListenerFactory())
             .build()

@@ -58,9 +58,12 @@ object PicaClientFactory {
     fun apiClient(config: PicaNetworkConfig = PicaNetworkConfig()): OkHttpClient =
         builder(config).dns(PicaDns(config.apiRoute)).build()
 
-    /** Independent transport: never attaches API authentication or signing headers. */
+    /**
+     * Independent transport: never attaches API authentication or signing headers, so it may follow
+     * redirects. The storage hosts 301 to other hosts (for example img.picacomic.com).
+     */
     fun imageClient(config: PicaNetworkConfig = PicaNetworkConfig()): OkHttpClient =
-        builder(config).build()
+        builder(config).followRedirects(true).followSslRedirects(true).build()
 
     private fun builder(config: PicaNetworkConfig): OkHttpClient.Builder = OkHttpClient.Builder()
         .callTimeout(60, TimeUnit.SECONDS)

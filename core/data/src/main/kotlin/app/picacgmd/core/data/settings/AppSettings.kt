@@ -48,7 +48,9 @@ data class AppSettings(
     val authTokenUpdatedAt: Long? = null,
     val apiRoutingMode: RoutingMode = RoutingMode.ROUTE_1,
     val customApiIp: String = "",
-    val imageRoutingMode: RoutingMode = RoutingMode.ROUTE_1,
+    // Original file servers by default: with a working proxy they are the fastest and most reliable;
+    // the image 分流 hosts stay available in 设置 › 网络 for networks where the originals are blocked.
+    val imageRoutingMode: RoutingMode = RoutingMode.NONE,
     val customImageHost: String = "",
     val proxyUrl: String = "",
     val imageQuality: ImageQuality = ImageQuality.ORIGINAL,
