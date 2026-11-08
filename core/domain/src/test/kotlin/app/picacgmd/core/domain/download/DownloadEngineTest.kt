@@ -215,6 +215,7 @@ class DownloadEngineTest {
         retryPolicy = DownloadRetryPolicy(jitter = { 0 }),
         limiter = AdaptiveDownloadLimiter(nowMillis = { scope.testScheduler.currentTime }, jitter = { 0 }),
         nowMillis = { scope.testScheduler.currentTime }, ioDispatcher = StandardTestDispatcher(scope.testScheduler),
+        progressClockMillis = { scope.testScheduler.currentTime },
     )
 
     private suspend fun seed(count: Int) {

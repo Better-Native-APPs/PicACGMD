@@ -7,8 +7,8 @@ import app.picacgmd.core.data.settings.SettingsKeys as Keys
 
 /** Pure mapping, suitable for JVM tests. Missing/unsupported stored values use documented defaults. */
 internal object SettingsPreferencesMapper {
-    fun decode(preferences: Preferences): AppSettings {
-        val d = AppSettings.DEFAULT
+    fun decode(preferences: Preferences, defaults: AppSettings = AppSettings.DEFAULT): AppSettings {
+        val d = defaults
         val token = preferences[Keys.authToken]?.takeIf { it.isNotBlank() }
         val minimum = preferences.readFloat(Keys.minZoom, d.minZoom, 0.5f..2f)
         val maximum = preferences.readFloat(Keys.maxZoom, d.maxZoom, 2f..5f)

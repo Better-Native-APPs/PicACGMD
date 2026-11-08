@@ -1,5 +1,6 @@
 package app.picacgmd.feature.rankings
 
+import app.picacgmd.feature.routing.RouteMenuButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -104,6 +105,7 @@ fun RandomScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.random_title)) },
                 navigationIcon = { BackButton(onBack) },
+                actions = { RouteMenuButton() },
             )
         },
         floatingActionButton = {
@@ -164,6 +166,7 @@ fun CollectionsScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.collections_title)) },
                 navigationIcon = { BackButton(onBack) },
+                actions = { RouteMenuButton() },
             )
         },
     ) { padding ->

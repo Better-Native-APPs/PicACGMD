@@ -3,7 +3,10 @@ package app.picacgmd.feature.reader.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
@@ -18,6 +21,7 @@ import coil3.size.Scale
 import app.picacgmd.feature.reader.PageImage
 import app.picacgmd.feature.reader.ReaderPage
 import app.picacgmd.feature.reader.logic.preloadOrder
+import app.picacgmd.feature.reader.logic.rememberReaderMemoryBudget
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import coil3.size.Size as CoilSize
@@ -49,6 +53,7 @@ internal fun pageRequest(
         .precision(Precision.INEXACT)
         .crossfade(false)
         .apply {
+            (image as? PageImage.Remote)?.cacheKey?.let { diskCacheKey(it) }
             if (fresh) {
                 memoryCachePolicy(CachePolicy.WRITE_ONLY)
                 diskCachePolicy(CachePolicy.WRITE_ONLY)
@@ -65,8 +70,18 @@ internal fun rememberPagePainter(
     reloads: PageReloadState,
 ): AsyncImagePainter {
     val context = LocalPlatformContext.current
-    val request = remember(image, size) { pageRequest(context, image, size, fresh = reloads.needsFresh(index)) }
-    return rememberAsyncImagePainter(model = request)
+    // Keyed on the image's identity, not its address: when the address changes (another image
+    // server), a page already on screen stays as it is, while one still loading or one that failed
+    // starts over from the new address.
+    val identity = (image as? PageImage.Remote)?.stableKey ?: image
+    var request by remember(identity, size) { mutableStateOf(pageRequest(context, image, size, fresh = reloads.needsFresh(index))) }
+    val painter = rememberAsyncImagePainter(model = request)
+    LaunchedEffect(image) {
+        if (request.data != image.coilModel && painter.state.value !is AsyncImagePainter.State.Success) {
+            request = pageRequest(context, image, size, fresh = reloads.needsFresh(index))
+        }
+    }
+    return painter
 }
 
 /**
@@ -76,6 +91,8 @@ internal fun rememberPagePainter(
  * Pages in [skip] are on screen (or about to be) and load through their own painters; Coil does not
  * share a download between two requests, so preloading them too would fetch them twice. Pages
  * waiting for a reload are skipped as well: the caches still hold what the reader wants replaced.
+ * Low-RAM requests are capped to one slot ahead and one page behind; [nextChapter] image requests
+ * are disabled. [pagesPerSlot] keeps the cap aligned with two-page spreads.
  */
 @Composable
 internal fun PreloadPages(
@@ -86,8 +103,13 @@ internal fun PreloadPages(
     size: CoilSize?,
     skip: IntRange = IntRange.EMPTY,
     reloads: PageReloadState? = null,
+    pagesPerSlot: Int = 1,
+    nextChapter: Boolean = false,
 ) {
+    val memoryBudget = rememberReaderMemoryBudget()
+    if (nextChapter && !memoryBudget.preloadNextChapterImages) return
     if (size == null || pages.isEmpty()) return
+    val window = memoryBudget.preloadWindow(ahead, behind, pagesPerSlot)
     val context = LocalPlatformContext.current
     val loader = remember(context) { SingletonImageLoader.get(context) }
     val scope = rememberCoroutineScope()
@@ -101,8 +123,8 @@ internal fun PreloadPages(
             inflight.clear()
         }
     }
-    LaunchedEffect(inflight, current, ahead, behind, skip) {
-        val wanted = preloadOrder(current, pages.size, ahead, behind)
+    LaunchedEffect(inflight, current, window, skip) {
+        val wanted = preloadOrder(current, pages.size, window.ahead, window.behind)
             .filter { it !in skip && reloads?.needsFresh(it) != true }
         val stale = inflight.keys.filter { it !in wanted }
         for (index in stale) inflight.remove(index)?.cancel()

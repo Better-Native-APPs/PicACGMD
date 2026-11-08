@@ -11,7 +11,14 @@ import app.picacgmd.feature.reader.ReaderChapter
 import app.picacgmd.feature.reader.ReaderPage
 import app.picacgmd.feature.reader.ReaderProgress
 import app.picacgmd.feature.reader.ReaderSource
+import app.picacgmd.core.network.ImageServer
+import app.picacgmd.core.network.PicaImage
+import app.picacgmd.core.network.PicaImageUrls
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -33,6 +40,30 @@ class OnlineReaderSource(
     override val commentCount: Int = comic.commentsCount
 
     override fun imageLoadProgress(url: String): StateFlow<Float?>? = networkConfigProvider.imageLoadProgress.observe(url)
+
+    /**
+     * Page images keyed by their server-independent cache key (the address on the original server),
+     * so pages can be re-addressed when the image route changes while the reader is open.
+     */
+    private val pageMedia = ConcurrentHashMap<String, PicaImage>()
+
+    override val pageAddressChanges: Flow<Unit> = networkConfigProvider.clients
+        .map { it.configuration.imageServer }
+        .distinctUntilChanged()
+        .map { }
+
+    override fun refreshPage(page: ReaderPage): ReaderPage {
+        val image = page.image as? PageImage.Remote ?: return page
+        val media = image.cacheKey?.let(pageMedia::get) ?: return page
+        val url = networkConfigProvider.imageUrl(media)
+        return if (url == image.url) page else page.copy(image = image.copy(url = url))
+    }
+
+    private fun remotePage(media: PicaImage): ReaderPage {
+        val key = PicaImageUrls.build(media, ImageServer.Original)
+        pageMedia[key] = media
+        return ReaderPage(PageImage.Remote(networkConfigProvider.imageUrl(media), cacheKey = key))
+    }
 
     private val chapterMutex = Mutex()
     private var episodes: List<Ep> = emptyList()
@@ -74,9 +105,7 @@ class OnlineReaderSource(
             var page = 1
             do {
                 val result = comicRepository.pictures(comic.id, ep.order, page, quality = quality).pages
-                pages += result.docs.map { picture ->
-                    ReaderPage(PageImage.Remote(networkConfigProvider.imageUrl(picture.media)))
-                }
+                pages += result.docs.map { picture -> remotePage(picture.media) }
                 page++
             } while (page <= result.pages)
             pages

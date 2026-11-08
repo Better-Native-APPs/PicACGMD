@@ -63,7 +63,7 @@ internal fun ReadingSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifi
                     SettingsNavRow(shapes, "阅读方向", { dialog = ReadingDialog.Direction }, value = settings.readerDirection.label())
                 }
                 row { shapes ->
-                    SettingsNavRow(shapes, "双页排列", { dialog = ReadingDialog.TwoPage }, summary = "双页相册模式下两页怎么摆", value = settings.twoPagePlacement.label())
+                    SettingsNavRow(shapes, "双页排列", { dialog = ReadingDialog.TwoPage }, summary = "仅用于双页相册", value = settings.twoPagePlacement.label())
                 }
                 row { shapes ->
                     SettingsNavRow(shapes, "阅读器背景", { dialog = ReadingDialog.Background }, value = settings.readerBackground.label())
@@ -80,7 +80,7 @@ internal fun ReadingSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifi
             SettingsGroup("显示") {
                 row { shapes -> SettingsSwitchRow(shapes, "屏幕常亮", settings.keepScreenOn, { writer.update { setKeepScreenOn(it) } }) }
                 row { shapes ->
-                    SettingsSwitchRow(shapes, "全屏阅读", settings.readerFullScreen, { writer.update { setReaderFullScreen(it) } }, summary = "进入阅读器时隐藏状态栏和导航栏")
+                    SettingsSwitchRow(shapes, "全屏阅读", settings.readerFullScreen, { writer.update { setReaderFullScreen(it) } }, summary = "阅读时隐藏状态栏和导航栏")
                 }
                 row { shapes ->
                     SettingsSwitchRow(shapes, "向后翻页时自动全屏", settings.fullScreenOnForward, { writer.update { setFullScreenOnForward(it) } })
@@ -91,11 +91,11 @@ internal fun ReadingSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifi
         item {
             SettingsGroup("操控") {
                 row { shapes ->
-                    SettingsNavRow(shapes, "操控方式", { dialog = ReadingDialog.TapZones }, summary = "点屏幕哪里翻页、呼出菜单", value = settings.readerTapZones.label())
+                    SettingsNavRow(shapes, "操控方式", { dialog = ReadingDialog.TapZones }, summary = "翻页和菜单的点按区域", value = settings.readerTapZones.label())
                 }
                 row { shapes ->
                     SettingsSwitchRow(
-                        shapes, "三区操控时右侧是下一页", settings.threeZoneNextOnRight, { writer.update { setThreeZoneNextOnRight(it) } },
+                        shapes, "三区点按右侧为下一页", settings.threeZoneNextOnRight, { writer.update { setThreeZoneNextOnRight(it) } },
                         enabled = settings.readerTapZones == ReaderTapZones.THREE_ZONES,
                     )
                 }
@@ -140,7 +140,7 @@ internal fun ReadingSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifi
                     )
                 }
                 row { shapes ->
-                    SettingsSwitchRow(shapes, "锁定拖动边界", settings.lockDragBounds, { writer.update { setLockDragBounds(it) } }, summary = "放大后不会把图片拖出屏幕")
+                    SettingsSwitchRow(shapes, "锁定拖动边界", settings.lockDragBounds, { writer.update { setLockDragBounds(it) } }, summary = "放大后防止图片拖出屏幕")
                 }
             }
         }
@@ -150,7 +150,7 @@ internal fun ReadingSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifi
                     SettingsSwitchRow(shapes, "减少动画", settings.eInkReduceAnimations, { writer.update { setEInkReduceAnimations(it) } }, summary = "减少残影")
                 }
                 row { shapes ->
-                    SettingsSwitchRow(shapes, "按屏滚动", settings.eInkScrollByScreen, { writer.update { setEInkScrollByScreen(it) } }, summary = "点按翻页时一次滚动一屏，不做平滑滚动")
+                    SettingsSwitchRow(shapes, "按屏滚动", settings.eInkScrollByScreen, { writer.update { setEInkScrollByScreen(it) } }, summary = "点按翻页每次一屏，无平滑滚动")
                 }
                 row { shapes ->
                     SliderRow(
@@ -269,7 +269,7 @@ private fun ZoomDialog(
                 ZoomSlider("最大缩放", max, 2f..5f, 5) { max = it }
                 ZoomSlider("双击缩放", double, 1.5f..3f, 2) { double = it }
                 if (!valid) {
-                    Text("双击缩放需要在最小和最大之间", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    Text("双击缩放须在缩放范围内", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
             }
         },
@@ -304,7 +304,7 @@ private fun ReaderMode.label() = when (this) {
 private fun ReaderDirection.label() = when (this) {
     ReaderDirection.TOP_TO_BOTTOM -> "从上到下"
     ReaderDirection.LEFT_TO_RIGHT -> "从左到右"
-    ReaderDirection.RIGHT_TO_LEFT -> "从右到左（日漫）"
+    ReaderDirection.RIGHT_TO_LEFT -> "从右到左"
 }
 
 private fun ReaderTapZones.label() = when (this) {
@@ -316,10 +316,10 @@ private fun ReaderTapZones.label() = when (this) {
 }
 
 private fun ReaderTapZones.detail() = when (this) {
-    ReaderTapZones.SINGLE_TAP -> "点屏幕任意位置呼出菜单"
-    ReaderTapZones.CONTROLLER -> "屏幕边上有翻页按钮"
-    ReaderTapZones.DOUBLE_TAP -> "双击呼出菜单，单击不响应"
-    ReaderTapZones.DOUBLE_TAP_NEXT -> "双击翻到下一页"
+    ReaderTapZones.SINGLE_TAP -> "点按任意位置呼出菜单"
+    ReaderTapZones.CONTROLLER -> "屏幕边缘显示翻页按钮"
+    ReaderTapZones.DOUBLE_TAP -> "单击无响应"
+    ReaderTapZones.DOUBLE_TAP_NEXT -> null
     ReaderTapZones.THREE_ZONES -> "左右点按翻页，中间呼出菜单"
 }
 

@@ -11,22 +11,22 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
-import androidx.compose.material.icons.outlined.Speed
+import androidx.compose.material.icons.outlined.Dns
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.Icon
-import app.picacgmd.core.domain.session.formatRouteLatency
-import app.picacgmd.core.domain.session.apiRouteState
-import app.picacgmd.core.domain.session.RouteSource
-import app.picacgmd.core.network.ApiRoute
+import app.picacgmd.feature.routing.RouteKind
+import app.picacgmd.feature.routing.RoutePickerDialog
+import app.picacgmd.feature.routing.RouteSyncDialog
+import app.picacgmd.feature.routing.formatSyncTime
+import app.picacgmd.feature.routing.rememberRouteSummary
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.ListItemShapes
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -43,17 +43,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import app.picacgmd.core.data.settings.ImageQuality
-import app.picacgmd.core.data.settings.RoutingMode
 import app.picacgmd.di.LocalAppContainer
 import kotlinx.coroutines.launch
 import java.net.URI
 
-private enum class NetworkDialog { ApiCustom, ImageCustom, Proxy, Quality, ConnectTimeout, ReadTimeout, TimeOffset }
+private enum class NetworkDialog { Proxy, Quality, ConnectTimeout, ReadTimeout, TimeOffset }
 
 private val Timeouts = listOf(10, 15, 30, 60)
 
 /**
- * Board 27 网络: API / image routing, proxy, image quality,
+ * Board 27 网络: route pickers (分流 / 图片分流 / 分流同步), proxy, image quality,
  * timeouts and time offset. A configured proxy carries every request, so routing no longer applies.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -64,34 +63,10 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val writer = remember(container) { SettingsWriter(container.settingsRepository, scope, snackbar) }
     val settings = rememberAppSettings()
-    val apiRoutes = settings?.let(::apiRouteState)
+    val routes = rememberRouteSummary()
+    var picker by rememberSaveable { mutableStateOf<RouteKind?>(null) }
+    var syncing by rememberSaveable { mutableStateOf(false) }
     var dialog by rememberSaveable { mutableStateOf<NetworkDialog?>(null) }
-    var latencies by remember { mutableStateOf<Map<ApiRoute, Long?>?>(null) }
-    var measuring by remember { mutableStateOf(false) }
-    val measure: () -> Unit = {
-        if (!measuring) {
-            measuring = true
-            scope.launch {
-                try {
-                    latencies = emptyMap()
-                    kotlinx.coroutines.coroutineScope {
-                        apiRoutes?.options?.forEach { option ->
-                            launch {
-                                val latency = container.routingRepository.measureApiRoute(option.value)
-                                latencies = latencies.orEmpty() + (option.value to latency)
-                            }
-                        }
-                    }
-                } catch (exception: kotlinx.coroutines.CancellationException) {
-                    throw exception
-                } catch (exception: Exception) {
-                    snackbar.showSnackbar("测速失败：${exception.message ?: "请重试"}")
-                } finally {
-                    measuring = false
-                }
-            }
-        }
-    }
 
     SettingsPageScaffold(SettingsPage.Network.title, onBack, snackbar, modifier) {
         if (settings == null) return@SettingsPageScaffold
@@ -106,85 +81,30 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
             }
         }
         item {
-            SettingsGroup("API 分流") {
-                apiRoutes?.options?.forEach { option ->
-                    row { shapes ->
-                        RadioRow(
-                            shapes = shapes,
-                            title = option.label,
-                            summary = option.address,
-                            latency = run {
-                                val route = option.value
-                                when {
-                                    latencies?.containsKey(route) == true -> formatRouteLatency(latencies?.get(route))
-                                    measuring -> "测速中…"
-                                    else -> null
-                                }
-                            },
-                            latencyFailed = latencies?.containsKey(option.value) == true && latencies?.get(option.value) == null,
-                            selected = apiRoutes.selected == option,
-                            enabled = !proxyOn,
-                            onClick = {
-                                writer.update { container.routingRepository.selectApiRoute(option.value) }
-                            },
-                            trailing = if (option.source == RouteSource.CUSTOM) {
-                                { TextButton(onClick = { dialog = NetworkDialog.ApiCustom }, enabled = !proxyOn) { Text("填写") } }
-                            } else {
-                                null
-                            },
-                        )
-                    }
-                }
-                if (settings.customApiIp.isBlank()) row { shapes ->
-                    RadioRow(
-                        shapes, "自定义", false, { dialog = NetworkDialog.ApiCustom },
-                        summary = "填入 IP，例如 104.21.0.1", enabled = !proxyOn,
-                    )
-                }
-            }
-        }
-        item {
-            SettingsGroup(null, Modifier.padding(top = 8.dp)) {
+            SettingsGroup("分流") {
                 row { shapes ->
                     SettingsNavRow(
-                        shapes, "线路测速", measure,
-                        summary = if (proxyOn) {
-                            "测速直接连接各条线路，不经过代理；结果只作参考，不会切换线路"
-                        } else {
-                            "分别测试各条线路的响应时间，超过 5 秒算失败；不会切换线路"
-                        },
-                        value = if (measuring) "测速中" else if (latencies == null) "开始" else "重新测速",
-                        enabled = !measuring,
-                        leading = { Icon(Icons.Outlined.Speed, contentDescription = null) },
+                        shapes, "分流", { picker = RouteKind.Api },
+                        summary = routes?.apiAddress ?: "直接连接官方服务器",
+                        value = routes?.apiLabel,
+                        leading = { Icon(Icons.Outlined.Dns, contentDescription = null) },
                     )
                 }
-            }
-        }
-        item {
-            SettingsGroup("图片分流") {
-                RoutingMode.entries.forEach { mode ->
-                    row { shapes ->
-                        RadioRow(
-                            shapes = shapes,
-                            title = mode.label(),
-                            summary = if (mode == RoutingMode.CUSTOM) {
-                                settings.customImageHost.ifBlank { "填入图片服务器地址" }
-                            } else {
-                                null
-                            },
-                            selected = settings.imageRoutingMode == mode,
-                            enabled = !proxyOn,
-                            onClick = {
-                                if (mode == RoutingMode.CUSTOM && settings.customImageHost.isBlank()) dialog = NetworkDialog.ImageCustom
-                                else writer.update { setImageRouting(mode) }
-                            },
-                            trailing = if (mode == RoutingMode.CUSTOM) {
-                                { TextButton(onClick = { dialog = NetworkDialog.ImageCustom }, enabled = !proxyOn) { Text("填写") } }
-                            } else {
-                                null
-                            },
-                        )
-                    }
+                row { shapes ->
+                    SettingsNavRow(
+                        shapes, "图片分流", { picker = RouteKind.Image },
+                        summary = routes?.imageAddress?.removePrefix("https://"),
+                        value = routes?.imageLabel,
+                        leading = { Icon(Icons.Outlined.Image, contentDescription = null) },
+                    )
+                }
+                row { shapes ->
+                    SettingsNavRow(
+                        shapes, "分流同步", { syncing = true },
+                        summary = routes?.lastSyncedAtMillis?.let { "上次同步：${formatSyncTime(it)}" }
+                            ?: "正在使用内置分流列表，可从哔咔服务器获取最新地址",
+                        leading = { Icon(Icons.Outlined.Sync, contentDescription = null) },
+                    )
                 }
                 row { shapes ->
                     SettingsSwitchRow(
@@ -227,7 +147,7 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
         }
         item {
             NoticeCard(
-                text = "只会连接哔咔服务器、图片服务器，以及你自己设置的代理服务器。分流可从哔咔服务器同步。",
+                text = "只会连接哔咔服务器、图片服务器，以及你自己设置的代理服务器。分流地址内置在应用里，也可以在「分流同步」里从哔咔自己的服务器获取最新的地址。",
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
             )
         }
@@ -235,26 +155,6 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
 
     val dismiss = { dialog = null }
     when (dialog) {
-        NetworkDialog.ApiCustom -> TextInputDialog(
-            title = "自定义 API 分流",
-            description = "填入 IP 地址，和内置分流一样使用；证书仍按官方域名校验。",
-            label = "IP 地址",
-            initial = settings?.customApiIp.orEmpty(),
-            keyboardType = KeyboardType.Uri,
-            validate = { if (it.isBlank()) "请填写 IP 地址" else null },
-            onSave = { value -> writer.update { container.routingRepository.setCustomApiRoute(value) } },
-            onDismiss = dismiss,
-        )
-        NetworkDialog.ImageCustom -> TextInputDialog(
-            title = "自定义图片分流",
-            description = "填入图片服务器地址，例如 https://example.com。",
-            label = "图片服务器",
-            initial = settings?.customImageHost.orEmpty(),
-            keyboardType = KeyboardType.Uri,
-            validate = { if (it.isBlank()) "请填写地址" else null },
-            onSave = { value -> writer.update { container.routingRepository.setCustomImageHost(value) } },
-            onDismiss = dismiss,
-        )
         NetworkDialog.Proxy -> ProxyDialog(
             initial = settings?.proxyUrl.orEmpty(),
             onSave = { writer.update { setProxyUrl(it) } },
@@ -271,55 +171,17 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
         )
         null -> Unit
     }
+    picker?.let { RoutePickerDialog(it) { picker = null } }
+    if (syncing) RouteSyncDialog(onDismiss = { syncing = false })
 }
 
 private fun offsetLabel(hours: Int) = if (hours > 0) "+$hours 小时" else "$hours 小时"
-
-private fun RoutingMode.label() = when (this) {
-    RoutingMode.NONE -> "不分流"
-    RoutingMode.ROUTE_1 -> "分流 1"
-    RoutingMode.ROUTE_2 -> "分流 2"
-    RoutingMode.ROUTE_3 -> "分流 3"
-    RoutingMode.CUSTOM -> "自定义"
-}
 
 private fun ImageQuality.label() = when (this) {
     ImageQuality.ORIGINAL -> "原图"
     ImageQuality.HIGH -> "高"
     ImageQuality.MEDIUM -> "中"
     ImageQuality.LOW -> "低"
-}
-
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun RadioRow(
-    shapes: ListItemShapes,
-    title: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    summary: String? = null,
-    enabled: Boolean = true,
-    trailing: (@Composable () -> Unit)? = null,
-    latency: String? = null,
-    latencyFailed: Boolean = false,
-) {
-    SegmentedListItem(
-        selected = selected,
-        onClick = onClick,
-        shapes = shapes,
-        enabled = enabled,
-        leadingContent = { RadioButton(selected = selected, onClick = null, enabled = enabled) },
-        supportingContent = summary?.let { { Text(it) } },
-        trailingContent = trailing ?: latency?.let {
-            {
-                Text(
-                    it,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (latencyFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                )
-            }
-        },
-    ) { Text(title) }
 }
 
 @Composable

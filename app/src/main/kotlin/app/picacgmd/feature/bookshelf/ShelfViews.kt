@@ -35,7 +35,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBox
@@ -47,6 +47,7 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -54,7 +55,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import app.picacgmd.core.data.db.Subscription
 import app.picacgmd.core.data.db.ViewHistory
 import app.picacgmd.core.data.settings.AppSettings
@@ -65,6 +69,10 @@ import app.picacgmd.core.domain.repository.SubscriptionCheckState
 import app.picacgmd.core.network.ComicSort
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.comics.ComicResults
+import java.time.Duration
+import java.time.LocalDate
+import java.time.ZonedDateTime
+import kotlinx.coroutines.delay
 
 private val ShelfBottomPadding = PaddingValues(bottom = 112.dp)
 
@@ -148,52 +156,19 @@ internal fun OnlineFavouritesView(
 @Composable
 internal fun FollowView(
     subscriptions: List<Subscription>?,
-    checkState: SubscriptionCheckState,
     onRefresh: () -> Unit,
     selection: Set<String>,
     onToggle: (String) -> Unit,
     onOpenComic: (String) -> Unit,
 ) {
     val container = LocalAppContainer.current
-    val checking = checkState is SubscriptionCheckState.Checking
+    val sorted = remember(subscriptions) {
+        subscriptions.orEmpty().sortedWith(compareByDescending<Subscription> { it.unseen }.thenByDescending { it.updatedAt })
+    }
     PullToRefreshBox(isRefreshing = false, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
-        val sorted = subscriptions.orEmpty().sortedWith(compareByDescending<Subscription> { it.unseen }.thenByDescending { it.updatedAt })
         LazyColumn(Modifier.fillMaxSize(), contentPadding = ShelfBottomPadding) {
             item {
-                Row(
-                    Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    val text = when (checkState) {
-                        is SubscriptionCheckState.Checking -> "正在检查 ${checkState.completed}/${checkState.total}"
-                        is SubscriptionCheckState.Done -> {
-                            val report = checkState.report
-                            buildString {
-                                append("${sorted.count { it.unseen }} 本有更新 · 检查了 ${report.checkedCount} 本")
-                                if (report.failures.isNotEmpty()) append(" · ${report.failures.size} 本失败")
-                            }
-                        }
-                        is SubscriptionCheckState.Failed -> "检查失败：${checkState.message}"
-                        SubscriptionCheckState.Idle -> "${sorted.size} 本 · ${sorted.count { it.unseen }} 本有更新"
-                    }
-                    Text(
-                        text,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (checkState is SubscriptionCheckState.Failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (checking) {
-                        ContainedLoadingIndicator(Modifier.size(36.dp))
-                    } else {
-                        TextButton(onClick = onRefresh, enabled = sorted.isNotEmpty()) { Text("检查更新") }
-                    }
-                }
-                if (checkState is SubscriptionCheckState.Checking && checkState.total > 0) {
-                    LinearWavyProgressIndicator(
-                        progress = { checkState.completed.toFloat() / checkState.total },
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
-                    )
-                }
+                FollowHeader(sorted = sorted, onRefresh = onRefresh)
             }
             if (subscriptions != null && sorted.isEmpty()) {
                 item {
@@ -237,6 +212,48 @@ internal fun FollowView(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun FollowHeader(sorted: List<Subscription>, onRefresh: () -> Unit) {
+    val container = LocalAppContainer.current
+    val checkState = container.subscriptionRepository.checkState.collectAsStateWithLifecycle().value
+    val checking = checkState is SubscriptionCheckState.Checking
+    Row(
+        Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val text = when (checkState) {
+            is SubscriptionCheckState.Checking -> "正在检查 ${checkState.completed}/${checkState.total}"
+            is SubscriptionCheckState.Done -> {
+                val report = checkState.report
+                buildString {
+                    append("${sorted.count { it.unseen }} 本有更新 · 检查了 ${report.checkedCount} 本")
+                    if (report.failures.isNotEmpty()) append(" · ${report.failures.size} 本失败")
+                }
+            }
+            is SubscriptionCheckState.Failed -> "检查失败：${checkState.message}"
+            SubscriptionCheckState.Idle -> "${sorted.size} 本 · ${sorted.count { it.unseen }} 本有更新"
+        }
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (checkState is SubscriptionCheckState.Failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        if (checking) {
+            ContainedLoadingIndicator(Modifier.size(36.dp))
+        } else {
+            TextButton(onClick = onRefresh, enabled = sorted.isNotEmpty()) { Text("检查更新") }
+        }
+    }
+    if (checkState is SubscriptionCheckState.Checking && checkState.total > 0) {
+        LinearProgressIndicator(
+            progress = { checkState.completed.toFloat() / checkState.total },
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
+        )
+    }
+}
+
 /**
  * 记录: a big 「接着读」 card for the latest comic, then 置顶 / 今天 / 昨天 / 更早 groups with swipe
  * to delete (undo via snackbar) and a ⋮ action menu (board 22).
@@ -264,14 +281,22 @@ internal fun HistoryView(
         return
     }
     val items = history.orEmpty()
-    val latest = items.maxByOrNull { it.updatedAt }
-    val rest = items.filter { it.comicId != latest?.comicId }
-    val groups = linkedMapOf(
-        "置顶" to rest.filter { it.pinned },
-        "今天" to rest.filter { !it.pinned && dayBucket(it.updatedAt) == 0 },
-        "昨天" to rest.filter { !it.pinned && dayBucket(it.updatedAt) == 1 },
-        "更早" to rest.filter { !it.pinned && dayBucket(it.updatedAt) == 2 },
-    )
+    val latest = remember(items) { items.maxByOrNull { it.updatedAt } }
+    val today = rememberCurrentDay()
+    val groups = remember(items, today) {
+        val buckets = List(4) { mutableListOf<ViewHistory>() }
+        for (entry in items) {
+            if (entry.comicId == latest?.comicId) continue
+            val bucket = if (entry.pinned) 0 else dayBucket(entry.updatedAt, today) + 1
+            buckets[bucket].add(entry)
+        }
+        linkedMapOf(
+            "置顶" to buckets[0],
+            "今天" to buckets[1],
+            "昨天" to buckets[2],
+            "更早" to buckets[3],
+        )
+    }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = ShelfBottomPadding) {
         if (latest != null) {
             item(key = "continue") {
@@ -312,6 +337,22 @@ internal fun HistoryView(
             }
         }
     }
+}
+
+@Composable
+private fun rememberCurrentDay(): LocalDate {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val today by produceState(initialValue = LocalDate.now(), key1 = lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                val now = ZonedDateTime.now()
+                value = now.toLocalDate()
+                val nextDay = value.plusDays(1).atStartOfDay(now.zone)
+                delay(Duration.between(now, nextDay).toMillis().coerceAtLeast(1))
+            }
+        }
+    }
+    return today
 }
 
 internal fun ViewHistory.progressText(): String = when {

@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
+private const val APP_OPEN_CHECK_INTERVAL_MILLIS = 6L * 60 * 60 * 1_000
+
 data class SubscriptionCheckReport(val checkedCount: Int, val updatedCount: Int, val failures: Map<String, String>)
 
 sealed interface SubscriptionCheckState {
@@ -62,12 +64,17 @@ class SubscriptionRepository(
     suspend fun unsubscribe(comicIds: List<String>): Int = dao.delete(comicIds)
     suspend fun markSeen(comicId: String): Int = dao.markSeen(comicId)
     suspend fun clear() = dao.clear()
-    suspend fun checkOnAppOpen(): SubscriptionCheckReport = check()
-    suspend fun refresh(): SubscriptionCheckReport = check()
+    suspend fun checkOnAppOpen(): SubscriptionCheckReport = check(staleOnly = true)
+    suspend fun refresh(): SubscriptionCheckReport = check(staleOnly = false)
 
-    private suspend fun check(): SubscriptionCheckReport = checkMutex.withLock {
+    private suspend fun check(staleOnly: Boolean): SubscriptionCheckReport = checkMutex.withLock {
         try {
-            val subscribed = dao.observeAll().first()
+            val subscribed = dao.observeAll().first().let { entries ->
+                if (staleOnly) {
+                    val cutoff = now() - APP_OPEN_CHECK_INTERVAL_MILLIS
+                    entries.filter { entry -> entry.lastCheckedAt?.let { it < cutoff } ?: true }
+                } else entries
+            }
             var updated = 0
             var checked = 0
             val failures = linkedMapOf<String, String>()

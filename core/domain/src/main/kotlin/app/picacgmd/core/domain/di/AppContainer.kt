@@ -3,8 +3,10 @@ package app.picacgmd.core.domain.di
 import android.content.Context
 import coil3.ImageLoader
 import app.picacgmd.core.data.db.PikapikaDatabase
+import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.data.settings.SettingsRepository
 import app.picacgmd.core.domain.image.createImageLoader
+import app.picacgmd.core.domain.isLowRamDevice
 import app.picacgmd.core.domain.repository.AnnouncementRepository
 import app.picacgmd.core.domain.repository.ComicRepository
 import app.picacgmd.core.domain.repository.CommentRepository
@@ -29,9 +31,12 @@ import kotlinx.coroutines.cancel
 class AppContainer(context: Context) : AutoCloseable {
     private val applicationContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val lowRamDevice = isLowRamDevice(applicationContext)
 
     val database: PikapikaDatabase = PikapikaDatabase.create(applicationContext)
-    val settingsRepository: SettingsRepository = SettingsRepository.create(applicationContext)
+    val settingsRepository: SettingsRepository = SettingsRepository.create(
+        applicationContext, AppSettings.defaultsForDevice(lowRamDevice),
+    )
     val credentialStore: CredentialStore = KeystoreCredentialStore(applicationContext)
     val networkConfigProvider: NetworkConfigProvider = NetworkConfigProvider(settingsRepository.settings, scope) {
         sessionManager.token
@@ -53,7 +58,7 @@ class AppContainer(context: Context) : AutoCloseable {
         database.subscriptionDao(), comicRepository, settingsRepository.settings,
     )
     val tagFavouriteRepository: TagFavouriteRepository = TagFavouriteRepository(database.tagFavouriteDao())
-    val imageLoader: ImageLoader = createImageLoader(applicationContext, networkConfigProvider)
+    val imageLoader: ImageLoader = createImageLoader(applicationContext, networkConfigProvider, lowRamDevice = lowRamDevice)
 
     // Download wiring belongs to its parallel lane; these shared dependencies are ready for it.
 

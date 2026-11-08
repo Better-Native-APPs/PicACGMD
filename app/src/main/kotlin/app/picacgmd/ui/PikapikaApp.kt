@@ -1,5 +1,6 @@
 package app.picacgmd.ui
 
+import android.annotation.SuppressLint
 import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Search
@@ -82,6 +83,8 @@ fun PikapikaApp(
 ) {
     val layout = currentNavigationLayout()
     val usesRail = layout != NavigationLayout.Bar
+    // The whole stack decides the current tab (see navigateToTopLevel); no public equivalent exists.
+    @SuppressLint("RestrictedApi")
     val backStack by navController.currentBackStack.collectAsStateWithLifecycle()
     val currentDestination = backStack.lastOrNull()?.destination
     val currentTab = backStack.currentTopLevelDestination()

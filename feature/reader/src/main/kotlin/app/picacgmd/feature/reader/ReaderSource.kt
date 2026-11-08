@@ -2,6 +2,7 @@ package app.picacgmd.feature.reader
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import java.io.File
 
@@ -43,6 +44,16 @@ interface ReaderSource {
      */
     suspend fun switchImageServer(): Boolean = false
 
+    /**
+     * Emits when remote page addresses may have changed, for example after the image server was
+     * switched. The reader then passes every page it holds through [refreshPage]: pages not yet
+     * loaded, and pages that failed, load again from the new address.
+     */
+    val pageAddressChanges: Flow<Unit>? get() = null
+
+    /** [page] with its current address; the default keeps it unchanged. */
+    fun refreshPage(page: ReaderPage): ReaderPage = page
+
     /** Cover shown on the chapter-end card, or null to show none. */
     val comicCover: PageImage? get() = null
 
@@ -83,9 +94,16 @@ data class ReaderPage(
 /** Where a page image comes from. Both cases are loaded by Coil. */
 @Immutable
 sealed interface PageImage {
-    /** An `http(s)` image; needs the app's network-capable singleton `ImageLoader`. */
+    /**
+     * An `http(s)` image; needs the app's network-capable singleton `ImageLoader`.
+     *
+     * [cacheKey] names the image independently of the server it is fetched from, so the disk
+     * cache survives a server switch; null uses [url].
+     */
     @Immutable
-    data class Remote(val url: String) : PageImage
+    data class Remote(val url: String, val cacheKey: String? = null) : PageImage {
+        val stableKey: String get() = cacheKey ?: url
+    }
 
     /** A file on disk, typically a downloaded page. */
     @Immutable
@@ -101,4 +119,18 @@ data class ReaderProgress(
     /** Zero-based page index inside the chapter. */
     val pageIndex: Int,
     val pageCount: Int,
+)
+
+/**
+ * 分流 / 图片分流 for the settings sheet. The app owns the route pickers; the reader only shows the
+ * current labels and asks the app to open a picker.
+ */
+@Immutable
+data class ReaderRouteControls(
+    /** Current API route, such as 「分流 2」. */
+    val apiLabel: String,
+    /** Current image route, such as 「不分流」. */
+    val imageLabel: String,
+    val onOpenApiRoutes: () -> Unit,
+    val onOpenImageRoutes: () -> Unit,
 )

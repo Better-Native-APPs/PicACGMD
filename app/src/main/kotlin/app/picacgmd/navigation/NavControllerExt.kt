@@ -1,5 +1,6 @@
 package app.picacgmd.navigation
 
+import android.annotation.SuppressLint
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -11,7 +12,11 @@ fun List<NavBackStackEntry>.currentTopLevelDestination(): TopLevelDestination? =
 /**
  * Switches tabs: pops back to the app start destination while saving the current tab's stack, then
  * restores the target tab's saved stack. Re-selecting the current tab returns to its start screen.
+ *
+ * Reads the full back stack because shared destinations sit above their tab's entries; Navigation
+ * exposes the whole stack only through the library-group `currentBackStack`.
  */
+@SuppressLint("RestrictedApi")
 fun NavController.navigateToTopLevel(destination: TopLevelDestination) {
     if (destination == currentBackStack.value.currentTopLevelDestination()) {
         popBackStack(destination.startRoute, inclusive = false)

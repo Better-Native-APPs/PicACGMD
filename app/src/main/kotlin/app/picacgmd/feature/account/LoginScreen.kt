@@ -60,6 +60,8 @@ import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.domain.session.SessionState
 import app.picacgmd.core.domain.session.apiRouteState
 import app.picacgmd.di.LocalAppContainer
+import app.picacgmd.feature.routing.RouteKind
+import app.picacgmd.feature.routing.RoutePickerDialog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -80,7 +82,7 @@ fun LoginScreen(onBack: (() -> Unit)? = null) {
         "forgot" -> ForgotPasswordScreen(onBack = { page = "login" })
         else -> LoginForm(onBack, { page = "register" }, { page = "forgot" }, { network = true })
     }
-    if (network) LoginRoutingDialog(onDismiss = { network = false })
+    if (network) RoutePickerDialog(RouteKind.Api, onDismiss = { network = false })
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -182,8 +184,15 @@ private fun LoginForm(onBack: (() -> Unit)?, onRegister: () -> Unit, onForgot: (
         Card(Modifier.fillMaxWidth()) {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(apiRouteState(settings).selected.label, style = MaterialTheme.typography.titleSmall)
-                    Text(if (settings.proxyUrl.isBlank()) "代理未设置" else "已设置代理", style = MaterialTheme.typography.bodySmall)
+                    val route = apiRouteState(settings).selected
+                    Text(
+                        listOfNotNull(route.label, route.address).joinToString(" · "),
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Text(
+                        if (settings.proxyUrl.isBlank()) "代理未设置 · 登录不上时可以换一条分流" else "已设置代理，分流暂不生效",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
                 }
                 FilledTonalButton(onNetwork, enabled = !busy) { Text("更改") }
             }

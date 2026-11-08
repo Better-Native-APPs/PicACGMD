@@ -172,7 +172,7 @@ fun AnnouncementsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     state.items.isEmpty() && state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LoadingIndicator() }
                     state.items.isEmpty() && state.error != null -> ErrorState(onRetry = { load(1) }, description = state.error, modifier = Modifier.fillMaxSize())
                     state.items.isEmpty() -> EmptyState(
-                        title = "暂时没有公告",
+                        title = "暂无公告",
                         icon = Icons.Outlined.Campaign,
                         shape = MaterialShapes.Sunny,
                         modifier = Modifier.fillMaxSize(),
@@ -190,9 +190,9 @@ fun AnnouncementsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                             Box(Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
                                 when {
                                     state.loading -> LoadingIndicator(Modifier.size(40.dp))
-                                    state.error != null -> TextButton(onClick = { load(state.page + 1) }) { Text("加载失败，点按重试") }
+                                    state.error != null -> TextButton(onClick = { load(state.page + 1) }) { Text("加载失败，重试") }
                                     state.page >= state.pages -> Text(
-                                        "没有更多了",
+                                        "没有更多",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )

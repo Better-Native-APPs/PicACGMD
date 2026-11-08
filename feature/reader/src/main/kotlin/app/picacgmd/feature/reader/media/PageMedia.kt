@@ -62,7 +62,7 @@ internal suspend fun readPageFileInfo(context: Context, image: PageImage): PageF
         }
     }
 
-/** 保存到相册: copies the original file into `Pictures/PicACG`; needs no storage permission. */
+/** Copies the original file into `Pictures/PicACG`; Android 8–9 requires storage permission. */
 internal suspend fun savePageToGallery(context: Context, image: PageImage, label: PageLabel): Boolean =
     guarded(false) {
         withPageFile(context, image) { file ->
@@ -148,11 +148,11 @@ private suspend fun <T> withPageFile(
         is PageImage.Local -> if (image.file.isFile) block(image.file) else null
         is PageImage.Remote -> {
             val loader = SingletonImageLoader.get(context)
-            val cached = loader.readCached(image.url, block)
+            val cached = loader.readCached(image.stableKey, block)
             when {
                 cached != null -> cached.value
                 !download -> null
-                else -> fetchThenRead(context, loader, image.url, block)
+                else -> fetchThenRead(context, loader, image.url, image.stableKey, block)
             }
         }
     }
@@ -164,15 +164,16 @@ private class Found<T>(val value: T)
 private fun <T> ImageLoader.readCached(url: String, block: (File) -> T): Found<T>? =
     diskCache?.openSnapshot(url)?.use { snapshot -> Found(block(snapshot.data.toFile())) }
 
-private suspend fun <T> fetchThenRead(context: Context, loader: ImageLoader, url: String, block: (File) -> T): T? {
+private suspend fun <T> fetchThenRead(context: Context, loader: ImageLoader, url: String, cacheKey: String, block: (File) -> T): T? {
     val request = ImageRequest.Builder(context)
         .data(url)
+        .diskCacheKey(cacheKey)
         .size(CoilSize.ORIGINAL)
         .memoryCachePolicy(CachePolicy.DISABLED)
         .allowHardware(false)
         .build()
     val result = loader.execute(request) as? SuccessResult ?: return null
-    loader.readCached(url, block)?.let { return it.value }
+    loader.readCached(cacheKey, block)?.let { return it.value }
     val temporary = File.createTempFile("page", ".png", context.cacheDir)
     return try {
         temporary.outputStream().use { out -> result.image.toBitmap().compress(Bitmap.CompressFormat.PNG, 100, out) }
@@ -228,6 +229,7 @@ private fun decodeCrop(file: File, crop: CropRect): Bitmap? {
 }
 
 private fun writeToGallery(context: Context, name: String, type: PageFileType, write: (OutputStream) -> Unit): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return writeToLegacyGallery(context, name, type, write)
     val resolver = context.contentResolver
     val values = ContentValues().apply {
         put(MediaStore.Images.Media.DISPLAY_NAME, name)
@@ -246,6 +248,32 @@ private fun writeToGallery(context: Context, name: String, type: PageFileType, w
     } catch (error: IOException) {
         resolver.delete(item, null, null)
         throw error
+    }
+}
+
+/** Before scoped storage, publish a complete file in the public Pictures album. */
+@Suppress("DEPRECATION")
+private fun writeToLegacyGallery(context: Context, name: String, type: PageFileType, write: (OutputStream) -> Unit): Boolean {
+    val folder = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), GALLERY_FOLDER)
+    if (!folder.isDirectory && !folder.mkdirs()) throw IOException("Could not create $folder")
+    var target = File(folder, name)
+    var duplicate = 1
+    while (!target.createNewFile()) {
+        target = File(folder, "${name.substringBeforeLast('.')} (${duplicate++}).${type.extension}")
+    }
+    var published = false
+    return try {
+        target.outputStream().use(write)
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, target.name)
+            put(MediaStore.Images.Media.MIME_TYPE, type.mimeType)
+            put(MediaStore.Images.Media.DATA, target.absolutePath)
+        }
+        if (context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) == null) return false
+        published = true
+        true
+    } finally {
+        if (!published) target.delete()
     }
 }
 

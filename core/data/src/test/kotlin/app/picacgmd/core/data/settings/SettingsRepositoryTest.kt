@@ -20,6 +20,22 @@ import kotlin.test.assertTrue
 
 class SettingsRepositoryTest {
     @Test
+    fun deviceDefaultIsNotPersistedAndAnExplicitChoiceSurvivesDifferentDefaults() = runTest {
+        val store = MemoryPreferencesStore()
+        val defaults = AppSettings.defaultsForDevice(isLowRamDevice = true)
+        val repository = SettingsRepository(store, defaults)
+        assertEquals(2, repository.settings.first().downloadThreads)
+        assertNull(store.data.first()[SettingsKeys.downloadThreads])
+        repository.setPureBlack(true)
+        assertEquals(2, repository.settings.first().downloadThreads)
+        assertNull(store.data.first()[SettingsKeys.downloadThreads])
+
+        repository.setDownloadThreads(16)
+        assertEquals(16, SettingsRepository(store).settings.first().downloadThreads)
+        assertEquals(16, SettingsRepository(store, defaults).settings.first().downloadThreads)
+    }
+
+    @Test
     fun aiFilterDefaultsOffAndPersistsAcrossRepositoryInstances() = runTest {
         val store = MemoryPreferencesStore()
         val repository = SettingsRepository(store)

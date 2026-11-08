@@ -115,6 +115,7 @@
     <string name="reader_reload_all">重载整页</string>
     <string name="reader_saved">已保存到相册</string>
     <string name="reader_save_failed">保存失败</string>
+    <string name="reader_storage_permission_required">需要存储权限才能保存</string>
     <string name="reader_share_failed">分享失败</string>
     <string name="reader_close">关闭</string>
     <string name="reader_crop">裁剪</string>
@@ -146,4 +147,6 @@
     <string name="reader_setting_lock_drag_detail">拖动时不越过图片边缘</string>
     <string name="reader_zoom_percent">%1$d%%</string>
     <string name="reader_minimap">当前页的可见范围，拖动可移动画面</string>
+    <string name="reader_setting_api_route">分流</string>
+    <string name="reader_setting_image_route">图片分流</string>
 </resources>

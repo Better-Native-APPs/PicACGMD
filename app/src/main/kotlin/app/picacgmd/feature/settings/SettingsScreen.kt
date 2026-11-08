@@ -70,7 +70,7 @@ enum class SettingsPage(val title: String, val summary: String) {
     Browsing("列表与浏览", "加载方式、列数、封印、首页分类、功能入口"),
     Reading("阅读", "默认模式、操控、音量键、缩放、电子墨水屏"),
     Downloads("下载", "线程数 1–16、自动下载、仅 Wi-Fi"),
-    Network("网络", "API 分流、图片分流、代理、超时"),
+    Network("网络", "分流、图片分流、分流同步、代理、超时"),
     Privacy("隐私与安全", "应用锁、防截屏、浏览记录"),
     Data("数据与存储", "存储占用、清理缓存、自动清理"),
     About("关于", "版本、开源许可、隐私说明、使用说明"),
@@ -148,8 +148,9 @@ private val SearchIndex: List<SettingsEntry> = buildList {
     )
     add(
         SettingsPage.Network, "网络",
-        "API 分流" to "不分流、分流 1–3、自定义 IP", "图片分流" to "不分流、分流 1–3、自定义地址",
-        "用 API 加载图片" to "", "线路测速" to "测试各条 API 分流的响应时间", "代理服务器" to "HTTP、SOCKS5", "时区" to "服务器校验时间失败时再调整",
+        "分流" to "切换 API 分流，打开时自动测速；自定义 IP", "图片分流" to "切换图片服务器，打开时自动测速；自定义地址",
+        "分流同步" to "从哔咔服务器获取最新的分流地址、恢复默认", "线路测速" to "在分流列表里查看每条线路的延迟",
+        "用 API 加载图片" to "", "代理服务器" to "HTTP、SOCKS5", "时区" to "服务器校验时间失败时再调整",
         "图片质量" to "原图、高、中、低", "连接超时" to "", "读取超时" to "",
     )
     add(

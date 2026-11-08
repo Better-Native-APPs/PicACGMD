@@ -9,7 +9,7 @@ android {
         version = release(37) { minorApiLevel = 0 }
     }
     buildToolsVersion = "37.0.0"
-    defaultConfig { minSdk = 29 }
+    defaultConfig { minSdk = 26 }
     buildFeatures { compose = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
@@ -24,6 +24,7 @@ dependencies {
     // StateFlow appears in the public ReaderSource contract.
     api(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.activity.compose)
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.foundation)
     implementation(libs.compose.material3)

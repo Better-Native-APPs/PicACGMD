@@ -136,7 +136,7 @@ class MainActivity : ComponentActivity() {
         val target = intent.externalNavigation()
         if (target != null) pendingNavigation = target
         else if (intent.action in setOf(Intent.ACTION_SEND, Intent.ACTION_VIEW)) {
-            Toast.makeText(this, "没有找到有效的漫画链接", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "未找到有效漫画链接", Toast.LENGTH_SHORT).show()
             if (settings == null) finish()
         }
     }
@@ -154,7 +154,7 @@ class MainActivity : ComponentActivity() {
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {
-                settingsError = exception.localizedMessage ?: "无法读取本机设置"
+                settingsError = exception.localizedMessage ?: "读取本机设置失败"
             }
         }
     }
