@@ -58,8 +58,9 @@ internal fun categoryKey(name: String): String = when (val trimmed = name.trim()
     else -> trimmed
 }
 
-private val aiComicMarkers = listOf(
-    "AI作画", "AI作畫", "AI创作", "AI生成", "AI画作", "AI绘画", "AI艺术", "AI繪畫", "AI藝術",
+/** Marks of AI-made comics in Simplified and Traditional forms; also the 「AI作画」 group of [BlockPresets]. */
+internal val aiComicMarkers = listOf(
+    "AI作画", "AI作畫", "AI创作", "AI創作", "AI生成", "AI画作", "AI畫作", "AI绘画", "AI繪畫", "AI艺术", "AI藝術",
 )
 
 fun isAiComic(comic: ComicSimple): Boolean =
@@ -67,30 +68,67 @@ fun isAiComic(comic: ComicSimple): Boolean =
         aiComicMarkers.any { marker -> text.contains(marker, ignoreCase = true) }
     }
 
-fun isComicHidden(comic: ComicSimple, settings: AppSettings, viewedIds: Set<String> = emptySet()): Boolean {
-    val shielded = settings.shieldedCategories.map(::categoryKey).toSet()
-    val matchesCategory = comic.categories.any { categoryKey(it) in shielded }
-    val categoryHidden = when (settings.categoryShieldMode) {
-        CategoryShieldMode.BLACKLIST -> matchesCategory
-        CategoryShieldMode.WHITELIST -> !matchesCategory
-    }
-    val keywordHidden = settings.hiddenKeywords.any { word ->
-        val keyword = word.trim()
-        keyword.isNotEmpty() &&
-            (comic.title.contains(keyword, ignoreCase = true) || comic.author.contains(keyword, ignoreCase = true))
-    }
-    return categoryHidden || keywordHidden || (settings.hideViewedComics && comic.id in viewedIds) ||
-        (settings.hideAiComics && isAiComic(comic))
-}
+fun isComicHidden(comic: ComicSimple, settings: AppSettings, viewedIds: Set<String> = emptySet()): Boolean =
+    HideRules(settings).hides(comic, viewedIds)
 
 fun filterComics(
     comics: List<ComicSimple>,
     settings: AppSettings,
     viewedIds: Set<String> = emptySet(),
 ): FilteredComics {
-    val visible = comics.filterNot { isComicHidden(it, settings, viewedIds) }
+    val rules = HideRules(settings)
+    val visible = comics.filterNot { rules.hides(it, viewedIds) }
     return FilteredComics(visible, comics.size - visible.size)
 }
+
+/** The hiding preferences, prepared once per list instead of once per comic. */
+private class HideRules(private val settings: AppSettings) {
+    private val shielded = settings.shieldedCategories.map(::categoryKey).toSet()
+    private val keywords = settings.hiddenKeywords.map(String::trim).filter(String::isNotEmpty)
+
+    fun hides(comic: ComicSimple, viewedIds: Set<String>): Boolean {
+        val matchesCategory = comic.categories.any { categoryKey(it) in shielded }
+        val categoryHidden = when (settings.categoryShieldMode) {
+            CategoryShieldMode.BLACKLIST -> matchesCategory
+            CategoryShieldMode.WHITELIST -> !matchesCategory
+        }
+        return categoryHidden || hiddenByKeyword(comic) || (settings.hideViewedComics && comic.id in viewedIds) ||
+            (settings.hideAiComics && isAiComic(comic))
+    }
+
+    /** Keywords look at the title, the author, every category and every tag. */
+    private fun hiddenByKeyword(comic: ComicSimple): Boolean {
+        if (keywords.isEmpty()) return false
+        val texts = sequenceOf(comic.title, comic.author) + comic.categories.asSequence() + comic.tags.asSequence()
+        return texts.any { text -> keywords.any { keyword -> keywordMatches(text, keyword) } }
+    }
+}
+
+/**
+ * Whether the hidden [keyword] occurs in [text], ignoring case. A keyword made only of ASCII letters and
+ * digits has to stand as a whole word, with no ASCII letter or digit right before or after it: 「BL」
+ * finds 「BL」, 「[BL]」 and 「BL漫画」 but not 「Blue Archive」, and 「NTR」 does not find 「ENTRY」. Every
+ * other keyword (Chinese, Japanese, or one with spaces or symbols) matches anywhere in the text.
+ *
+ * The boundary is checked by hand because `\b` differs between platforms: the JVM treats only ASCII as
+ * word characters, while Android's ICU engine also counts Chinese ones, so 「NTR向」 would not match there.
+ */
+internal fun keywordMatches(text: String, keyword: String): Boolean {
+    if (keyword.isEmpty()) return false
+    if (!keyword.all(::isAsciiLetterOrDigit)) return text.contains(keyword, ignoreCase = true)
+    var from = 0
+    while (true) {
+        val start = text.indexOf(keyword, from, ignoreCase = true)
+        if (start < 0) return false
+        val end = start + keyword.length
+        val wordStart = start == 0 || !isAsciiLetterOrDigit(text[start - 1])
+        val wordEnd = end == text.length || !isAsciiLetterOrDigit(text[end])
+        if (wordStart && wordEnd) return true
+        from = start + 1
+    }
+}
+
+private fun isAsciiLetterOrDigit(char: Char): Boolean = char in 'a'..'z' || char in 'A'..'Z' || char in '0'..'9'
 
 internal fun Page<ComicSimple>.filtered(result: FilteredComics): FilteredPage<ComicSimple> =
     FilteredPage(result.items, total, page, pages, limit, result.hiddenCount)

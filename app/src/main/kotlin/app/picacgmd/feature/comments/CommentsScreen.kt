@@ -1,10 +1,5 @@
 package app.picacgmd.feature.comments
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,14 +26,7 @@ import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.Flag
-import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledIconButton
@@ -70,9 +58,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -82,24 +69,11 @@ import app.picacgmd.core.designsystem.component.EmptyState
 import app.picacgmd.core.designsystem.component.ErrorState
 import app.picacgmd.core.designsystem.component.LoadingState
 import app.picacgmd.core.designsystem.component.ShapedAvatar
-import app.picacgmd.core.designsystem.theme.withTabularFigures
 import app.picacgmd.core.network.Comment
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.comics.formatCount
 import app.picacgmd.feature.comics.rememberImageUrl
 import kotlinx.coroutines.flow.distinctUntilChanged
-
-/** The official client's limit for one comment or reply. */
-private const val COMMENT_MAX_LENGTH = 500
-
-/** The counter only shows up for the last tenth of the allowance. */
-private const val COMMENT_COUNTER_FROM = 450
-
-/**
- * A draft may run past the limit: cutting at 500 would break pinyin composition near the end and
- * silently drop part of a long paste. Going over shows in the counter and disables sending instead.
- */
-private const val COMMENT_DRAFT_CAP = 2_000
 
 /**
  * Board 17: comments of a comic — pinned group, latest comments, replies sheet, composer, likes, reports.
@@ -190,6 +164,7 @@ fun CommentsScreen(comicId: String, onBack: () -> Unit, modifier: Modifier = Mod
             onLike = viewModel::toggleLike,
             onReport = { reportTarget = it },
             onLoadMore = viewModel::loadMoreReplies,
+            onRetry = viewModel::retryReplies,
             onSend = viewModel::reply,
         )
     }
@@ -197,7 +172,7 @@ fun CommentsScreen(comicId: String, onBack: () -> Unit, modifier: Modifier = Mod
     // Composed after the sheet, so its window opens on top of it when reporting a reply.
     reportTarget?.let { target ->
         val confirmation = stringResource(R.string.comments_reported)
-        ReportDialog(
+        ReportCommentDialog(
             comment = target,
             onDismiss = { reportTarget = null },
             onConfirm = {
@@ -206,36 +181,6 @@ fun CommentsScreen(comicId: String, onBack: () -> Unit, modifier: Modifier = Mod
             },
         )
     }
-}
-
-/** Quotes the comment being reported, so a tap on the wrong row can still be caught. */
-@Composable
-private fun ReportDialog(comment: Comment, onDismiss: () -> Unit, onConfirm: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.comments_report_title)) },
-        text = {
-            Text(
-                stringResource(
-                    R.string.comments_report_quote,
-                    comment.user?.name?.takeIf { it.isNotBlank() } ?: stringResource(R.string.comments_anonymous),
-                    if (comment.hide) stringResource(R.string.comments_hidden) else comment.content,
-                ),
-                maxLines = 4,
-                overflow = TextOverflow.Ellipsis,
-            )
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error,
-                    contentColor = MaterialTheme.colorScheme.onError,
-                ),
-            ) { Text(stringResource(R.string.comments_report)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.comics_cancel)) } },
-    )
 }
 
 @Composable
@@ -344,10 +289,7 @@ fun CommentRow(
 @Composable
 private fun Composer(hint: String, sending: Boolean, onSend: (String, () -> Unit) -> Unit) {
     var text by rememberSaveable { mutableStateOf("") }
-    // Measured as it will be sent: the view model trims, so surrounding whitespace does not count.
-    val length = text.trim().length
-    val tooLong = length > COMMENT_MAX_LENGTH
-    val motion = MaterialTheme.motionScheme
+    val length = commentLength(text)
     Surface(color = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = 2.dp) {
         Row(
             Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(horizontal = 12.dp, vertical = 8.dp),
@@ -359,7 +301,7 @@ private fun Composer(hint: String, sending: Boolean, onSend: (String, () -> Unit
                 onValueChange = { text = it.take(COMMENT_DRAFT_CAP) },
                 placeholder = { Text(hint) },
                 maxLines = 4,
-                isError = tooLong,
+                isError = length > COMMENT_MAX_LENGTH,
                 shape = MaterialTheme.shapes.extraLarge,
                 colors = TextFieldDefaults.colors(
                     focusedIndicatorColor = Color.Transparent,
@@ -373,55 +315,11 @@ private fun Composer(hint: String, sending: Boolean, onSend: (String, () -> Unit
             )
             // The count sits on the button it gates, so a disabled send explains itself.
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                AnimatedVisibility(
-                    visible = length >= COMMENT_COUNTER_FROM,
-                    enter = fadeIn(motion.fastEffectsSpec()) + expandVertically(motion.fastSpatialSpec()),
-                    exit = fadeOut(motion.fastEffectsSpec()) + shrinkVertically(motion.fastSpatialSpec()),
-                ) {
-                    LengthCounter(length, tooLong)
-                }
-                FilledIconButton(onClick = { onSend(text) { text = "" } }, enabled = length in 1..COMMENT_MAX_LENGTH && !sending) {
+                CommentLengthCounter(length)
+                FilledIconButton(onClick = { onSend(text) { text = "" } }, enabled = commentSendable(length) && !sending) {
                     Icon(Icons.AutoMirrored.Outlined.Send, stringResource(R.string.comments_send))
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun LengthCounter(length: Int, tooLong: Boolean) {
-    val spoken = stringResource(R.string.comments_length_description, length, COMMENT_MAX_LENGTH)
-    Text(
-        "$length/$COMMENT_MAX_LENGTH",
-        style = MaterialTheme.typography.labelSmall.withTabularFigures(),
-        color = if (tooLong) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.semantics { contentDescription = spoken },
-    )
-}
-
-/** A comment's ⋮ menu, built like the row menus on the bookshelf and downloads pages. */
-@Composable
-private fun CommentMenu(onReport: () -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    Box {
-        // Small on purpose: it shares a line with the name, and Compose still widens the touch area to 48 dp.
-        IconButton(onClick = { open = true }, modifier = Modifier.size(24.dp)) {
-            Icon(
-                Icons.Outlined.MoreVert,
-                stringResource(R.string.comments_more_actions),
-                Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.comments_report)) },
-                leadingIcon = { Icon(Icons.Outlined.Flag, null) },
-                onClick = {
-                    open = false
-                    onReport()
-                },
-            )
         }
     }
 }
@@ -435,9 +333,11 @@ private fun RepliesSheet(
     onLike: (String) -> Unit,
     onReport: (Comment) -> Unit,
     onLoadMore: () -> Unit,
+    onRetry: () -> Unit,
     onSend: (String, () -> Unit) -> Unit,
 ) {
     val listState = rememberLazyListState()
+    // Further pages come in by themselves as the end scrolls into view; only a failed page waits for a tap.
     LoadMoreEffect(listState, thread.replies.size, onLoadMore)
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), contentWindowInsets = { WindowInsets(0) }) {
         Column(Modifier.fillMaxWidth()) {
@@ -446,13 +346,10 @@ private fun RepliesSheet(
             HorizontalDivider()
             Box(Modifier.weight(1f, fill = false)) {
                 LazyColumn(state = listState) {
-                    if (thread.replies.isEmpty() && !thread.loading) {
-                        item { Text(stringResource(R.string.comments_no_replies), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp)) }
-                    }
                     items(thread.replies, key = { it.id }) { reply ->
                         CommentRow(reply, modifier = Modifier.padding(start = 24.dp), onLike = { onLike(reply.id) }, onReport = { onReport(reply) })
                     }
-                    if (thread.loading) item { Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { LoadingIndicator() } }
+                    item(key = "replies-footer") { RepliesFooter(thread, onRetry) }
                 }
                 // The sheet is its own window and covers the page's snackbar, so messages need a host in here too.
                 SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
@@ -462,6 +359,26 @@ private fun RepliesSheet(
                 sending = thread.sending,
                 onSend = onSend,
             )
+        }
+    }
+}
+
+/** The end of the replies: a spinner while a page loads, a retry once one has failed, or the empty note. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun RepliesFooter(thread: ReplyThread, onRetry: () -> Unit) {
+    val error = thread.error
+    Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+        when {
+            thread.loading -> LoadingIndicator()
+            error != null -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // With nothing on screen yet, say what went wrong.
+                if (thread.replies.isEmpty()) {
+                    Text(error, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                }
+                TextButton(onClick = onRetry) { Text(stringResource(R.string.comics_load_more_failed)) }
+            }
+            thread.replies.isEmpty() -> Text(stringResource(R.string.comments_no_replies), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

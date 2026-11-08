@@ -53,6 +53,65 @@ class ComicFilterTest {
     }
 
     @Test
+    fun hiddenKeywordsAlsoMatchCategoriesAndTags() {
+        val samples = listOf(
+            ComicSimple(id = "tag", title = "夏日", tags = listOf("校园", "纯爱")),
+            ComicSimple(id = "category", title = "花园", categories = listOf("耽美花園")),
+            ComicSimple(id = "plain", title = "冬日", categories = listOf("日常"), tags = listOf("搞笑")),
+        )
+        val result = filterComics(samples, AppSettings(hiddenKeywords = listOf("纯爱", "耽美")))
+        assertEquals(listOf("plain"), result.items.map { it.id })
+        assertEquals(2, result.hiddenCount)
+    }
+
+    @Test
+    fun asciiKeywordsOnlyMatchWholeWords() {
+        // On its own, in brackets, next to Chinese, in another case, in any field: hidden.
+        listOf(
+            ComicSimple(tags = listOf("BL")),
+            ComicSimple(title = "[BL] 夏日"),
+            ComicSimple(title = "BL漫画合集"),
+            ComicSimple(categories = listOf("耽美BL")),
+            ComicSimple(tags = listOf("bl")),
+            ComicSimple(author = "studio BL"),
+        ).forEach { assertTrue(hiddenBy("BL", it), it.toString()) }
+        // Inside a longer word: visible.
+        listOf(
+            ComicSimple(title = "Blue Archive 同人"),
+            ComicSimple(title = "BLEACH"),
+            ComicSimple(tags = listOf("Table")),
+        ).forEach { assertFalse(hiddenBy("BL", it), it.toString()) }
+        assertTrue(hiddenBy("NTR", ComicSimple(categories = listOf("NTR"))))
+        assertTrue(hiddenBy("ntr", ComicSimple(tags = listOf("NTR向"))))
+        assertFalse(hiddenBy("NTR", ComicSimple(title = "ENTRY")))
+        assertFalse(hiddenBy("NTR", ComicSimple(title = "Mind Control")))
+        // Digits belong to the word as well.
+        assertTrue(hiddenBy("C102", ComicSimple(title = "(C102) 新刊")))
+        assertFalse(hiddenBy("C102", ComicSimple(title = "(C1024) 新刊")))
+    }
+
+    @Test
+    fun asciiKeywordLooksPastAnEmbeddedHitForAWholeOne() {
+        // The first 「BL」 is the start of 「Blue」, the second stands alone.
+        assertTrue(hiddenBy("BL", ComicSimple(title = "Blue BL")))
+        assertFalse(hiddenBy("BL", ComicSimple(title = "Blue Blossom")))
+    }
+
+    @Test
+    fun otherKeywordsStillMatchInsideWords() {
+        assertTrue(hiddenBy("耽美", ComicSimple(categories = listOf("耽美花園"))))
+        assertTrue(hiddenBy("寝取", ComicSimple(tags = listOf("寝取られ"))))
+        // Mixed with Chinese: a plain substring, still ignoring case.
+        assertTrue(hiddenBy("ai作画", ComicSimple(title = "AI作画合集")))
+        // A space or a symbol makes it a phrase, which may sit inside a longer word.
+        assertTrue(hiddenBy("Blue Archive", ComicSimple(title = "blue archives")))
+        assertTrue(hiddenBy("C-1", ComicSimple(title = "AC-12")))
+    }
+
+    private fun hiddenBy(keyword: String, comic: ComicSimple): Boolean =
+        isComicHidden(comic, AppSettings(hiddenKeywords = listOf(keyword)))
+
+    @Test
     fun overlappingReasonsCountEachComicOnlyOnce() {
         val result = filterComics(
             comics,
@@ -77,7 +136,9 @@ class ComicFilterTest {
 
     @Test
     fun aiMarkersMatchTitlesCategoriesAndTagsIgnoringCase() {
-        val markers = listOf("AI作画", "AI作畫", "AI创作", "AI生成", "AI画作", "AI绘画", "AI艺术", "AI繪畫", "AI藝術")
+        val markers = listOf(
+            "AI作画", "AI作畫", "AI创作", "AI創作", "AI生成", "AI画作", "AI畫作", "AI绘画", "AI繪畫", "AI艺术", "AI藝術",
+        )
         val samples = markers.flatMap { marker ->
             listOf(
                 ComicSimple(title = "[$marker] 漫画"),

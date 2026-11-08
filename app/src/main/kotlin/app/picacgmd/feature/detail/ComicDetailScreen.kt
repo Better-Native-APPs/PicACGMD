@@ -1,6 +1,12 @@
 package app.picacgmd.feature.detail
 
+import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -38,6 +44,8 @@ import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ContentCopy
@@ -55,6 +63,8 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -65,6 +75,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -87,6 +98,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -105,6 +118,7 @@ import app.picacgmd.core.designsystem.component.SectionHeader
 import app.picacgmd.core.designsystem.theme.PikapikaTheme
 import app.picacgmd.core.designsystem.theme.withTabularFigures
 import app.picacgmd.core.domain.repository.ReadingProgress
+import app.picacgmd.core.domain.repository.containsKeyword
 import app.picacgmd.core.network.ComicInfo
 import app.picacgmd.core.network.ComicSimple
 import app.picacgmd.core.network.Ep
@@ -114,6 +128,7 @@ import app.picacgmd.feature.comics.readMarkText
 import app.picacgmd.feature.comics.rememberImageUrl
 import app.picacgmd.feature.comics.rememberReadMarks
 import app.picacgmd.feature.comments.CommentRow
+import kotlinx.coroutines.flow.collectLatest
 
 /** Chapter rows shown before 「展开全部」 (board 10). */
 private const val COLLAPSED_CHAPTER_COUNT = 8
@@ -143,10 +158,19 @@ fun ComicDetailScreen(
     val viewModel = viewModel(key = "detail:$comicId") { ComicDetailViewModel(container, comicId) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val library by viewModel.library.collectAsStateWithLifecycle()
+    val hiddenKeywords by viewModel.hiddenKeywords.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val failedTemplate = stringResource(R.string.detail_action_failed, "%s")
+    val blockedTemplate = stringResource(R.string.detail_keyword_blocked_message, "%s")
+    val unblockedTemplate = stringResource(R.string.detail_keyword_unblocked_message, "%s")
     LaunchedEffect(viewModel) {
         viewModel.messages.collect { snackbar.showSnackbar(failedTemplate.replace("%s", it)) }
+    }
+    LaunchedEffect(viewModel) {
+        // The newest change replaces the one on screen, so a run of taps doesn't queue up a run of snackbars.
+        viewModel.keywordChanges.collectLatest { change ->
+            snackbar.showSnackbar((if (change.blocked) blockedTemplate else unblockedTemplate).replace("%s", change.keyword))
+        }
     }
     var downloadPicker by rememberSaveable { mutableStateOf(false) }
 
@@ -182,6 +206,8 @@ fun ComicDetailScreen(
                 onComicClick = onComicClick,
                 onOpenComments = { onOpenComments(comic.id) },
                 onRetryEps = viewModel::retryEps,
+                hiddenKeywords = hiddenKeywords,
+                onToggleKeyword = viewModel::toggleHiddenKeyword,
             )
         }
     }
@@ -231,18 +257,25 @@ private fun DetailBody(
     onComicClick: (String) -> Unit,
     onOpenComments: () -> Unit,
     onRetryEps: () -> Unit,
+    hiddenKeywords: List<String>,
+    onToggleKeyword: (String) -> Unit,
 ) {
     val listState = rememberLazyListState()
     val collapsed by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
     val clipboard = LocalClipboardManager.current
     var showAllChapters by rememberSaveable { mutableStateOf(false) }
     var chaptersReversed by rememberSaveable { mutableStateOf(false) }
+    var blockMode by rememberSaveable { mutableStateOf(false) }
+    // While chips are being toggled the notice above them stays as it was, so the next chip doesn't move
+    // away from under the finger; it catches up once 屏蔽模式 is off again.
+    var noticeDuringBlockMode by rememberSaveable { mutableStateOf(false) }
+    val showHiddenNotice = if (blockMode) noticeDuringBlockMode else state.hiddenByRule
     // Outside the LazyColumn: the marks keep one holder however often the row scrolls away.
     val readMarks = rememberReadMarks(remember(state.recommendations) { state.recommendations.map(ComicSimple::id) })
     Box(Modifier.fillMaxSize()) {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 112.dp)) {
             item(key = "hero") { Hero(comic, onAuthorClick) }
-            if (state.hiddenByRule) item(key = "hidden") { HiddenNotice() }
+            if (showHiddenNotice) item(key = "hidden") { HiddenNotice() }
             item(key = "actions") {
                 ActionRow(
                     comic = comic,
@@ -253,7 +286,22 @@ private fun DetailBody(
                     onDownload = onDownload,
                 )
             }
-            item(key = "meta") { MetaChips(comic, onCategoryClick, onTagClick, onAuthorClick, onTeamClick) }
+            item(key = "meta") {
+                MetaChips(
+                    comic = comic,
+                    hiddenKeywords = hiddenKeywords,
+                    blockMode = blockMode,
+                    onBlockModeChange = { on ->
+                        if (on) noticeDuringBlockMode = state.hiddenByRule
+                        blockMode = on
+                    },
+                    onToggleKeyword = onToggleKeyword,
+                    onCategoryClick = onCategoryClick,
+                    onTagClick = onTagClick,
+                    onAuthorClick = onAuthorClick,
+                    onTeamClick = onTeamClick,
+                )
+            }
             if (comic.description.isNotBlank()) item(key = "desc") { Description(comic.description) }
             item(key = "eps-header") {
                 SectionHeader(title = stringResource(R.string.detail_chapters, state.eps?.size ?: comic.epsCount))
@@ -491,15 +539,31 @@ private fun ActionToggle(
     }
 }
 
+/** One labelled row of keyword chips: the categories or the tags. */
+private class ChipGroup(@StringRes val label: Int, val names: List<String>, val onOpen: (String) -> Unit)
+
+/**
+ * Author and team chips, then the categories and tags. Those two groups share 屏蔽模式, switched on the
+ * first label: while it is on, a tap puts the word into the hidden keywords or takes it out again.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MetaChips(
     comic: ComicInfo,
+    hiddenKeywords: List<String>,
+    blockMode: Boolean,
+    onBlockModeChange: (Boolean) -> Unit,
+    onToggleKeyword: (String) -> Unit,
     onCategoryClick: (String) -> Unit,
     onTagClick: (String) -> Unit,
     onAuthorClick: (String) -> Unit,
     onTeamClick: (String) -> Unit,
 ) {
+    val motion = MaterialTheme.motionScheme
+    val groups = listOfNotNull(
+        ChipGroup(R.string.detail_categories, comic.categories, onCategoryClick).takeIf { comic.categories.isNotEmpty() },
+        ChipGroup(R.string.detail_tags, comic.tags, onTagClick).takeIf { comic.tags.isNotEmpty() },
+    )
     Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (comic.author.isNotBlank()) {
@@ -509,19 +573,37 @@ private fun MetaChips(
                 AssistChip(onClick = { onTeamClick(comic.chineseTeam) }, label = { Text(comic.chineseTeam) }, leadingIcon = { Icon(Icons.Outlined.Translate, stringResource(R.string.detail_team)) })
             }
         }
-        if (comic.categories.isNotEmpty()) {
-            ChipGroupLabel(stringResource(R.string.detail_categories))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                comic.categories.forEach { name ->
-                    SuggestionChip(onClick = { onCategoryClick(name) }, label = { Text(name) })
+        groups.forEachIndexed { index, group ->
+            val first = index == 0
+            ChipGroupLabel(
+                stringResource(group.label),
+                trailing = if (first) {
+                    { BlockModeToggle(blockMode, onBlockModeChange) }
+                } else {
+                    null
+                },
+            )
+            if (first) {
+                AnimatedVisibility(
+                    visible = blockMode,
+                    enter = fadeIn(motion.fastEffectsSpec()) + expandVertically(motion.fastSpatialSpec()),
+                    exit = fadeOut(motion.fastEffectsSpec()) + shrinkVertically(motion.fastSpatialSpec()),
+                ) {
+                    Text(
+                        stringResource(R.string.detail_block_mode_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                 }
             }
-        }
-        if (comic.tags.isNotEmpty()) {
-            ChipGroupLabel(stringResource(R.string.detail_tags))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                comic.tags.forEach { tag ->
-                    SuggestionChip(onClick = { onTagClick(tag) }, label = { Text(tag) })
+                group.names.forEach { name ->
+                    KeywordChip(
+                        text = name,
+                        blocked = hiddenKeywords.containsKeyword(name),
+                        blockMode = blockMode,
+                        onClick = { if (blockMode) onToggleKeyword(name) else group.onOpen(name) },
+                    )
                 }
             }
         }
@@ -529,13 +611,69 @@ private fun MetaChips(
 }
 
 @Composable
-private fun ChipGroupLabel(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 6.dp),
+private fun ChipGroupLabel(text: String, trailing: (@Composable () -> Unit)? = null) {
+    Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        trailing?.invoke()
+    }
+}
+
+@Composable
+private fun BlockModeToggle(on: Boolean, onChange: (Boolean) -> Unit) {
+    FilterChip(
+        selected = on,
+        onClick = { onChange(!on) },
+        label = { Text(stringResource(R.string.detail_block_mode)) },
+        leadingIcon = { Icon(Icons.Outlined.Block, contentDescription = null, modifier = Modifier.size(FilterChipDefaults.IconSize)) },
     )
+}
+
+/**
+ * A category or tag. A blocked one carries ⊘ wherever it shows. In 屏蔽模式 every chip gets an icon,
+ * ＋ to block or ⊘ to unblock, so toggling one never changes its width and the chips around it stay put.
+ */
+@Composable
+private fun KeywordChip(text: String, blocked: Boolean, blockMode: Boolean, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    if (blockMode) {
+        val state = stringResource(if (blocked) R.string.detail_keyword_blocked else R.string.detail_keyword_not_blocked)
+        FilterChip(
+            selected = blocked,
+            onClick = onClick,
+            label = { Text(text) },
+            leadingIcon = {
+                Icon(if (blocked) Icons.Outlined.Block else Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(FilterChipDefaults.IconSize))
+            },
+            colors = FilterChipDefaults.filterChipColors(
+                selectedContainerColor = colors.errorContainer,
+                selectedLabelColor = colors.onErrorContainer,
+                selectedLeadingIconColor = colors.onErrorContainer,
+            ),
+            modifier = Modifier.semantics { stateDescription = state },
+        )
+    } else {
+        SuggestionChip(
+            onClick = onClick,
+            label = { Text(text) },
+            icon = if (blocked) {
+                {
+                    Icon(
+                        Icons.Outlined.Block,
+                        contentDescription = stringResource(R.string.detail_keyword_blocked),
+                        modifier = Modifier.size(SuggestionChipDefaults.IconSize),
+                        tint = colors.error,
+                    )
+                }
+            } else {
+                null
+            },
+        )
+    }
 }
 
 @Composable

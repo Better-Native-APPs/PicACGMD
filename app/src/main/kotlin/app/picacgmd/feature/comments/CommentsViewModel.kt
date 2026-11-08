@@ -35,6 +35,8 @@ data class ReplyThread(
     val pages: Int = 1,
     val loading: Boolean = true,
     val sending: Boolean = false,
+    /** Why the last page failed; loading more then waits for 重试. */
+    val error: String? = null,
 )
 
 class CommentsViewModel(container: AppContainer, private val comicId: String) : ViewModel() {
@@ -136,13 +138,21 @@ class CommentsViewModel(container: AppContainer, private val comicId: String) : 
 
     fun loadMoreReplies() {
         val t = mutableReplies.value ?: return
-        if (t.loading || t.page >= t.pages) return
+        // After a failure, scrolling must not fire the same request again and again; 重试 does it once.
+        if (t.loading || t.error != null || t.page >= t.pages) return
+        loadReplies(t.page + 1)
+    }
+
+    /** Asks again for the page that failed, the first one included. */
+    fun retryReplies() {
+        val t = mutableReplies.value ?: return
+        if (t.loading) return
         loadReplies(t.page + 1)
     }
 
     private fun loadReplies(page: Int) {
         val parentId = mutableReplies.value?.parent?.id ?: return
-        mutableReplies.update { it?.copy(loading = true) }
+        mutableReplies.update { it?.copy(loading = true, error = null) }
         viewModelScope.launch {
             runCatching { repository.replies(parentId, page) }
                 .onSuccess { result ->
@@ -154,8 +164,10 @@ class CommentsViewModel(container: AppContainer, private val comicId: String) : 
                     }
                 }
                 .onFailure { error ->
-                    mutableReplies.update { it?.copy(loading = false, pages = 0) }
-                    mutableMessages.tryEmit(error.readable())
+                    // Shown in the sheet with a retry; the page count stays, so the retry knows where to go on.
+                    mutableReplies.update { t ->
+                        if (t == null || t.parent.id != parentId) t else t.copy(loading = false, error = error.readable())
+                    }
                 }
         }
     }

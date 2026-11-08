@@ -6,6 +6,11 @@ import app.picacgmd.core.data.db.DownloadEp
 import app.picacgmd.core.data.db.DownloadStatus
 import app.picacgmd.core.domain.di.AppContainer
 import app.picacgmd.core.domain.repository.ReadingProgress
+import app.picacgmd.core.domain.repository.containsKeyword
+import app.picacgmd.core.domain.repository.isComicHidden
+import app.picacgmd.core.domain.repository.minusKeywords
+import app.picacgmd.core.domain.repository.plusKeywords
+import app.picacgmd.core.domain.repository.toSimple
 import app.picacgmd.core.network.ComicInfo
 import app.picacgmd.core.network.ComicSimple
 import app.picacgmd.core.network.Comment
@@ -22,8 +27,11 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -52,6 +60,9 @@ data class LibraryState(
     /** Pictures in the chapter being read, the 22 of 「看到 14/22」; null until the API has answered. */
     val currentEpPages: Int? = null,
 )
+
+/** A tag or category that 屏蔽模式 has just put into the hidden keywords ([blocked]) or taken out. */
+data class KeywordChange(val keyword: String, val blocked: Boolean)
 
 class ComicDetailViewModel(private val container: AppContainer, val comicId: String) : ViewModel() {
     private val comics = container.comicRepository
@@ -83,7 +94,50 @@ class ComicDetailViewModel(private val container: AppContainer, val comicId: Str
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryState())
 
-    init { load() }
+    /** The hidden keywords, for marking the tag and category chips that are blocked. */
+    val hiddenKeywords: StateFlow<List<String>> = container.settingsRepository.settings
+        .map { it.hiddenKeywords }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val mutableKeywordChanges = MutableSharedFlow<KeywordChange>(extraBufferCapacity = 4)
+    val keywordChanges: SharedFlow<KeywordChange> = mutableKeywordChanges.asSharedFlow()
+    private val keywordWrites = Mutex()
+
+    init {
+        load()
+        // Follows the settings, so a tag blocked in 屏蔽模式 changes the notice straight away. The
+        // 「隐藏看过的漫画」 rule is left out: it is about lists, and every comic opened here counts as viewed.
+        viewModelScope.launch {
+            combine(mutableState.map { it.comic }.distinctUntilChanged(), container.settingsRepository.settings) { comic, settings ->
+                comic != null && isComicHidden(comic.toSimple(), settings)
+            }.distinctUntilChanged().collect { hidden -> mutableState.update { it.copy(hiddenByRule = hidden) } }
+        }
+    }
+
+    /** 屏蔽模式: puts [word] into the hidden keywords, or takes it out when it is in there already. */
+    fun toggleHiddenKeyword(word: String) {
+        val keyword = word.trim()
+        if (keyword.isEmpty()) return
+        viewModelScope.launch {
+            try {
+                // Read and written under one lock, so quick taps on several chips never undo each other.
+                val blocked = keywordWrites.withLock {
+                    val current = container.settingsRepository.settings.first().hiddenKeywords
+                    val blocking = !current.containsKeyword(keyword)
+                    container.settingsRepository.setHiddenKeywords(
+                        if (blocking) current.plusKeywords(listOf(keyword)) else current.minusKeywords(listOf(keyword)),
+                    )
+                    blocking
+                }
+                mutableKeywordChanges.tryEmit(KeywordChange(keyword, blocked))
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (error: Exception) {
+                mutableMessages.tryEmit(error.readable())
+            }
+        }
+    }
 
     /** Best effort: without an answer the chapter row just says 「看到第 N 页」. */
     private suspend fun fetchEpPages(epOrder: Int): Int? = try {
@@ -99,8 +153,7 @@ class ComicDetailViewModel(private val container: AppContainer, val comicId: Str
         viewModelScope.launch {
             try {
                 val comic = comics.comicInfo(comicId)
-                val hidden = runCatching { comics.isHidden(comic) }.getOrDefault(false)
-                mutableState.update { it.copy(loading = false, comic = comic, hiddenByRule = hidden) }
+                mutableState.update { it.copy(loading = false, comic = comic) }
                 runCatching { container.historyRepository.recordDetailView(comic) }
                 val eps = async { runCatching { comics.allEps(comicId) } }
                 val recommend = async { runCatching { comics.recommendations(comicId).items } }

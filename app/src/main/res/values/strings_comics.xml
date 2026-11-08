@@ -94,6 +94,12 @@
     <string name="detail_comments_all">全部评论</string>
     <string name="detail_comments_empty">还没有评论，来抢沙发吧</string>
     <string name="detail_hidden_by_rule">这本漫画命中了你的屏蔽规则</string>
+    <string name="detail_block_mode">屏蔽模式</string>
+    <string name="detail_block_mode_hint">点一下分类或标签，加入屏蔽词；再点一下移出</string>
+    <string name="detail_keyword_blocked">已屏蔽</string>
+    <string name="detail_keyword_not_blocked">未屏蔽</string>
+    <string name="detail_keyword_blocked_message">已屏蔽「%1$s」</string>
+    <string name="detail_keyword_unblocked_message">已取消屏蔽「%1$s」</string>
     <string name="detail_download_not_allowed">这本漫画不允许下载</string>
     <string name="detail_action_failed">操作失败：%1$s</string>
     <string name="detail_copy_title">复制标题</string>
