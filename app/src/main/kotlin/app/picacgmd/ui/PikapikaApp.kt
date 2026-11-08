@@ -3,6 +3,8 @@ package app.picacgmd.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
@@ -27,6 +29,7 @@ import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.toRoute
 import androidx.navigation.compose.rememberNavController
 import app.picacgmd.R
+import app.picacgmd.feature.bookshelf.rememberBookshelfUnseenCount
 import app.picacgmd.navigation.PikapikaNavHost
 import app.picacgmd.navigation.ComicDetailRoute
 import app.picacgmd.navigation.ExternalNavigation
@@ -102,6 +105,7 @@ fun PikapikaApp(
         NavigationLayout.RailExpanded -> NavigationSuiteType.WideNavigationRailExpanded
     }
     val destinations = TopLevelDestination.entries.filter { usesRail || it.inBottomBar }
+    val bookshelfUnseenCount = rememberBookshelfUnseenCount()
 
     NavigationSuiteScaffold(
         navigationItems = {
@@ -111,10 +115,18 @@ fun PikapikaApp(
                     selected = selected,
                     onClick = { navController.navigateToTopLevel(destination) },
                     icon = {
-                        Icon(
-                            imageVector = if (selected) destination.selectedIcon else destination.unselectedIcon,
-                            contentDescription = null,
-                        )
+                        BadgedBox(
+                            badge = {
+                                if (destination == TopLevelDestination.Bookshelf && bookshelfUnseenCount > 0) {
+                                    Badge { Text(bookshelfUnseenCount.toString()) }
+                                }
+                            },
+                        ) {
+                            Icon(
+                                imageVector = if (selected) destination.selectedIcon else destination.unselectedIcon,
+                                contentDescription = null,
+                            )
+                        }
                     },
                     label = { Text(stringResource(destination.label)) },
                     navigationSuiteType = suiteType,

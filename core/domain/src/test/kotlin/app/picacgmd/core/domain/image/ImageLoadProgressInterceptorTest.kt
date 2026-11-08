@@ -88,6 +88,21 @@ class ImageLoadProgressInterceptorTest {
     }
 
     @Test
+    fun closingAfterAllKnownBytesWereReadKeepsCompletionWithoutAnEofRead() {
+        val body = "x".repeat(16_384)
+        server.enqueue(MockResponse.Builder().body(body).build())
+        val url = server.url("/complete-before-eof").toString()
+        val progress = assertNotNull(registry.observe(url))
+        client.newCall(Request.Builder().url(url).build()).execute().use { response ->
+            assertEquals(body, response.body.source().readByteArray(body.length.toLong()).toString(Charsets.UTF_8))
+            assertEquals(1f, progress.value)
+            assertEquals(1, registry.trackedUrlCount)
+        }
+        assertEquals(1f, progress.value)
+        assertEquals(0, registry.trackedUrlCount)
+    }
+
+    @Test
     fun closingAnUnreadBodyReleasesItsEntry() {
         server.enqueue(MockResponse.Builder().body("image").build())
         val url = server.url("/closed").toString()

@@ -20,7 +20,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.NavBackStackEntry
@@ -30,32 +29,32 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.toRoute
-import app.picacgmd.R
 import app.picacgmd.core.designsystem.component.HomeChannel
 import app.picacgmd.core.domain.download.DownloadManagerOwner
 import app.picacgmd.feature.account.LoginScreen
+import app.picacgmd.feature.bookshelf.BookshelfScreen
 import app.picacgmd.feature.categories.CategoriesScreen
 import app.picacgmd.feature.comments.CommentsScreen
 import app.picacgmd.feature.comics.ComicListScreen
 import app.picacgmd.feature.detail.ComicDetailScreen
 import app.picacgmd.feature.discover.DiscoverScreen
+import app.picacgmd.feature.downloads.DownloadSettingsScreen
+import app.picacgmd.feature.downloads.DownloadsScreen
 import app.picacgmd.feature.games.GameCommentsScreen
 import app.picacgmd.feature.games.GameDetailScreen
 import app.picacgmd.feature.games.GamesScreen
+import app.picacgmd.feature.me.MeScreen
+import app.picacgmd.feature.me.MyCommentsScreen
 import app.picacgmd.feature.rankings.CollectionScreen
 import app.picacgmd.feature.rankings.CollectionsScreen
 import app.picacgmd.feature.rankings.RandomScreen
 import app.picacgmd.feature.rankings.RankingsScreen
 import app.picacgmd.feature.search.SearchScreen
+import app.picacgmd.feature.settings.SettingsHost
 import app.picacgmd.reader.DownloadedReaderDestination
 import app.picacgmd.reader.OnlineReaderDestination
 import app.picacgmd.ui.DownloadActions
-import app.picacgmd.ui.PlaceholderLink
-import app.picacgmd.ui.PlaceholderScreen
 import kotlinx.coroutines.launch
-
-/** Sample id used by placeholder links until real lists exist. */
-private const val SampleComicId = "sample-0"
 
 /**
  * App navigation graph. Motion follows board 01b: tabs crossfade, forward navigation slides in a
@@ -148,7 +147,10 @@ private fun NavGraphBuilder.topLevelGraphs(navController: NavHostController, com
             DiscoverScreen(
                 showProfileEntry = compact.value,
                 onSearchClick = { navController.navigate(SearchRoute()) },
-                onProfileClick = { navController.navigateToTopLevel(TopLevelDestination.Me) },
+                onProfileClick = {
+                    if (compact.value) navController.navigate(MeGraph)
+                    else navController.navigateToTopLevel(TopLevelDestination.Me)
+                },
                 onChannelClick = { channel ->
                     when (channel) {
                         HomeChannel.Rankings -> navController.navigate(RankingsRoute)
@@ -165,33 +167,29 @@ private fun NavGraphBuilder.topLevelGraphs(navController: NavHostController, com
     }
     navigation<BookshelfGraph>(startDestination = BookshelfRoute) {
         composable<BookshelfRoute> {
-            PlaceholderScreen(
-                title = stringResource(R.string.nav_bookshelf),
-                links = listOf(comicDetailLink(navController)),
+            BookshelfScreen(
+                onOpenComic = { navController.navigate(ComicDetailRoute(it)) },
+                onContinueReading = { id, ep, page -> navController.navigate(ReaderRoute(id, ep, page)) },
             )
         }
     }
     navigation<DownloadsGraph>(startDestination = DownloadsRoute) {
         composable<DownloadsRoute> {
-            PlaceholderScreen(
-                title = stringResource(R.string.nav_downloads),
-                links = listOf(comicDetailLink(navController)),
+            DownloadsScreen(
+                onReadDownloaded = { navController.navigate(DownloadedReaderRoute(it)) },
+                onOpenSettings = { navController.navigate(DownloadSettingsRoute) },
+                onBrowse = { navController.navigateToTopLevel(TopLevelDestination.Discover) },
+                onOpenDetail = { navController.navigate(ComicDetailRoute(it)) },
             )
         }
     }
     navigation<MeGraph>(startDestination = MeRoute) {
         composable<MeRoute> {
-            PlaceholderScreen(
-                title = stringResource(R.string.nav_me),
+            MeScreen(
+                onOpenSettings = { navController.navigate(SettingsRoute) },
+                onOpenLogin = { navController.navigate(LoginRoute) },
+                onOpenMyComments = { navController.navigate(MyCommentsRoute) },
                 onBack = if (compact.value) navController.backAction() else null,
-                links = listOf(
-                    PlaceholderLink(stringResource(R.string.placeholder_link_settings)) {
-                        navController.navigate(SettingsRoute)
-                    },
-                    PlaceholderLink(stringResource(R.string.placeholder_link_login)) {
-                        navController.navigate(LoginRoute)
-                    },
-                ),
             )
         }
     }
@@ -205,7 +203,19 @@ private fun NavGraphBuilder.sharedDestinations(
     onReaderMessage: (String) -> Unit,
 ) {
     composable<SettingsRoute> {
-        PlaceholderScreen(stringResource(R.string.title_settings), onBack = navController.backAction())
+        SettingsHost(
+            onBack = navController.backAction(),
+            onOpenDownloads = { navController.navigateToTopLevel(TopLevelDestination.Downloads) },
+        )
+    }
+    composable<DownloadSettingsRoute> {
+        DownloadSettingsScreen(onBack = navController.backAction())
+    }
+    composable<MyCommentsRoute> {
+        MyCommentsScreen(
+            onBack = navController.backAction(),
+            onOpenComic = { navController.navigate(ComicDetailRoute(it)) },
+        )
     }
     composable<SearchRoute> { entry ->
         SearchScreen(
@@ -337,9 +347,3 @@ private fun NavGraphBuilder.sharedDestinations(
         LoginScreen(onBack = navController.backAction())
     }
 }
-
-@Composable
-private fun comicDetailLink(navController: NavHostController): PlaceholderLink =
-    PlaceholderLink(stringResource(R.string.placeholder_link_detail)) {
-        navController.navigate(ComicDetailRoute(SampleComicId))
-    }

@@ -37,14 +37,6 @@
     <string name="discover_action_all_categories">全分类</string>
     <string name="discover_category_recommend">推荐</string>
 
-    <!-- Placeholder pages (until each screen is implemented) -->
-    <string name="placeholder_title">这一页还在制作中</string>
-    <string name="placeholder_description">页面框架和导航已经接好，内容会在后续版本补上。</string>
-    <string name="placeholder_link_settings">设置</string>
-    <string name="placeholder_link_login">登录</string>
-    <string name="placeholder_link_detail">打开一本漫画</string>
-    <string name="placeholder_link_reader">开始阅读</string>
-
     <!-- Static discover content shown until the discover data layer is wired in. -->
     <string-array name="discover_sample_pinned">
         <item>大家都在看</item>

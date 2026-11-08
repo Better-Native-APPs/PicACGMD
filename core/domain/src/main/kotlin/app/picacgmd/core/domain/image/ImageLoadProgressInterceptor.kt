@@ -73,7 +73,8 @@ class ImageLoadProgressInterceptor(private val registry: ImageLoadProgressRegist
                     try {
                         super.close()
                     } finally {
-                        transfer.finish(completed = false)
+                        val length = this@ProgressBody.delegate.contentLength()
+                        transfer.finish(completed = length > 0 && bytesRead >= length)
                     }
                 }
             }.buffer()

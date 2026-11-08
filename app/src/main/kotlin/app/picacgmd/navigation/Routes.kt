@@ -28,6 +28,10 @@ import kotlinx.serialization.Serializable
 
 @Serializable data object SettingsRoute
 
+@Serializable data object DownloadSettingsRoute
+
+@Serializable data object MyCommentsRoute
+
 @Serializable data class SearchRoute(val keyword: String? = null)
 
 /** Comic list filtered by category, tag, author, team or uploader; all null = every comic. */

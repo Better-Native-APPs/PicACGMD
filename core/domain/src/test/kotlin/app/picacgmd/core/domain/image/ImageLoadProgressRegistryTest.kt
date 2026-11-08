@@ -6,8 +6,51 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertSame
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runTest
 
 class ImageLoadProgressRegistryTest {
+    @Test
+    fun uncollectedObservationsExpireLazilyAfterTheGracePeriod() {
+        var now = 0L
+        val registry = ImageLoadProgressRegistry(clockMillis = { now })
+        val url = "https://images.example.com/cache-hit"
+        val original = assertNotNull(registry.observe(url))
+        now = 30_000L
+        assertSame(original, registry.observe(url))
+        now = 30_001L
+        registry.observe("https://images.example.com/fresh")
+        assertEquals(1, registry.trackedUrlCount)
+        assertNotSame(original, registry.observe(url))
+        assertEquals(2, registry.trackedUrlCount)
+    }
+
+    @Test
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun pruningKeepsActiveTransfersAndSubscribedFlows() = runTest {
+        var now = 0L
+        val registry = ImageLoadProgressRegistry(clockMillis = { now })
+        val subscribedUrl = "https://images.example.com/subscribed"
+        val activeUrl = "https://images.example.com/active"
+        val subscribed = assertNotNull(registry.observe(subscribedUrl))
+        val active = assertNotNull(registry.observe(activeUrl))
+        val transfer = assertNotNull(registry.begin(activeUrl, 100))
+        val collector = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { subscribed.collect {} }
+        now = 30_001L
+        registry.observe("https://images.example.com/fresh")
+        assertEquals(3, registry.trackedUrlCount)
+        assertSame(subscribed, registry.observe(subscribedUrl))
+        assertSame(active, registry.observe(activeUrl))
+        collector.cancel()
+        collector.join()
+        registry.observe("https://images.example.com/fresh")
+        assertEquals(2, registry.trackedUrlCount)
+        transfer.finish(completed = false)
+        assertEquals(1, registry.trackedUrlCount)
+    }
+
     @Test
     fun onlyReaderObservationsRegisterCanonicalHttpUrls() {
         val registry = ImageLoadProgressRegistry()
