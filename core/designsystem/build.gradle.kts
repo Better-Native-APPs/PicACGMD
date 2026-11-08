@@ -9,7 +9,7 @@ android {
         version = release(37) { minorApiLevel = 0 }
     }
     buildToolsVersion = "37.0.0"
-    defaultConfig { minSdk = 29 }
+    defaultConfig { minSdk = 26 }
     buildFeatures { compose = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21

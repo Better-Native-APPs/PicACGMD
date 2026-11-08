@@ -76,6 +76,7 @@ import app.picacgmd.feature.reader.logic.decodeEdge
 import app.picacgmd.feature.reader.logic.dragged
 import app.picacgmd.feature.reader.logic.fitSize
 import app.picacgmd.feature.reader.media.PageLabel
+import app.picacgmd.feature.reader.media.rememberGallerySavePermission
 import app.picacgmd.feature.reader.media.saveCropToGallery
 import app.picacgmd.feature.reader.media.shareCrop
 import kotlinx.coroutines.launch
@@ -136,6 +137,7 @@ private fun PreviewContent(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
+    val gallerySavePermission = rememberGallerySavePermission(snackbar)
     val zoom = remember {
         ZoomState(scope).apply { maxScale = PREVIEW_MAX_ZOOM }
     }
@@ -264,6 +266,10 @@ private fun PreviewContent(
                     onClick = {
                         busy = true
                         scope.launch {
+                            if (!gallerySavePermission()) {
+                                busy = false
+                                return@launch
+                            }
                             val saved = saveCropToGallery(context, image, label, crop)
                             busy = false
                             snackbar.showSnackbar(if (saved) savedText else saveFailedText)
