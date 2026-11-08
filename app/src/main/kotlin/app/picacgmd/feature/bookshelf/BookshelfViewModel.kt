@@ -1,0 +1,187 @@
+package app.picacgmd.feature.bookshelf
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import app.picacgmd.core.data.db.LocalFavourite
+import app.picacgmd.core.data.db.Subscription
+import app.picacgmd.core.data.db.ViewHistory
+import app.picacgmd.core.data.settings.AppSettings
+import app.picacgmd.core.domain.di.AppContainer
+import app.picacgmd.core.network.ComicSimple
+import app.picacgmd.core.network.ComicSort
+import app.picacgmd.feature.comics.ComicPager
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+/** Bookshelf views in their fixed order (board 21); 记录 is always shown. */
+enum class ShelfView(val label: String) { Online("收藏"), Local("本地"), Follow("追更"), History("记录") }
+
+internal fun AppSettings.visibleShelfViews(): List<ShelfView> = buildList {
+    if (showOnlineFavourites) add(ShelfView.Online)
+    if (showLocalFavourites) add(ShelfView.Local)
+    if (showSubscriptions) add(ShelfView.Follow)
+    add(ShelfView.History)
+}
+
+/** Progress of a batch action shown in the floating snackbar-style card (board 23). */
+internal data class BatchProgress(val label: String, val done: Int, val total: Int)
+
+/** Online favourites paging plus long-running batch actions that should survive recomposition. */
+class BookshelfViewModel(private val container: AppContainer) : ViewModel() {
+    private val mutableSort = MutableStateFlow(ComicSort.NEWEST)
+    val sort: StateFlow<ComicSort> = mutableSort.asStateFlow()
+    val settings: StateFlow<AppSettings?> = container.settingsRepository.settings
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** Every online favourite seen so far, so selected comics stay resolvable after "全选". */
+    private val known = LinkedHashMap<String, ComicSimple>()
+
+    val onlinePager = ComicPager(viewModelScope) { page ->
+        container.comicRepository.favourites(mutableSort.value, page).also { result ->
+            result.items.forEach { known[it.id] = it }
+        }
+    }
+
+    private val mutableBatch = MutableStateFlow<BatchProgress?>(null)
+    internal val batch: StateFlow<BatchProgress?> = mutableBatch.asStateFlow()
+
+    private val mutableMessages = MutableStateFlow<List<String>>(emptyList())
+    val messages: StateFlow<List<String>> = mutableMessages.asStateFlow()
+
+    private var onlineStarted = false
+
+    init {
+        viewModelScope.launch {
+            container.settingsRepository.settings
+                .distinctUntilChangedBy { Triple(it.paginationMode, it.shieldedCategories to it.categoryShieldMode, it.hiddenKeywords) }
+                .collect {
+                    onlinePager.mode = it.paginationMode
+                    if (onlineStarted) onlinePager.reload()
+                }
+        }
+    }
+
+    /** Online favourites load lazily, the first time the 收藏 view is shown. */
+    fun ensureOnline() {
+        if (onlineStarted) return
+        onlineStarted = true
+        onlinePager.reload()
+    }
+
+    fun setSort(value: ComicSort) {
+        if (value == mutableSort.value) return
+        mutableSort.value = value
+        onlinePager.reload()
+    }
+
+    fun consumeMessage(message: String) = mutableMessages.update { it - message }
+
+    private fun say(message: String) = mutableMessages.update { it + message }
+
+    fun onlineComics(ids: Collection<String>): List<ComicSimple> {
+        val loaded = onlinePager.state.value.comics.associateBy { it.id }
+        return ids.mapNotNull { loaded[it] ?: known[it] }
+    }
+
+    /** "全选" covers every favourite, not only loaded pages: fetch remaining pages first. */
+    fun selectAllOnline(onDone: (Set<String>) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val first = container.comicRepository.favourites(mutableSort.value, 1)
+                first.items.forEach { known[it.id] = it }
+                val ids = LinkedHashSet(first.items.map { it.id })
+                for (page in 2..first.pages) {
+                    mutableBatch.value = BatchProgress("正在读取全部收藏", page - 1, first.pages)
+                    val result = container.comicRepository.favourites(mutableSort.value, page)
+                    result.items.forEach { known[it.id] = it; ids += it.id }
+                }
+                onDone(ids)
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                say("读取收藏失败：${exception.message ?: "请重试"}")
+            } finally {
+                mutableBatch.value = null
+            }
+        }
+    }
+
+    /** Unfavourites one by one (never concurrently); failures stay in the list. */
+    fun unfavourite(ids: List<String>, deleteDownloads: Boolean, onDownloadsDelete: suspend (String) -> Unit) {
+        viewModelScope.launch {
+            var failed = 0
+            ids.forEachIndexed { index, id ->
+                mutableBatch.value = BatchProgress("正在取消收藏", index, ids.size)
+                try {
+                    val stillFavourite = container.comicRepository.toggleFavourite(id)
+                    if (stillFavourite) container.comicRepository.toggleFavourite(id)
+                    if (deleteDownloads) runCatching { onDownloadsDelete(id) }
+                } catch (exception: CancellationException) {
+                    throw exception
+                } catch (_: Exception) {
+                    failed++
+                }
+            }
+            mutableBatch.value = null
+            say(if (failed == 0) "已取消收藏 ${ids.size} 本" else "${ids.size - failed} 本已取消，$failed 本失败")
+            onlinePager.reload()
+        }
+    }
+
+    fun copyToFolder(comics: List<ComicSimple>, folderId: Long, folderName: String) {
+        viewModelScope.launch {
+            try {
+                comics.forEach { container.localFavouriteRepository.add(it, folderId) }
+                say("已存到「$folderName」${comics.size} 本")
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                say("保存失败：${exception.message ?: "请重试"}")
+            }
+        }
+    }
+
+    fun run(failure: String, success: String? = null, block: suspend AppContainer.() -> Unit) {
+        viewModelScope.launch {
+            try {
+                container.block()
+                if (success != null) say(success)
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                say("$failure：${exception.message ?: "请重试"}")
+            }
+        }
+    }
+
+    /** Re-inserts removed local favourites for the undo action. */
+    fun restoreLocal(items: List<LocalFavourite>) = run("撤销失败") {
+        items.groupBy { it.folderId }.forEach { (folder, group) ->
+            group.forEach { localFavouriteRepository.add(it.toComic(), folder) }
+        }
+    }
+
+    fun restoreHistory(items: List<ViewHistory>) = run("撤销失败") {
+        items.forEach { database.viewHistoryDao().upsert(it) }
+    }
+
+    fun restoreSubscriptions(items: List<Subscription>) = run("撤销失败") {
+        items.forEach { database.subscriptionDao().upsert(it) }
+    }
+}
+
+internal fun LocalFavourite.toComic(): ComicSimple =
+    snapshotComic(comicId, title, author, thumbFileServer, thumbPath, categoriesJson)
+
+internal fun ViewHistory.toComic(): ComicSimple =
+    snapshotComic(comicId, title, author, thumbFileServer, thumbPath, categoriesJson)
+
+internal fun Subscription.toComic(): ComicSimple =
+    snapshotComic(comicId, title, author, thumbFileServer, thumbPath, "[]")
