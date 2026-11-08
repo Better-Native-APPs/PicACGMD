@@ -134,7 +134,7 @@ internal fun DataSettingsPage(onBack: () -> Unit, onOpenDownloads: () -> Unit, m
                     row { shapes ->
                         SettingsNavRow(
                             shapes, "自动清理缓存", { intervalDialog = true },
-                            summary = "只清理图片和接口缓存，不动下载",
+                            summary = "仅清理图片和接口缓存",
                             value = settings.autoCleanCacheInterval.label(),
                         )
                     }
@@ -192,7 +192,7 @@ internal fun DataSettingsPage(onBack: () -> Unit, onOpenDownloads: () -> Unit, m
 }
 
 private fun CacheCleanupInterval.label() = when (this) {
-    CacheCleanupInterval.NEVER -> "不自动"
+    CacheCleanupInterval.NEVER -> "不自动清理"
     CacheCleanupInterval.DAY -> "每天"
     CacheCleanupInterval.WEEK -> "每周"
     CacheCleanupInterval.MONTH -> "每月"
@@ -316,16 +316,16 @@ private fun CleanCacheSheet(
     var history by rememberSaveable { mutableStateOf(false) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(Modifier.padding(horizontal = 24.dp).navigationBarsPadding()) {
-            Text("清理缓存", style = MaterialTheme.typography.headlineSmall)
+            Text("清理缓存？", style = MaterialTheme.typography.headlineSmall)
             Text(
-                "已下载的漫画不会被删除。",
+                "已下载的漫画会保留",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
             )
-            CheckRow("图片缓存", "看过的封面和图片，再看时会重新加载", usage?.imageCache?.let(context::formatBytes), images) { images = it }
-            CheckRow("接口缓存", "分类、推荐等列表的临时数据", null, api) { api = it }
-            CheckRow("浏览记录和阅读进度", "清除后不能恢复", null, history) { history = it }
+            CheckRow("图片缓存", "已浏览的封面和图片", usage?.imageCache?.let(context::formatBytes), images) { images = it }
+            CheckRow("接口缓存", "列表临时数据", null, api) { api = it }
+            CheckRow("浏览记录和阅读进度", "清除后无法恢复", null, history) { history = it }
             Button(
                 onClick = {
                     onClean(images, api, history)
@@ -419,7 +419,7 @@ internal fun AboutSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier
         }
         item {
             Text(
-                "应用不检查更新。",
+                "不检查更新",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
@@ -437,16 +437,16 @@ internal fun AboutSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier
         }
         AboutDialog.Privacy -> InfoDialog("隐私说明", onDismiss = { dialog = null }) {
             Text(
-                "应用不收集、不上传任何使用数据，没有统计和广告。\n\n" +
-                    "联网时只连接哔咔的接口和图片服务器，以及你自己设置的代理。账号密码只用系统密钥库加密保存在本机。\n\n" +
-                    "浏览记录、收藏夹、下载内容和设置都只保存在这台设备上，卸载应用后会一并删除。",
+                "不收集、不上传使用数据，无统计和广告。\n\n" +
+                    "仅连接哔咔接口、图片服务器和已设置的代理；账号密码经系统密钥库加密，仅保存在本机。\n\n" +
+                    "浏览记录、收藏、下载和设置仅保存在本机，卸载后会一并删除。",
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
         AboutDialog.Usage -> InfoDialog("使用说明", onDismiss = { dialog = null }) {
             Text(
-                "这是哔咔漫画的第三方客户端，仅供个人学习和使用，与哔咔官方无关。\n\n" +
-                    "漫画内容来自哔咔服务器，版权归原作者所有。请遵守当地法律法规，不要传播下载的内容。",
+                "第三方客户端，仅供个人学习使用，与哔咔官方无关。\n\n" +
+                    "内容来自哔咔服务器，版权归原作者所有；请遵守当地法律法规，勿传播下载内容。",
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
@@ -460,6 +460,6 @@ private fun InfoDialog(title: String, onDismiss: () -> Unit, content: @Composabl
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = { Column(Modifier.verticalScroll(rememberScrollState())) { content() } },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("知道了") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("关闭") } },
     )
 }

@@ -247,7 +247,7 @@ fun MeScreen(
                             punched = profile?.isPunched == true || punch is PunchInState.Done,
                             punching = punch is PunchInState.Punching,
                             autoPunchIn = settings?.autoPunchIn ?: true,
-                            onPunch = { act("打卡失败", "打卡成功") { container.sessionManager.punchIn() } },
+                            onPunch = { act("打卡失败", "已打卡") { container.sessionManager.punchIn() } },
                             onAutoPunchIn = { value -> writer.update { setAutoPunchIn(value) } },
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                         )
@@ -267,8 +267,8 @@ fun MeScreen(
                             }
                             row { shapes ->
                                 SettingsNavRow(
-                                    shapes, "嗶咔留言板", onOpenMessageBoard,
-                                    summary = "和大家聊聊天、反馈问题",
+                                    shapes, "哔咔留言板", onOpenMessageBoard,
+                                    summary = "交流与反馈",
                                     leading = { Icon(Icons.Outlined.Forum, contentDescription = null) },
                                 )
                             }
@@ -292,7 +292,7 @@ fun MeScreen(
                             row { shapes ->
                                 SettingsNavRow(
                                     shapes, "修改头像", { pickAvatar.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                                    summary = "会裁剪成正方形后上传",
+                                    summary = "裁剪为正方形后上传",
                                     leading = { Icon(Icons.Outlined.CameraAlt, contentDescription = null) },
                                     enabled = !uploadingAvatar,
                                 )
@@ -350,7 +350,7 @@ fun MeScreen(
         MeDialog.Logout -> AlertDialog(
             onDismissRequest = { dialog = null },
             title = { Text("退出登录？") },
-            text = { Text("浏览记录和下载会保留在这台设备上。") },
+            text = { Text("浏览记录和下载会保留在本机") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -453,7 +453,7 @@ private fun SignedOutCard(expired: String?, onLogin: () -> Unit, modifier: Modif
         Column(Modifier.padding(20.dp)) {
             Text(if (expired != null) "登录已过期" else "还没有登录", style = MaterialTheme.typography.titleLarge)
             Text(
-                expired ?: "登录后可以看漫画、收藏和打卡。浏览记录和下载不需要登录。",
+                expired ?: "阅读漫画、收藏和打卡需登录，浏览记录和下载无需登录",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp, bottom = 16.dp),
@@ -501,8 +501,8 @@ private fun PunchCard(
                     tint = if (punched) colors.onTertiaryContainer else colors.primary,
                 )
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                    Text(if (punched) "今天已打卡" else "今天还没打卡", style = MaterialTheme.typography.titleMedium)
-                    Text("打卡可以获得经验", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                    Text(if (punched) "今天已打卡" else "今天未打卡", style = MaterialTheme.typography.titleMedium)
+                    Text("打卡获得经验", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                 }
                 when {
                     punching -> LoadingIndicator(Modifier.size(40.dp))
@@ -525,7 +525,7 @@ private fun PasswordDialog(onSave: (String, String) -> Unit, onDismiss: () -> Un
     var visible by remember { mutableStateOf(false) }
     val error = when {
         new.isNotEmpty() && new.length < 8 -> "新密码至少 8 位"
-        confirm.isNotEmpty() && confirm != new -> "两次输入的新密码不一致"
+        confirm.isNotEmpty() && confirm != new -> "两次密码不一致"
         else -> null
     }
     val transformation = if (visible) VisualTransformation.None else PasswordVisualTransformation()
@@ -537,7 +537,7 @@ private fun PasswordDialog(onSave: (String, String) -> Unit, onDismiss: () -> Un
                 listOf(
                     Triple("当前密码", old) { v: String -> old = v },
                     Triple("新密码", new) { v: String -> new = v },
-                    Triple("再输一次新密码", confirm) { v: String -> confirm = v },
+                    Triple("确认新密码", confirm) { v: String -> confirm = v },
                 ).forEachIndexed { index, (label, value, change) ->
                     OutlinedTextField(
                         value = value,
@@ -563,7 +563,7 @@ private fun PasswordDialog(onSave: (String, String) -> Unit, onDismiss: () -> Un
                 }
                 if (error != null) Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 Text(
-                    "修改后，这台设备上保存的登录密码会一起更新。",
+                    "本机保存的登录密码同步更新",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
