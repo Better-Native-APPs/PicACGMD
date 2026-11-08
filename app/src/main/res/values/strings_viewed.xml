@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 「已读」 mark on comic covers in every browse list (board 08) -->
+    <string name="viewed_mark">已读</string>
+    <!-- Last chapter read, joined to the mark when the cover is wide enough -->
+    <string name="viewed_mark_chapter">第 %1$d 话</string>
+    <!-- Narrow covers (84dp list rows) -->
+    <string name="viewed_mark_chapter_short">%1$d 话</string>
+</resources>

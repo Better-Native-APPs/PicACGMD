@@ -21,6 +21,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import app.picacgmd.R
 import app.picacgmd.core.designsystem.component.ComicListItem
+import app.picacgmd.core.designsystem.component.ComicReadMark
 import app.picacgmd.core.designsystem.component.ErrorState
 import app.picacgmd.core.designsystem.component.OfflineState
 import app.picacgmd.core.domain.di.AppContainer
@@ -28,6 +29,7 @@ import app.picacgmd.core.network.ComicSimple
 import app.picacgmd.core.network.PicaImage
 import app.picacgmd.core.network.PicaTransportException
 import app.picacgmd.di.LocalAppContainer
+import app.picacgmd.feature.comics.readMarkText
 import java.io.IOException
 import java.util.Locale
 import kotlin.coroutines.cancellation.CancellationException
@@ -93,14 +95,20 @@ internal fun LoadFailure(failure: LoadState.Failed, onRetry: () -> Unit, modifie
     }
 }
 
-/** A comic row shared by the rankings, random and other channel pages. */
+/**
+ * A comic row shared by the rankings, random and other channel pages.
+ *
+ * @param readChapter from the page's `rememberReadMarks(…).chapterOf(comic.id)`; draws the 「已读」 mark.
+ */
 @Composable
 internal fun ComicSimpleRow(
     comic: ComicSimple,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    readChapter: Int? = null,
     leadingContent: (@Composable () -> Unit)? = null,
 ) {
+    val mark = readMarkText(readChapter, comic.epsCount)
     ComicListItem(
         title = comic.title,
         coverUrl = rememberImageUrl(comic.thumb),
@@ -111,8 +119,24 @@ internal fun ComicSimpleRow(
         finished = comic.finished,
         likes = comic.likesCount.takeIf { it > 0 }?.let(::formatCount),
         pages = stringResource(R.string.discover_comic_pages, comic.pagesCount, comic.epsCount),
+        progressLabel = mark?.label,
+        progressDetail = mark?.detail,
+        progressDetailShort = mark?.detailShort,
         leadingContent = leadingContent,
     )
+}
+
+/**
+ * The 「已读」 mark for the recommendation carousel, whose artwork is not a ComicCover. In
+ * RecommendCarousel: `val marks = rememberReadMarks(remember(items) { items.map(CarouselComic::id) })`
+ * once, then `ArtworkReadMark(marks.chapterOf(comic.id), Modifier.padding(bottom = 6.dp))` as the first
+ * child of the caption Column, so the mark sits above the title and fades with it as an item shrinks
+ * (a top-corner mark would be cut off by the carousel's mask).
+ */
+@Composable
+internal fun ArtworkReadMark(chapter: Int?, modifier: Modifier = Modifier) {
+    val text = readMarkText(chapter) ?: return
+    ComicReadMark(label = text.label, detail = text.detail, detailShort = text.detailShort, modifier = modifier)
 }
 
 /** Board 07 rank badge: Sunny for the podium, a plain circle for everyone else. */

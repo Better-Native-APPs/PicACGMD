@@ -38,6 +38,9 @@ import app.picacgmd.core.designsystem.theme.ThemeChoice
  * @param subtitle usually 「作者 · 汉化组」.
  * @param finished adds a success-colored 「完结」 pill after [tags].
  * @param pages e.g. 「214P · 18 话」.
+ * @param progressLabel the 「已读」 mark on the cover; with [progressDetail] / [progressDetailShort]
+ *   it works as in [ComicCover]. The 84dp cover fits a short detail up to two digits, e.g.
+ *   「已读 | 12 话」; longer ones leave the bare 「已读」 (TalkBack still hears the chapter).
  * @param selected highlights the row, for the list pane of the large-screen list/detail layout.
  * @param leadingContent e.g. a rank number (board 07); vertically centered before the cover.
  * @param trailingContent e.g. a download state or overflow button; vertically centered.
@@ -61,6 +64,8 @@ fun ComicListItem(
     leadingContent: (@Composable () -> Unit)? = null,
     trailingContent: (@Composable () -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
+    progressDetail: String? = null,
+    progressDetailShort: String? = null,
 ) {
     val containerColor by animateColorAsState(
         targetValue = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
@@ -85,6 +90,8 @@ fun ComicListItem(
             contentDescription = null,
             modifier = Modifier.width(84.dp),
             progressLabel = progressLabel,
+            progressDetail = progressDetail,
+            progressDetailShort = progressDetailShort,
             badge = badge,
         )
         Column(
@@ -172,7 +179,9 @@ private fun ComicListItemPreview() {
                 likes = "12.4k",
                 views = "86.2k",
                 pages = "214P · 18 话",
-                progressLabel = "12",
+                progressLabel = "已读",
+                progressDetail = "第 12 话",
+                progressDetailShort = "12 话",
             )
             ComicListItem(
                 title = "午后猫咖物语",

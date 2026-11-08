@@ -58,6 +58,7 @@ import app.picacgmd.core.designsystem.component.SectionHeader
 import app.picacgmd.core.designsystem.component.ShapedAvatar
 import app.picacgmd.core.designsystem.theme.PikapikaTheme
 import app.picacgmd.core.designsystem.theme.ThemeChoice
+import app.picacgmd.feature.comics.rememberReadMarks
 
 /** A cell of the category grid: the built-in 「推荐」 entry or a server category. */
 private sealed interface CategoryCell {
@@ -320,6 +321,7 @@ private fun RecommendCarousel(
     onComicClick: (String) -> Unit,
 ) {
     val state = rememberCarouselState { items.size }
+    val marks = rememberReadMarks(remember(items) { items.map(CarouselComic::id) })
     HorizontalMultiBrowseCarousel(
         state = state,
         preferredItemWidth = 208.dp,
@@ -350,6 +352,7 @@ private fun RecommendCarousel(
                     .background(CaptionScrim)
                     .padding(start = 16.dp, end = 16.dp, top = 32.dp, bottom = 12.dp),
             ) {
+                ArtworkReadMark(marks.chapterOf(comic.id), Modifier.padding(bottom = 6.dp))
                 Text(
                     text = comic.title,
                     style = MaterialTheme.typography.titleMedium,

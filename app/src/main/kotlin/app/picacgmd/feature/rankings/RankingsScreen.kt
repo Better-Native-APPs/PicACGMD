@@ -37,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +55,7 @@ import app.picacgmd.core.domain.di.AppContainer
 import app.picacgmd.core.network.ComicSimple
 import app.picacgmd.core.network.Knight
 import app.picacgmd.core.network.LeaderboardType
+import app.picacgmd.feature.comics.rememberReadMarks
 import app.picacgmd.feature.discover.ComicSimpleRow
 import app.picacgmd.feature.discover.LoadFailure
 import app.picacgmd.feature.discover.LoadState
@@ -194,11 +196,13 @@ private fun ComicRanking(data: RankingData.Comics, onOpenComic: (String) -> Unit
         ScrollableStatus { EmptyState(title = stringResource(R.string.rankings_empty)) }
         return
     }
+    val readMarks = rememberReadMarks(remember(data.items) { data.items.map(ComicSimple::id) })
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         itemsIndexed(data.items, key = { _, comic -> comic.id }) { index, comic ->
             ComicSimpleRow(
                 comic = comic,
                 onClick = { onOpenComic(comic.id) },
+                readChapter = readMarks.chapterOf(comic.id),
                 leadingContent = { RankBadge(rank = index + 1) },
             )
         }

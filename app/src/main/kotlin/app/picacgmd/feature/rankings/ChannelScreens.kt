@@ -25,6 +25,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -39,6 +40,10 @@ import app.picacgmd.core.designsystem.component.SectionHeader
 import app.picacgmd.core.domain.di.AppContainer
 import app.picacgmd.core.domain.repository.CollectionGroup
 import app.picacgmd.core.domain.repository.FilteredComics
+import app.picacgmd.core.network.ComicSimple
+import app.picacgmd.feature.comics.ReadMarks
+import app.picacgmd.feature.comics.readMarkText
+import app.picacgmd.feature.comics.rememberReadMarks
 import app.picacgmd.feature.discover.ComicSimpleRow
 import app.picacgmd.feature.discover.LoadFailure
 import app.picacgmd.feature.discover.LoadState
@@ -126,9 +131,14 @@ fun RandomScreen(
                 is LoadState.Ready -> if (state.data.items.isEmpty()) {
                     ScrollableStatus { EmptyState(title = stringResource(R.string.random_empty)) }
                 } else {
+                    val readMarks = rememberReadMarks(remember(state.data.items) { state.data.items.map(ComicSimple::id) })
                     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 96.dp)) {
                         items(state.data.items, key = { it.id }) { comic ->
-                            ComicSimpleRow(comic = comic, onClick = { onOpenComic(comic.id) })
+                            ComicSimpleRow(
+                                comic = comic,
+                                onClick = { onOpenComic(comic.id) },
+                                readChapter = readMarks.chapterOf(comic.id),
+                            )
                         }
                         if (state.data.hiddenCount > 0) item(key = "hidden") { HiddenFooter(state.data.hiddenCount) }
                     }
@@ -167,6 +177,7 @@ fun CollectionsScreen(
                 is LoadState.Failed -> ScrollableStatus { LoadFailure(state, onRetry = { viewModel.load(force = true) }) }
                 is LoadState.Ready -> {
                     val groups = state.data.withIndex().filter { it.value.comics.isNotEmpty() }
+                    val readMarks = rememberReadMarks(remember(state.data) { state.data.flatMap { group -> group.comics.map(ComicSimple::id) } })
                     if (groups.isEmpty()) {
                         ScrollableStatus { EmptyState(title = stringResource(R.string.collections_empty)) }
                     } else {
@@ -180,7 +191,7 @@ fun CollectionsScreen(
                                     )
                                 }
                                 item(key = "row-$index", contentType = "row") {
-                                    CollectionRow(group, onOpenComic)
+                                    CollectionRow(group, readMarks, onOpenComic)
                                 }
                             }
                         }
@@ -192,17 +203,21 @@ fun CollectionsScreen(
 }
 
 @Composable
-private fun CollectionRow(group: CollectionGroup, onOpenComic: (String) -> Unit) {
+private fun CollectionRow(group: CollectionGroup, readMarks: ReadMarks, onOpenComic: (String) -> Unit) {
     LazyRow(
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         items(group.comics, key = { it.id }) { comic ->
+            val mark = readMarkText(readMarks.chapterOf(comic.id), comic.epsCount)
             ComicCoverCard(
                 title = comic.title,
                 coverUrl = rememberImageUrl(comic.thumb),
                 onClick = { onOpenComic(comic.id) },
                 author = comic.author.ifBlank { null },
+                progressLabel = mark?.label,
+                progressDetail = mark?.detail,
+                progressDetailShort = mark?.detailShort,
                 modifier = Modifier.width(120.dp),
             )
         }

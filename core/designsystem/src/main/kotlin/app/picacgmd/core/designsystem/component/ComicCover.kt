@@ -1,29 +1,33 @@
 package app.picacgmd.core.designsystem.component
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.BrokenImage
-import androidx.compose.material.icons.outlined.History
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,13 +37,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -54,6 +65,9 @@ const val ComicCoverAspectRatio: Float = 1f / 1.4f
 /** Scrim behind the white marks drawn on top of covers. */
 private val CoverMarkScrim = Color.Black.copy(alpha = 0.62f)
 
+/** A read mark arriving this long after its cover appeared is animated in; earlier ones just show. */
+private const val MarkStampAfterNanos = 600_000_000L
+
 /**
  * A comic cover image with plain rounded corners (never a decorative shape).
  *
@@ -61,8 +75,12 @@ private val CoverMarkScrim = Color.Black.copy(alpha = 0.62f)
  * [ComicCoverAspectRatio]. While the image loads the tile shows `surfaceContainerHigh`; a missing or
  * broken image shows a quiet book / broken-image glyph instead.
  *
- * @param progressLabel reading progress mark in the top-left corner, e.g. 「12 话」 (board 08).
- * @param badge bottom-right label such as 「18 话」 or 「已下载」.
+ * @param progressLabel the read mark in the top-left corner, e.g. 「已读」 (board 08); see [ComicReadMark].
+ *   A mark known when the cover appears just shows; one that turns up while the cover has been in
+ *   view for a moment (the comic was opened beside the list) is stamped in with a spring.
+ * @param badge bottom-right label such as 「完结」 or 「已下载」.
+ * @param progressDetail where reading stopped, e.g. 「第 3 话」, joined to the mark when it fits.
+ * @param progressDetailShort narrower fallback for [progressDetail], e.g. 「3 话」.
  */
 @Composable
 fun ComicCover(
@@ -72,8 +90,11 @@ fun ComicCover(
     shape: Shape = MaterialTheme.shapes.medium,
     progressLabel: String? = null,
     badge: String? = null,
+    progressDetail: String? = null,
+    progressDetailShort: String? = null,
 ) {
     var failed by remember(coverUrl) { mutableStateOf(false) }
+    val composedAt = remember { System.nanoTime() }
     Box(
         modifier = modifier
             .aspectRatio(ComicCoverAspectRatio)
@@ -101,51 +122,119 @@ fun ComicCover(
             )
         }
         if (progressLabel != null) {
-            val spoken = stringResource(R.string.designsystem_read_progress, progressLabel)
-            Row(
+            // The history lookup for a fresh page lands a beat after its cards; those marks stay still,
+            // so a page of read comics never pops all at once.
+            val arrivedLate = remember { System.nanoTime() - composedAt > MarkStampAfterNanos }
+            val pop = rememberPopIn(animate = arrivedLate)
+            ComicReadMark(
+                label = progressLabel,
+                detail = progressDetail,
+                detailShort = progressDetailShort,
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .padding(6.dp)
-                    .height(20.dp)
-                    .background(CoverMarkScrim, CircleShape)
-                    .padding(start = 4.dp, end = 7.dp)
-                    .semantics(mergeDescendants = true) { this.contentDescription = spoken },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Icon(
-                    Icons.Outlined.History,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(14.dp),
-                )
-                CoverMarkText(progressLabel)
-            }
+                    .graphicsLayer {
+                        val value = pop.value
+                        scaleX = value
+                        scaleY = value
+                        alpha = value.coerceIn(0f, 1f)
+                        transformOrigin = TransformOrigin(0f, 0f)
+                    },
+            )
         }
         if (badge != null) {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(6.dp)
-                    .height(18.dp)
+                    .heightIn(min = 18.dp)
                     .background(CoverMarkScrim, CircleShape)
                     .padding(horizontal = 6.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                CoverMarkText(badge)
+                Text(
+                    text = badge,
+                    style = MaterialTheme.typography.labelSmall.withTabularFigures(),
+                    color = Color.White,
+                    maxLines = 1,
+                )
             }
         }
     }
 }
 
+/** 0 → 1 with the expressive fast spring (a small overshoot) when [animate]; otherwise starts settled. */
 @Composable
-private fun CoverMarkText(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelSmall.withTabularFigures(),
-        color = Color.White,
-        maxLines = 1,
-    )
+private fun rememberPopIn(animate: Boolean): Animatable<Float, AnimationVector1D> {
+    val spec = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
+    val progress = remember { Animatable(if (animate) 0f else 1f) }
+    LaunchedEffect(progress) { progress.animateTo(1f, spec) }
+    return progress
+}
+
+/**
+ * The 「已读」 mark of board 08, drawn over cover art: [label] on a solid primary pill, continued by
+ * [detail] on primaryContainer when the width allows, else by the narrower [detailShort], else the
+ * pill stands alone. Both halves are opaque, so the mark reads the same on light and dark artwork,
+ * and its brand colors keep the reader's own state apart from the neutral scrim of comic facts
+ * (「完结」). TalkBack hears 「已读，看到 第 3 话」 even when the detail is left out for space.
+ *
+ * Public so artwork that is not a [ComicCover] (the discover carousel) can carry the same mark.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun ComicReadMark(
+    label: String,
+    modifier: Modifier = Modifier,
+    detail: String? = null,
+    detailShort: String? = null,
+) {
+    val colors = MaterialTheme.colorScheme
+    val spoken = if (detail == null) label else "$label，${stringResource(R.string.designsystem_read_progress, detail)}"
+    // No tracking: Chinese labels don't take it, and the 84dp list cover then still fits 「已读 | 12 话」.
+    val labelStyle = MaterialTheme.typography.labelSmallEmphasized.copy(letterSpacing = 0.sp)
+    val detailStyle = MaterialTheme.typography.labelSmall.withTabularFigures().copy(letterSpacing = 0.sp)
+    Layout(
+        content = {
+            MarkSegment(label, labelStyle, colors.onPrimary, colors.primary, LabelPadding)
+            if (detail != null) MarkSegment(detail, detailStyle, colors.onPrimaryContainer, colors.primaryContainer, DetailPadding)
+            if (detailShort != null) MarkSegment(detailShort, detailStyle, colors.onPrimaryContainer, colors.primaryContainer, DetailPadding)
+        },
+        modifier = modifier
+            // A floor, not a fixed height: large font scales grow the capsule instead of clipping it.
+            .heightIn(min = 20.dp)
+            .clip(CircleShape)
+            .clearAndSetSemantics { contentDescription = spoken },
+    ) { measurables, constraints ->
+        // Each segment is measured at most once: the label always, then details until one fits.
+        val loose = constraints.copy(minWidth = 0, maxWidth = Constraints.Infinity)
+        val lead = measurables.first().measure(loose)
+        val tailConstraints = loose.copy(minHeight = lead.height, maxHeight = lead.height)
+        val room = if (constraints.hasBoundedWidth) constraints.maxWidth - lead.width else Int.MAX_VALUE
+        var tail: Placeable? = null
+        for (candidate in measurables.drop(1)) {
+            val placeable = candidate.measure(tailConstraints)
+            if (placeable.width <= room) {
+                tail = placeable
+                break
+            }
+        }
+        layout(constraints.constrainWidth(lead.width + (tail?.width ?: 0)), lead.height) {
+            lead.placeRelative(0, 0)
+            tail?.placeRelative(lead.width, 0)
+        }
+    }
+}
+
+// Symmetric, so a lone 「已读」 sits centered; the detail keeps a little more room at the rounded end.
+private val LabelPadding = PaddingValues(horizontal = 5.dp)
+private val DetailPadding = PaddingValues(start = 4.dp, end = 6.dp)
+
+@Composable
+private fun MarkSegment(text: String, style: TextStyle, color: Color, background: Color, padding: PaddingValues) {
+    Box(Modifier.background(background).padding(padding), contentAlignment = Alignment.Center) {
+        Text(text = text, style = style, color = color, maxLines = 1, softWrap = false)
+    }
 }
 
 /**
@@ -164,6 +253,8 @@ fun ComicCoverCard(
     badge: String? = null,
     likes: String? = null,
     onLongClick: (() -> Unit)? = null,
+    progressDetail: String? = null,
+    progressDetailShort: String? = null,
 ) {
     Column(
         modifier = modifier
@@ -175,6 +266,8 @@ fun ComicCoverCard(
             contentDescription = null,
             modifier = Modifier.fillMaxWidth(),
             progressLabel = progressLabel,
+            progressDetail = progressDetail,
+            progressDetailShort = progressDetailShort,
             badge = badge,
         )
         Text(
@@ -216,8 +309,10 @@ private fun ComicCoverCardPreview() {
                 title = "星屑列车",
                 coverUrl = null,
                 onClick = {},
-                progressLabel = "12",
-                badge = "18 话",
+                progressLabel = "已读",
+                progressDetail = "第 12 话",
+                progressDetailShort = "12 话",
+                badge = "完结",
                 modifier = Modifier.width(120.dp),
             )
             ComicCoverCard(
@@ -226,6 +321,7 @@ private fun ComicCoverCardPreview() {
                 onClick = {},
                 author = "栗原千夏",
                 likes = "8.1k",
+                progressLabel = "已读",
                 badge = "已下载",
                 modifier = Modifier.width(120.dp),
             )

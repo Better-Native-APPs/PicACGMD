@@ -2,6 +2,7 @@ package app.picacgmd.core.domain.repository
 
 import app.picacgmd.core.data.db.ApiCache
 import app.picacgmd.core.data.db.ApiCacheDao
+import app.picacgmd.core.data.db.ReadChapter
 import app.picacgmd.core.data.db.SearchHistory
 import app.picacgmd.core.data.db.SearchHistoryDao
 import app.picacgmd.core.data.db.ViewHistory
@@ -50,6 +51,13 @@ internal class FakeViewHistoryDao : ViewHistoryDao {
     override fun observePage(limit: Int, offset: Int): Flow<List<ViewHistory>> = observeAll().map { it.drop(offset).take(limit) }
     override fun observe(comicId: String): Flow<ViewHistory?> = entries.map { it[comicId] }
     override fun observeViewedIds(comicIds: List<String>): Flow<List<String>> = entries.map { values -> comicIds.filter { it in values } }
+    /** Largest id list a single read-mark query received; SQLite on API 29–30 caps it at 999. */
+    var largestReadChapterQuery = 0
+        private set
+    override fun observeReadChapters(comicIds: List<String>): Flow<List<ReadChapter>> {
+        largestReadChapterQuery = maxOf(largestReadChapterQuery, comicIds.size)
+        return entries.map { values -> comicIds.mapNotNull { id -> values[id]?.let { ReadChapter(it.comicId, it.lastEpOrder) } } }
+    }
     override suspend fun get(comicId: String): ViewHistory? = entries.value[comicId]
     override suspend fun upsert(history: ViewHistory) { entries.value += history.comicId to history }
     override suspend fun updateProgress(comicId: String, epOrder: Int, epTitle: String, pictureIndex: Int, updatedAt: Long): Int {

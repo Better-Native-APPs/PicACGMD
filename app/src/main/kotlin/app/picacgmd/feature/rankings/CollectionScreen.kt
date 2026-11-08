@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -22,6 +23,9 @@ import app.picacgmd.R
 import app.picacgmd.core.designsystem.component.ComicCoverCard
 import app.picacgmd.core.designsystem.component.EmptyState
 import app.picacgmd.core.designsystem.component.LoadingState
+import app.picacgmd.core.network.ComicSimple
+import app.picacgmd.feature.comics.readMarkText
+import app.picacgmd.feature.comics.rememberReadMarks
 import app.picacgmd.feature.discover.LoadFailure
 import app.picacgmd.feature.discover.LoadState
 import app.picacgmd.feature.discover.appViewModel
@@ -62,6 +66,7 @@ fun CollectionScreen(
                     if (group == null || group.comics.isEmpty()) {
                         ScrollableStatus { EmptyState(title = stringResource(R.string.collections_empty)) }
                     } else {
+                        val readMarks = rememberReadMarks(remember(group.comics) { group.comics.map(ComicSimple::id) })
                         LazyVerticalGrid(
                             columns = GridCells.Adaptive(116.dp),
                             contentPadding = PaddingValues(16.dp),
@@ -70,11 +75,15 @@ fun CollectionScreen(
                             modifier = Modifier.fillMaxSize(),
                         ) {
                             items(group.comics, key = { it.id }) { comic ->
+                                val mark = readMarkText(readMarks.chapterOf(comic.id), comic.epsCount)
                                 ComicCoverCard(
                                     title = comic.title,
                                     coverUrl = rememberImageUrl(comic.thumb),
                                     author = comic.author.ifBlank { null },
                                     onClick = { onOpenComic(comic.id) },
+                                    progressLabel = mark?.label,
+                                    progressDetail = mark?.detail,
+                                    progressDetailShort = mark?.detailShort,
                                 )
                             }
                             if (group.hiddenCount > 0) {

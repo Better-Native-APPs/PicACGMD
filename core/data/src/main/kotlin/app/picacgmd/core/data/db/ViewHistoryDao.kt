@@ -5,6 +5,9 @@ import androidx.room.Query
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
+/** A viewed comic and the last chapter read in it (one-based; 0 = only the details were opened). */
+data class ReadChapter(val comicId: String, val lastEpOrder: Int)
+
 @Dao
 interface ViewHistoryDao {
     @Query("SELECT * FROM view_history ORDER BY pinned DESC, updatedAt DESC, comicId")
@@ -21,6 +24,10 @@ interface ViewHistoryDao {
 
     @Query("SELECT comicId FROM view_history WHERE comicId IN (:comicIds)")
     fun observeViewedIds(comicIds: List<String>): Flow<List<String>>
+
+    /** Two narrow columns for the 「已读」 marks on comic lists; keep [comicIds] under 999 entries. */
+    @Query("SELECT comicId, lastEpOrder FROM view_history WHERE comicId IN (:comicIds)")
+    fun observeReadChapters(comicIds: List<String>): Flow<List<ReadChapter>>
 
     @Upsert
     suspend fun upsert(history: ViewHistory)

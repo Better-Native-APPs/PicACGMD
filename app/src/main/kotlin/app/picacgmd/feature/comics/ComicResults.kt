@@ -108,7 +108,8 @@ fun foundLabel(total: Int, hidden: Int): String =
 
 /**
  * The shared result surface of boards 06 / 08 / 09: details list or cover grid, a full-span [header],
- * hidden-comic slots, infinite scroll or button paging, and long-press multi-select.
+ * hidden-comic slots, infinite scroll or button paging, long-press multi-select, and the live 「已读」
+ * mark on every comic with view history.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -132,6 +133,8 @@ fun ComicResults(
     header: (@Composable () -> Unit)? = null,
 ) {
     var jumpDialog by rememberSaveable { mutableStateOf(false) }
+    val comicIds = remember(state.entries) { state.entries.mapNotNull { (it as? ComicEntry.Comic)?.comic?.id } }
+    val readMarks = rememberReadMarks(comicIds)
     val selecting = selection.isNotEmpty()
     fun toggle(id: String) = onSelectionChange(if (id in selection) selection - id else selection + id)
 
@@ -194,6 +197,7 @@ fun ComicResults(
                             is ComicEntry.Comic -> ComicCell(
                                 comic = entry.comic,
                                 layout = layout,
+                                readChapter = readMarks.chapterOf(entry.comic.id),
                                 selected = entry.comic.id in selection,
                                 selecting = selecting,
                                 onClick = { if (selecting) toggle(entry.comic.id) else onComicClick(entry.comic.id) },
@@ -252,6 +256,7 @@ private fun androidx.compose.foundation.lazy.grid.LazyGridScope.skeleton(layout:
 private fun ComicCell(
     comic: ComicSimple,
     layout: ListLayout,
+    readChapter: Int?,
     selected: Boolean,
     selecting: Boolean,
     onClick: () -> Unit,
@@ -259,6 +264,7 @@ private fun ComicCell(
     modifier: Modifier = Modifier,
 ) {
     val cover = rememberImageUrl(comic.thumb)
+    val mark = readMarkText(readChapter, comic.epsCount)
     when (layout) {
         ListLayout.DETAILS -> ComicListItem(
             title = comic.title,
@@ -271,6 +277,9 @@ private fun ComicCell(
             finished = comic.finished,
             likes = formatCount(comic.likesCount.toLong()),
             pages = stringResource(R.string.comics_pages_eps, comic.pagesCount, comic.epsCount),
+            progressLabel = mark?.label,
+            progressDetail = mark?.detail,
+            progressDetailShort = mark?.detailShort,
             selected = selected,
             trailingContent = if (selecting) {
                 { SelectionMark(selected) }
@@ -286,6 +295,10 @@ private fun ComicCell(
                 onLongClick = onLongClick,
                 author = if (layout == ListLayout.COVER_AND_TITLE) comic.author.takeIf { it.isNotBlank() } else null,
                 badge = if (comic.finished) stringResource(R.string.comics_finished) else null,
+                progressLabel = mark?.label,
+                // While selecting, the bare 「已读」 keeps clear of the check in the opposite corner.
+                progressDetail = mark?.detail?.takeUnless { selecting },
+                progressDetailShort = mark?.detailShort?.takeUnless { selecting },
             )
             AnimatedVisibility(
                 visible = selecting,
