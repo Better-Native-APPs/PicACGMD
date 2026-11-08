@@ -144,3 +144,10 @@ internal fun distributeVerticalShift(
     if (remaining != 0f) offset = (offset + remaining).coerceIn(-maxOffsetY, maxOffsetY)
     return offset
 }
+
+/**
+ * Where a screen position lands in the unzoomed content along one axis, for a layer scaled by
+ * [scale] around [center] and then moved by [offset].
+ */
+internal fun screenToContent(screen: Float, center: Float, scale: Float, offset: Float): Float =
+    center + (screen - center - offset) / scale.coerceAtLeast(0.01f)

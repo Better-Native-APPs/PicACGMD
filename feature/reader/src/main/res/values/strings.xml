@@ -20,4 +20,107 @@
     <string name="reader_chapter_empty">这一话没有图片</string>
     <string name="reader_no_chapters">这本漫画还没有可阅读的章节</string>
     <string name="reader_back">返回</string>
+
+    <!-- Control layer. -->
+    <string name="reader_chapters">目录</string>
+    <string name="reader_more">更多</string>
+    <string name="reader_previous_chapter">上一话</string>
+    <string name="reader_next_chapter">下一话</string>
+    <string name="reader_settings">阅读设置</string>
+    <string name="reader_fullscreen">全屏</string>
+    <string name="reader_slider">阅读进度</string>
+    <string name="reader_show_controls">显示控制层</string>
+    <string name="reader_all_settings">全部设置</string>
+    <string name="reader_comments">评论</string>
+    <string name="reader_comments_count">评论 %1$d</string>
+
+    <!-- Reading settings sheet. -->
+    <string name="reader_settings_title">阅读设置</string>
+    <string name="reader_setting_mode">模式</string>
+    <string name="reader_mode_strip">条漫</string>
+    <string name="reader_mode_paged">翻页</string>
+    <string name="reader_mode_double">双页</string>
+    <string name="reader_mode_free">自由</string>
+    <string name="reader_setting_direction">方向</string>
+    <string name="reader_direction_ttb">从上到下</string>
+    <string name="reader_direction_ltr">从左到右</string>
+    <string name="reader_direction_rtl">从右到左</string>
+    <string name="reader_setting_background">背景</string>
+    <string name="reader_background_black">黑</string>
+    <string name="reader_background_gray">灰</string>
+    <string name="reader_background_paper">纸</string>
+    <string name="reader_background_white">白</string>
+    <string name="reader_setting_filter">滤镜</string>
+    <string name="reader_filter_normal">正常</string>
+    <string name="reader_filter_gray">灰度</string>
+    <string name="reader_filter_sepia">棕褐</string>
+    <string name="reader_filter_hint">滤镜：%1$s</string>
+    <string name="reader_setting_quality">画质</string>
+    <string name="reader_quality_original">原图</string>
+    <string name="reader_quality_high">高</string>
+    <string name="reader_quality_medium">中</string>
+    <string name="reader_quality_low">低</string>
+    <string name="reader_setting_tap">操控</string>
+    <string name="reader_tap_mode_tap">单击全屏</string>
+    <string name="reader_tap_mode_controller">控制器</string>
+    <string name="reader_tap_mode_double">双击全屏</string>
+    <string name="reader_tap_mode_double_next">双击全屏 + 单击下一页</string>
+    <string name="reader_tap_mode_zones">三区域</string>
+    <string name="reader_preview_zones">预览分区</string>
+    <string name="reader_setting_volume">音量键翻页</string>
+    <string name="reader_setting_volume_jump">双击音量键跳章</string>
+    <string name="reader_setting_auto_fullscreen">进入时自动全屏</string>
+    <string name="reader_setting_auto_turn">自动翻页</string>
+    <string name="reader_setting_auto_turn_every">每 %1$d 秒</string>
+    <string name="reader_setting_no_animation">取消翻页动画</string>
+
+    <!-- Tap zone overlay. -->
+    <string name="reader_previous_page">上一页</string>
+    <string name="reader_next_page">下一页</string>
+    <string name="reader_previous_screen">上一屏</string>
+    <string name="reader_next_screen">下一屏</string>
+    <string name="reader_menu">菜单</string>
+    <string name="reader_legend_tap_menu">单击 呼出菜单</string>
+    <string name="reader_legend_tap_next">单击 下一页</string>
+    <string name="reader_legend_double_menu">双击 呼出菜单</string>
+    <string name="reader_legend_double_zoom">双击 放大</string>
+    <string name="reader_legend_pinch_zoom">双指 缩放</string>
+    <string name="reader_legend_badge_menu">点右下角页码 呼出菜单</string>
+
+    <!-- Chapter sheet. -->
+    <string name="reader_chapters_title">章节 · %1$d</string>
+    <string name="reader_order_normal">正序</string>
+    <string name="reader_order_reversed">倒序</string>
+    <string name="reader_chapter_current">正在阅读</string>
+    <string name="reader_downloaded">已下载</string>
+
+    <!-- Long press on a page. -->
+    <string name="reader_page_info">%1$d × %2$d · %3$s</string>
+    <string name="reader_action_save">保存到相册</string>
+    <string name="reader_action_reload">重新加载这张图</string>
+    <string name="reader_action_share">分享</string>
+    <string name="reader_action_preview">全屏预览</string>
+    <string name="reader_action_preview_detail">可缩放和裁剪</string>
+    <string name="reader_reload_all">重载整页</string>
+    <string name="reader_saved">已保存到相册</string>
+    <string name="reader_save_failed">保存失败</string>
+    <string name="reader_share_failed">分享失败</string>
+    <string name="reader_close">关闭</string>
+    <string name="reader_crop">裁剪</string>
+    <string name="reader_cancel">取消</string>
+    <string name="reader_save">保存</string>
+
+    <!-- Chapter end. -->
+    <string name="reader_end_finished">%1$s · 已读完</string>
+    <string name="reader_page_count">%1$d 页</string>
+    <string name="reader_finish">结束阅读</string>
+    <string name="reader_end_swipe_up">继续上滑直接进入下一话</string>
+    <string name="reader_end_swipe_left">继续左滑直接进入下一话</string>
+    <string name="reader_end_swipe_right">继续右滑直接进入下一话</string>
+    <string name="reader_end_release">松手进入下一话</string>
+    <string name="reader_all_read_title">全部读完了</string>
+    <string name="reader_all_read_detail">已经是最后一话。</string>
+    <string name="reader_back_to_details">返回详情</string>
+    <string name="reader_see_comments">看评论</string>
+    <string name="reader_related">也在看</string>
 </resources>

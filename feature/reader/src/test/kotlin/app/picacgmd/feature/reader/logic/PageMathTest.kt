@@ -133,4 +133,16 @@ class PageMathTest {
         }
         assertTrue(pagesOfSpread(30, 10, coverAlone = false).isEmpty())
     }
+
+    @Test
+    fun itemUnderAPositionIsFound() {
+        val visible = listOf(StripItem(4, -100, 300), StripItem(5, 200, 500), StripItem(6, 720, 300))
+        assertEquals(4, stripItemAt(visible, 0f))
+        assertEquals(5, stripItemAt(visible, 200f))
+        assertEquals(5, stripItemAt(visible, 699f))
+        assertEquals(null, stripItemAt(visible, 710f))
+        assertEquals(6, stripItemAt(visible, 720f))
+        assertEquals(null, stripItemAt(visible, 1020f))
+        assertEquals(null, stripItemAt(emptyList(), 0f))
+    }
 }

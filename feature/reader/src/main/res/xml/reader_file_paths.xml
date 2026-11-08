@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Pages the user is sharing right now; see media/PageMedia.kt. -->
+    <cache-path name="shared_pages" path="reader_share/" />
+</paths>

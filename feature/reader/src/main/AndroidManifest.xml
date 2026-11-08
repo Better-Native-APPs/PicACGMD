@@ -1,1 +1,11 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- Hands a shared page image to the app the user picked. -->
+        <provider
+            android:name="app.picacgmd.feature.reader.media.ReaderFileProvider"
+            android:authorities="${applicationId}.reader.files"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+    </application>
+</manifest>

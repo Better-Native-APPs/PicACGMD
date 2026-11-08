@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,6 +57,35 @@ internal class PageRetryState(
     }
 
     fun switchServer() = onSwitchServer()
+}
+
+/**
+ * 重新加载这张图 / 重载整页: a page asked to reload goes around Coil's caches once, and what it loads
+ * replaces what they held. Later visits use the caches again.
+ */
+@Stable
+internal class PageReloadState {
+    private var all by mutableIntStateOf(0)
+    private val single = mutableStateMapOf<Int, Int>()
+    private val loaded = HashMap<Int, Int>()
+
+    /** Changes whenever [page] has to load again; use it as a `key` around the page. */
+    fun nonce(page: Int): Int = all + (single[page] ?: 0)
+
+    /** Whether the next load of [page] must go around the caches. */
+    fun needsFresh(page: Int): Boolean = nonce(page) != (loaded[page] ?: 0)
+
+    fun markLoaded(page: Int) {
+        loaded[page] = nonce(page)
+    }
+
+    fun reload(page: Int) {
+        single[page] = (single[page] ?: 0) + 1
+    }
+
+    fun reloadAll() {
+        all++
+    }
 }
 
 /** Why a page failed, as far as the reader can tell. */

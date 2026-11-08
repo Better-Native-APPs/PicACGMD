@@ -71,4 +71,38 @@ class TapZonesTest {
         assertEquals(TapAction.ToggleControls, doubleTapAction(TapMode.DoubleTapToToggle))
         assertEquals(TapAction.ToggleControls, doubleTapAction(TapMode.DoubleTapToggleTapNext))
     }
+
+    @Test
+    fun zoneAreasSplitTheScreenThirtyFortyThirty() {
+        val areas = threeZoneAreas(PagingAxis.Horizontal, rightToLeft = false, alwaysRightIsNext = false)
+        assertEquals(listOf(TapZone.Previous, TapZone.Menu, TapZone.Next), areas.map { it.zone })
+        assertEquals(0.3f, areas[0].right, 0.0001f)
+        assertEquals(0.7f, areas[1].right, 0.0001f)
+        assertEquals(1f, areas[2].right, 0.0001f)
+        areas.forEach { assertEquals(1f, it.bottom) }
+
+        val strip = threeZoneAreas(PagingAxis.Vertical, rightToLeft = false, alwaysRightIsNext = false)
+        assertEquals(listOf(TapZone.Previous, TapZone.Menu, TapZone.Next), strip.map { it.zone })
+        assertEquals(0.3f, strip[0].bottom, 0.0001f)
+        strip.forEach { assertEquals(1f, it.right) }
+    }
+
+    @Test
+    fun rightToLeftMirrorsTheAreasUnlessTheRightStaysNext() {
+        val mirrored = threeZoneAreas(PagingAxis.Horizontal, rightToLeft = true, alwaysRightIsNext = false)
+        assertEquals(listOf(TapZone.Next, TapZone.Menu, TapZone.Previous), mirrored.map { it.zone })
+        val kept = threeZoneAreas(PagingAxis.Horizontal, rightToLeft = true, alwaysRightIsNext = true)
+        assertEquals(listOf(TapZone.Previous, TapZone.Menu, TapZone.Next), kept.map { it.zone })
+    }
+
+    @Test
+    fun whatTheOverlayShowsIsWhatATapDoes() {
+        for (axis in PagingAxis.entries) for (rtl in listOf(false, true)) for (keep in listOf(false, true)) {
+            for (area in threeZoneAreas(axis, rtl, keep)) {
+                val x = (area.left + area.right) / 2f * 1000f
+                val y = (area.top + area.bottom) / 2f * 2000f
+                assertEquals(area.zone, tapZoneAt(x, y, 1000f, 2000f, axis, rtl, keep))
+            }
+        }
+    }
 }

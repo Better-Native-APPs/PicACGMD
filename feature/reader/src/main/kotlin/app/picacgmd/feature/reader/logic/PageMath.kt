@@ -49,6 +49,10 @@ internal fun stripCurrentPage(
     }.index
 }
 
+/** The laid-out item under position [y] of the list, or null in a gap or past the end. */
+internal fun stripItemAt(visible: List<StripItem>, y: Float): Int? =
+    visible.firstOrNull { y >= it.offset && y < it.offset + it.size }?.index
+
 /** Pixels one 上一屏 / 下一屏 step scrolls the strip, in list coordinates. */
 internal fun stripStepDistance(viewportSize: Int, fraction: Float, scale: Float = 1f): Float =
     viewportSize * fraction.coerceIn(0.1f, 1f) / scale.coerceAtLeast(0.01f)

@@ -1,5 +1,9 @@
 package app.picacgmd.feature.reader.ui
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialExpressiveTheme
@@ -7,7 +11,9 @@ import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import app.picacgmd.feature.reader.ReaderBackground
 
@@ -23,14 +29,43 @@ internal data class ReaderPalette(
     val onBackground: Color,
     /** Scheme for floating chrome (capsules, sheets, buttons). */
     val chrome: ColorScheme,
+    /** 「已下载」 marks; Material has no success role. */
+    val success: Color,
+    val successContainer: Color,
+    val onSuccessContainer: Color,
 )
 
+private val DarkSuccess = Triple(Color(0xFF92D877), Color(0xFF334E28), Color(0xFFD4E9C6))
+private val LightSuccess = Triple(Color(0xFF2C6C18), Color(0xFFD2EAC3), Color(0xFF042100))
+
+private fun readerPalette(
+    background: Color,
+    onBackground: Color,
+    chrome: ColorScheme,
+    success: Triple<Color, Color, Color>,
+) = ReaderPalette(background, onBackground, chrome, success.first, success.second, success.third)
+
 internal fun ReaderBackground.palette(): ReaderPalette = when (this) {
-    ReaderBackground.Black -> ReaderPalette(Color(0xFF000000), Color(0xFFFFFFFF), ReaderDarkScheme)
-    ReaderBackground.Gray -> ReaderPalette(Color(0xFF3A3A3A), Color(0xFFFFFFFF), ReaderDarkScheme)
-    ReaderBackground.Paper -> ReaderPalette(Color(0xFFF4EEDF), Color(0xFF4A3B22), ReaderBookLightScheme)
-    ReaderBackground.White -> ReaderPalette(Color(0xFFFFFFFF), Color(0xFF333333), ReaderBrandLightScheme)
+    ReaderBackground.Black -> readerPalette(Color(0xFF000000), Color(0xFFFFFFFF), ReaderDarkScheme, DarkSuccess)
+    ReaderBackground.Gray -> readerPalette(Color(0xFF3A3A3A), Color(0xFFFFFFFF), ReaderDarkScheme, DarkSuccess)
+    ReaderBackground.Paper -> readerPalette(Color(0xFFF4EEDF), Color(0xFF4A3B22), ReaderBookLightScheme, LightSuccess)
+    ReaderBackground.White -> readerPalette(Color(0xFFFFFFFF), Color(0xFF333333), ReaderBrandLightScheme, LightSuccess)
 }
+
+/** The palette of the reader subtree; provided by [ReaderTheme]. */
+internal val LocalReaderPalette = staticCompositionLocalOf { ReaderBackground.Black.palette() }
+
+/** 减少动画 (e-ink screens): changes happen at once instead of fading. Provided by [ReaderTheme]. */
+internal val LocalReaderReduceMotion = staticCompositionLocalOf { false }
+
+/** A fade for things that come and go, unless motion is reduced. */
+@Composable
+internal fun readerFadeIn(): EnterTransition =
+    if (LocalReaderReduceMotion.current) EnterTransition.None else fadeIn()
+
+@Composable
+internal fun readerFadeOut(): ExitTransition =
+    if (LocalReaderReduceMotion.current) ExitTransition.None else fadeOut()
 
 /** Fixed colours of the per-page loading / failure block (always dark, on every background). */
 internal object PageBlockColors {
@@ -50,12 +85,22 @@ internal object ReaderPillColors {
 /** Wraps the reader subtree in its own expressive theme so it ignores the app's colours. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-internal fun ReaderTheme(background: ReaderBackground, content: @Composable () -> Unit) {
-    MaterialExpressiveTheme(
-        colorScheme = background.palette().chrome,
-        motionScheme = MotionScheme.expressive(),
-        content = content,
-    )
+internal fun ReaderTheme(
+    background: ReaderBackground,
+    reduceMotion: Boolean = false,
+    content: @Composable () -> Unit,
+) {
+    val palette = background.palette()
+    CompositionLocalProvider(
+        LocalReaderPalette provides palette,
+        LocalReaderReduceMotion provides reduceMotion,
+    ) {
+        MaterialExpressiveTheme(
+            colorScheme = palette.chrome,
+            motionScheme = MotionScheme.expressive(),
+            content = content,
+        )
+    }
 }
 
 /** `brand-dark` tokens. */

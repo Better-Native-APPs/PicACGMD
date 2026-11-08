@@ -137,4 +137,18 @@ class ZoomMathTest {
     fun verticalShiftClampsAStaleTranslation() {
         assertEquals(0f, distributeVerticalShift(0f, 300f, 0f) { 0f }, eps)
     }
+
+    @Test
+    fun unzoomedScreenPositionsAreContentPositions() {
+        assertEquals(123f, screenToContent(123f, center = 500f, scale = 1f, offset = 0f), eps)
+    }
+
+    @Test
+    fun zoomedPositionsMapBackAroundTheCentre() {
+        // At 2× around the centre, the screen's top edge shows the content a quarter of the way down.
+        assertEquals(250f, screenToContent(0f, center = 500f, scale = 2f, offset = 0f), eps)
+        assertEquals(500f, screenToContent(500f, center = 500f, scale = 2f, offset = 0f), eps)
+        // Moving the layer up by 100 screen pixels reveals content 50 pixels further down.
+        assertEquals(300f, screenToContent(0f, center = 500f, scale = 2f, offset = -100f), eps)
+    }
 }

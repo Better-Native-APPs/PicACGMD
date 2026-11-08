@@ -40,6 +40,35 @@ internal fun tapZoneAt(
     }
 }
 
+/** One zone of the three-zone layout, with its bounds as fractions of the screen. */
+internal data class TapZoneArea(
+    val zone: TapZone,
+    val left: Float,
+    val top: Float,
+    val right: Float,
+    val bottom: Float,
+)
+
+/** The three zones in physical order, resolved exactly as [tapZoneAt] resolves a tap. */
+internal fun threeZoneAreas(axis: PagingAxis, rightToLeft: Boolean, alwaysRightIsNext: Boolean): List<TapZoneArea> {
+    fun zoneAt(fraction: Float) = tapZoneAt(fraction, fraction, 1f, 1f, axis, rightToLeft, alwaysRightIsNext)
+    val first = TAP_EDGE_ZONE
+    val last = 1f - TAP_EDGE_ZONE
+    return if (axis == PagingAxis.Horizontal) {
+        listOf(
+            TapZoneArea(zoneAt(first / 2f), 0f, 0f, first, 1f),
+            TapZoneArea(TapZone.Menu, first, 0f, last, 1f),
+            TapZoneArea(zoneAt((last + 1f) / 2f), last, 0f, 1f, 1f),
+        )
+    } else {
+        listOf(
+            TapZoneArea(zoneAt(first / 2f), 0f, 0f, 1f, first),
+            TapZoneArea(TapZone.Menu, 0f, first, 1f, last),
+            TapZoneArea(zoneAt((last + 1f) / 2f), 0f, last, 1f, 1f),
+        )
+    }
+}
+
 /** What a tap or double tap does. */
 internal enum class TapAction { None, ToggleControls, NextPage, PreviousPage, ToggleZoom }
 
