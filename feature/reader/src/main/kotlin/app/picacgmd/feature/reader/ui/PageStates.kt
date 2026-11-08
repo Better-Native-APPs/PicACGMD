@@ -1,7 +1,5 @@
 package app.picacgmd.feature.reader.ui
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,24 +10,22 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BrokenImage
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearWavyProgressIndicator
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.WavyProgressIndicatorDefaults
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -37,7 +33,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -122,18 +117,22 @@ internal fun rememberLoadProgress(image: PageImage, host: ReaderPageHost): (() -
     val flow = remember(image, host) { (image as? PageImage.Remote)?.let { host.loadProgress(it.url) } }
         ?: return null
     val fraction = flow.collectAsState()
-    return { fraction.value }
+    return remember(fraction) { { fraction.value } }
 }
 
-private val LoadingBarWidth = 160.dp
-private val LoadingBarWavelength = 16.dp
+private val LoadingRingSize = 48.dp
+private val LoadingRingStroke = 4.dp
 
 /**
- * Loading block: keeps the page's height and shows 「第 N 页」 under an expressive indicator. When the
- * source reports [progress] and the size is known, the label becomes 「第 N 页 · 62%」 over a wavy
- * bar; the bar's place is kept while the size is still unknown so nothing jumps when it appears.
+ * Loading block: keeps the page's height and shows 「第 N 页」 under a single ring.
+ *
+ * - Size known: the ring fills to the downloaded share and the label becomes 「第 N 页 · 62%」. It
+ *   steps in whole percents with no easing, so it only redraws when the number changes.
+ * - Size unknown (or the source cannot tell): the same ring spins; with [reduceMotion] it stays an
+ *   empty track instead.
+ *
+ * The ring keeps its size and place across all three, so nothing jumps when the size arrives.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun PageLoadingBlock(
     pageNumber: Int,
@@ -141,44 +140,44 @@ internal fun PageLoadingBlock(
     modifier: Modifier = Modifier,
     progress: (() -> Float?)? = null,
 ) {
+    // Only a change of the whole percent recomposes the block, not every progress tick.
+    val percent by remember(progress) { derivedStateOf { progress?.invoke()?.let(::loadPercent) } }
     Box(modifier.background(PageBlockColors.Background), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            if (reduceMotion) {
-                LoadingIndicator(progress = { 0f }, modifier = Modifier.size(64.dp), color = ReaderDarkScheme.primary)
-            } else {
-                LoadingIndicator(modifier = Modifier.size(64.dp), color = ReaderDarkScheme.primary)
+            val shown = percent
+            val ringModifier = Modifier.size(LoadingRingSize)
+            when {
+                shown != null -> CircularProgressIndicator(
+                    progress = { shown / 100f },
+                    modifier = ringModifier,
+                    color = ReaderDarkScheme.primary,
+                    strokeWidth = LoadingRingStroke,
+                    trackColor = ReaderDarkScheme.secondaryContainer,
+                )
+                reduceMotion -> CircularProgressIndicator(
+                    progress = { 0f },
+                    modifier = ringModifier,
+                    color = ReaderDarkScheme.primary,
+                    strokeWidth = LoadingRingStroke,
+                    trackColor = ReaderDarkScheme.secondaryContainer,
+                )
+                else -> CircularProgressIndicator(
+                    modifier = ringModifier,
+                    color = ReaderDarkScheme.primary,
+                    strokeWidth = LoadingRingStroke,
+                    trackColor = ReaderDarkScheme.secondaryContainer,
+                )
             }
-            Spacer(Modifier.height(12.dp))
-            val fraction = progress?.invoke()
-            val percent = fraction?.let(::loadPercent)
+            Spacer(Modifier.height(14.dp))
             Text(
-                text = if (percent != null) {
-                    stringResource(R.string.reader_page_loading_progress, pageNumber, percent)
+                text = if (shown != null) {
+                    stringResource(R.string.reader_page_loading_progress, pageNumber, shown)
                 } else {
                     stringResource(R.string.reader_page_number, pageNumber)
                 },
                 style = MaterialTheme.typography.labelMedium.withTabularFigures(),
                 color = PageBlockColors.Label,
             )
-            if (progress != null) {
-                Spacer(Modifier.height(10.dp))
-                val shown by animateFloatAsState(
-                    targetValue = (percent ?: 0) / 100f,
-                    animationSpec = if (reduceMotion) snap() else WavyProgressIndicatorDefaults.ProgressAnimationSpec,
-                    label = "page download",
-                )
-                LinearWavyProgressIndicator(
-                    progress = { shown },
-                    modifier = Modifier
-                        .width(LoadingBarWidth)
-                        .alpha(if (percent != null) 1f else 0f),
-                    color = ReaderDarkScheme.primary,
-                    trackColor = ReaderDarkScheme.secondaryContainer,
-                    amplitude = if (reduceMotion) ({ 0f }) else WavyProgressIndicatorDefaults.indicatorAmplitude,
-                    wavelength = LoadingBarWavelength,
-                    waveSpeed = if (reduceMotion) 0.dp else LoadingBarWavelength,
-                )
-            }
         }
     }
 }
