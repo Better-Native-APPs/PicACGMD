@@ -20,6 +20,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.NavBackStackEntry
@@ -29,6 +30,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.toRoute
+import app.picacgmd.R
 import app.picacgmd.core.designsystem.component.HomeChannel
 import app.picacgmd.core.domain.download.DownloadManagerOwner
 import app.picacgmd.feature.account.LoginScreen
@@ -186,12 +188,13 @@ private fun NavGraphBuilder.topLevelGraphs(navController: NavHostController, com
     }
     navigation<MeGraph>(startDestination = MeRoute) {
         composable<MeRoute> {
+            val messageBoardTitle = stringResource(R.string.comments_message_board)
             MeScreen(
                 onOpenSettings = { navController.navigate(SettingsRoute) },
                 onOpenLogin = { navController.navigate(LoginRoute) },
                 onOpenMyComments = { navController.navigate(MyCommentsRoute) },
                 onOpenAnnouncements = { navController.navigate(AnnouncementsRoute) },
-                onOpenMessageBoard = { navController.navigate(ComicCommentsRoute(MESSAGE_BOARD_COMIC_ID)) },
+                onOpenMessageBoard = { navController.navigate(ComicCommentsRoute(MESSAGE_BOARD_COMIC_ID, messageBoardTitle)) },
                 onBack = if (compact.value) navController.backAction() else null,
             )
         }
@@ -261,8 +264,10 @@ private fun NavGraphBuilder.sharedDestinations(
         )
     }
     composable<ComicCommentsRoute> { entry ->
+        val route = entry.toRoute<ComicCommentsRoute>()
         CommentsScreen(
-            comicId = entry.toRoute<ComicCommentsRoute>().comicId,
+            comicId = route.comicId,
+            title = route.title,
             onBack = navController.backAction(),
         )
     }

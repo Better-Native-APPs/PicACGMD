@@ -235,6 +235,17 @@ internal fun StripReader(
             override suspend fun jumpTo(page: Int) {
                 listState.scrollToItem(clampPage(page, pageCount))
             }
+
+            override fun autoScrollRemaining(): Float {
+                val info = listState.layoutInfo
+                val last = info.visibleItemsInfo.lastOrNull { it.index < pageCount } ?: return 0f
+                if (last.index < pageCount - 1) return Float.MAX_VALUE
+                return (last.offset + last.size - info.viewportEndOffset + info.afterContentPadding).toFloat()
+            }
+
+            override fun autoScrollBy(pixels: Float) {
+                listState.dispatchRawDelta(pixels)
+            }
         }
     }
     RegisterNavigator(host.navigator, navigator)

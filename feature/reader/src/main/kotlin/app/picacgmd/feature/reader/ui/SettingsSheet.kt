@@ -43,6 +43,7 @@ import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.PhotoFilter
 import androidx.compose.material.icons.rounded.South
 import androidx.compose.material.icons.rounded.SwapVert
+import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.West
@@ -98,6 +99,7 @@ import androidx.compose.material.icons.rounded.Image
 import app.picacgmd.feature.reader.R
 import app.picacgmd.feature.reader.ReaderBackground
 import app.picacgmd.feature.reader.ReaderConfig
+import app.picacgmd.feature.reader.isContinuous
 import app.picacgmd.feature.reader.ReaderDirection
 import app.picacgmd.feature.reader.ReaderFilter
 import app.picacgmd.feature.reader.ReaderMode
@@ -338,15 +340,19 @@ internal fun ReaderSettingsSheet(
                     checked = config.autoFullscreen,
                     onCheckedChange = { onConfigChange(config.copy(autoFullscreen = it)) },
                 )
-                SwitchRow(
-                    icon = Icons.Rounded.Timer,
-                    title = stringResource(R.string.reader_setting_auto_turn),
-                    supporting = stringResource(R.string.reader_setting_auto_turn_every, config.autoTurnSeconds),
-                    checked = config.autoTurn,
-                    onCheckedChange = { onConfigChange(config.copy(autoTurn = it)) },
-                )
-                ExpandingRow(visible = config.autoTurn) {
-                    AutoTurnSlider(config.autoTurnSeconds) { onConfigChange(config.copy(autoTurnSeconds = it)) }
+                if (config.mode.isContinuous) {
+                    AutoScrollRows(config, onConfigChange)
+                } else {
+                    SwitchRow(
+                        icon = Icons.Rounded.Timer,
+                        title = stringResource(R.string.reader_setting_auto_turn),
+                        supporting = stringResource(R.string.reader_setting_auto_turn_every, config.autoTurnSeconds),
+                        checked = config.autoTurn,
+                        onCheckedChange = { onConfigChange(config.copy(autoTurn = it)) },
+                    )
+                    ExpandingRow(visible = config.autoTurn) {
+                        AutoTurnSlider(config.autoTurnSeconds) { onConfigChange(config.copy(autoTurnSeconds = it)) }
+                    }
                 }
                 SwitchRow(
                     icon = Icons.Rounded.Animation,
@@ -357,6 +363,73 @@ internal fun ReaderSettingsSheet(
             }
         }
     }
+}
+
+/** 条漫 / 自由缩放: 自动滚动 with its speed and touch pause, and 自动翻章. */
+@Composable
+private fun ColumnScope.AutoScrollRows(config: ReaderConfig, onConfigChange: (ReaderConfig) -> Unit) {
+    SwitchRow(
+        icon = Icons.Rounded.Timer,
+        title = stringResource(R.string.reader_setting_auto_scroll),
+        supporting = stringResource(R.string.reader_setting_auto_scroll_speed, autoScrollSpeedLabel(config.autoScrollSpeed)),
+        checked = config.autoTurn,
+        onCheckedChange = { onConfigChange(config.copy(autoTurn = it)) },
+    )
+    ExpandingRow(visible = config.autoTurn) {
+        Column {
+            AutoScrollSpeedSlider(config.autoScrollSpeed) { onConfigChange(config.copy(autoScrollSpeed = it)) }
+            SwitchRow(
+                icon = null,
+                title = stringResource(R.string.reader_setting_auto_scroll_pause_on_touch),
+                checked = config.autoScrollPauseOnTouch,
+                onCheckedChange = { onConfigChange(config.copy(autoScrollPauseOnTouch = it)) },
+            )
+        }
+    }
+    SwitchRow(
+        icon = Icons.Rounded.SkipNext,
+        title = stringResource(R.string.reader_setting_auto_next_chapter),
+        supporting = stringResource(R.string.reader_setting_auto_next_chapter_supporting),
+        checked = config.autoNextChapter,
+        onCheckedChange = { onConfigChange(config.copy(autoNextChapter = it)) },
+    )
+}
+
+@Composable
+private fun autoScrollSpeedLabel(step: Int): String = stringResource(
+    when (step.coerceIn(ReaderConfig.AUTO_SCROLL_SPEED_RANGE)) {
+        1 -> R.string.reader_auto_scroll_speed_1
+        2 -> R.string.reader_auto_scroll_speed_2
+        3 -> R.string.reader_auto_scroll_speed_3
+        4 -> R.string.reader_auto_scroll_speed_4
+        else -> R.string.reader_auto_scroll_speed_5
+    },
+)
+
+/** Five steps, 很慢 to 很快, under the switch while 自动滚动 is on. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AutoScrollSpeedSlider(step: Int, onChange: (Int) -> Unit) {
+    val range = ReaderConfig.AUTO_SCROLL_SPEED_RANGE
+    val slider = remember {
+        SliderState(
+            value = step.toFloat(),
+            steps = range.last - range.first - 1,
+            trackRange = range.first.toFloat()..range.last.toFloat(),
+        )
+    }
+    val label = stringResource(R.string.reader_setting_auto_scroll)
+    Slider(
+        state = slider,
+        onValueChange = { value ->
+            slider.value = value
+            val next = value.roundToInt()
+            if (next != step) onChange(next)
+        },
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .semantics { contentDescription = label },
+    )
 }
 
 /** A row that belongs to the setting above it (a switch, or the mode) and only shows while it applies. */

@@ -85,8 +85,10 @@
     <string name="detail_collapse">收起</string>
     <string name="detail_chapters">章节 · %1$d</string>
     <string name="detail_chapters_reverse">倒序</string>
-    <string name="detail_chapters_all">全部章节</string>
-    <string name="detail_chapter_last_read">上次读到</string>
+    <string name="detail_chapters_expand">展开全部 %1$d 话</string>
+    <string name="detail_chapter_progress">看到 %1$d/%2$d</string>
+    <string name="detail_chapter_progress_page">看到第 %1$d 页</string>
+    <string name="detail_chapter_downloaded">已下载</string>
     <string name="detail_recommend">看了这本的人也在看</string>
     <string name="detail_comments">评论 · %1$d</string>
     <string name="detail_comments_all">全部评论</string>
@@ -117,4 +119,11 @@
     <string name="comments_level">Lv.%1$d</string>
     <string name="comments_like">点赞</string>
     <string name="comments_hidden">这条评论已被隐藏</string>
+    <string name="comments_message_board">嗶咔留言板</string>
+    <string name="comments_more_actions">更多操作</string>
+    <string name="comments_report">举报</string>
+    <string name="comments_report_title">举报这条评论？</string>
+    <string name="comments_report_quote">%1$s：%2$s</string>
+    <string name="comments_reported">已提交举报</string>
+    <string name="comments_length_description">已输入 %1$d 字，最多 %2$d 字</string>
 </resources>

@@ -118,6 +118,15 @@ class CommentsViewModel(container: AppContainer, private val comicId: String) : 
         mutableReplies.update { t -> t?.copy(parent = t.parent.apply(), replies = t.replies.map { it.apply() }) }
     }
 
+    /** [confirmation] is the already localized text shown once the report has gone through. */
+    fun report(commentId: String, confirmation: String) {
+        viewModelScope.launch {
+            runCatching { repository.report(commentId) }
+                .onSuccess { mutableMessages.tryEmit(confirmation) }
+                .onFailure { error -> mutableMessages.tryEmit(error.readable()) }
+        }
+    }
+
     fun openReplies(comment: Comment) {
         mutableReplies.value = ReplyThread(comment)
         loadReplies(1)
