@@ -114,12 +114,6 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
     suspend fun setShowSubscriptions(value: Boolean) = set(Keys.showSubscriptions, value)
     suspend fun setShowTagFavourites(value: Boolean) = set(Keys.showTagFavourites, value)
     suspend fun setShowOnlineFavourites(value: Boolean) = set(Keys.showOnlineFavourites, value)
-    suspend fun setShowLocalFavourites(value: Boolean) = set(Keys.showLocalFavourites, value)
-
-    suspend fun setLastFavouriteFolderId(value: Long?) {
-        require(value == null || value > 0) { "Favourite folder ID must be positive or null" }
-        setNullable(Keys.lastFavouriteFolderId, value)
-    }
 
     suspend fun setCopyNameTemplate(value: String) = set(Keys.copyNameTemplate, value)
     suspend fun setConfirmCopy(value: Boolean) = set(Keys.confirmCopy, value)

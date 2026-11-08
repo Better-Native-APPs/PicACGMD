@@ -123,7 +123,7 @@ private val SearchIndex: List<SettingsEntry> = buildList {
     )
     add(
         SettingsPage.Browsing, "功能入口",
-        "按作者搜索" to "", "追更" to "订阅更新", "标签收藏" to "", "在线收藏" to "", "本地收藏" to "",
+        "按作者搜索" to "", "追更" to "订阅更新", "标签收藏" to "", "在线收藏" to "",
         "复制名称模板" to "复制漫画名称时使用", "复制前确认" to "",
     )
     add(

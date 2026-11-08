@@ -141,8 +141,6 @@ class SettingsRepositoryTest {
         repository.setShowSubscriptions(false)
         repository.setShowTagFavourites(false)
         repository.setShowOnlineFavourites(false)
-        repository.setShowLocalFavourites(false)
-        repository.setLastFavouriteFolderId(4)
         repository.setCopyNameTemplate("{title}")
         repository.setConfirmCopy(false)
         repository.setVolumeKeyChapterPaging(false)
@@ -172,7 +170,7 @@ class SettingsRepositoryTest {
                 startupImageUri = "content://images/startup", failedReloadAction = FailedReloadAction.PULL_DOWN,
                 hideViewedComics = true, hiddenCategories = listOf("隐藏分类"), showAuthorSearch = false,
                 showSubscriptions = false, showTagFavourites = false, showOnlineFavourites = false,
-                showLocalFavourites = false, lastFavouriteFolderId = 4, copyNameTemplate = "{title}", confirmCopy = false,
+                copyNameTemplate = "{title}", confirmCopy = false,
                 volumeKeyChapterPaging = false, fullScreenOnForward = true, readerPageAnimation = false,
                 threeZoneNextOnRight = true, readerScrollMode = ReaderScrollMode.SCREEN_DISTANCE,
                 scrollScreenFraction = 0.5f, readerSliderPosition = ReaderSliderPosition.LEFT,

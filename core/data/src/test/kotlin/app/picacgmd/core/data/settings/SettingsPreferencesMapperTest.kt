@@ -1,6 +1,8 @@
 package app.picacgmd.core.data.settings
 
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.mutablePreferencesOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -9,6 +11,16 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class SettingsPreferencesMapperTest {
+    @Test
+    fun obsoleteFolderPreferencesAreIgnored() {
+        val preferences = mutablePreferencesOf(
+            booleanPreferencesKey("show_local_favourites") to false,
+            longPreferencesKey("last_favourite_folder_id") to 4L,
+            SettingsKeys.downloadThreads to 8,
+        )
+        assertEquals(AppSettings.DEFAULT.copy(downloadThreads = 8), SettingsPreferencesMapper.decode(preferences))
+    }
+
     @Test
     fun missingReaderAdditionsMatchReaderDefaults() {
         val settings = SettingsPreferencesMapper.decode(emptyPreferences())

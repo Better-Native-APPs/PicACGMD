@@ -2,7 +2,6 @@ package app.picacgmd.feature.detail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import app.picacgmd.core.data.db.LocalFavouriteFolder
 import app.picacgmd.core.domain.di.AppContainer
 import app.picacgmd.core.domain.repository.ReadingProgress
 import app.picacgmd.core.network.ComicInfo
@@ -42,12 +41,8 @@ data class DetailState(
 /** Library-side state that lives in the local database and updates live. */
 data class LibraryState(
     val progress: ReadingProgress? = null,
-    val localFolderId: Long? = null,
-    val folders: List<LocalFavouriteFolder> = emptyList(),
     val subscribed: Boolean = false,
-) {
-    val localFolderName: String? get() = folders.firstOrNull { it.folderId == localFolderId }?.name
-}
+)
 
 class ComicDetailViewModel(private val container: AppContainer, val comicId: String) : ViewModel() {
     private val comics = container.comicRepository
@@ -58,11 +53,9 @@ class ComicDetailViewModel(private val container: AppContainer, val comicId: Str
 
     val library: StateFlow<LibraryState> = combine(
         container.historyRepository.observeProgress(comicId),
-        container.localFavouriteRepository.observe(comicId),
-        container.localFavouriteRepository.folders,
         container.subscriptionRepository.observe(comicId).map { it != null },
-    ) { progress, local, folders, subscribed ->
-        LibraryState(progress, local?.folderId, folders, subscribed)
+    ) { progress, subscribed ->
+        LibraryState(progress, subscribed)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryState())
 
     init { load() }
@@ -137,28 +130,6 @@ class ComicDetailViewModel(private val container: AppContainer, val comicId: Str
                     mutableMessages.tryEmit(error.readable())
                 }
         }
-    }
-
-    fun putInFolder(folderId: Long) {
-        val comic = mutableState.value.comic ?: return
-        viewModelScope.launch {
-            runCatching { container.localFavouriteRepository.add(comic, folderId) }
-                .onFailure { mutableMessages.tryEmit(it.readable()) }
-        }
-    }
-
-    fun createFolderAndPut(name: String) {
-        val comic = mutableState.value.comic ?: return
-        viewModelScope.launch {
-            runCatching {
-                val id = container.localFavouriteRepository.createFolder(name.trim())
-                container.localFavouriteRepository.add(comic, id)
-            }.onFailure { mutableMessages.tryEmit(it.readable()) }
-        }
-    }
-
-    fun removeLocal() {
-        viewModelScope.launch { runCatching { container.localFavouriteRepository.remove(listOf(comicId)) } }
     }
 
     fun toggleSubscribe() {

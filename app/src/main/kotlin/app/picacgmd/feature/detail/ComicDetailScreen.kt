@@ -35,19 +35,15 @@ import androidx.compose.material.icons.automirrored.outlined.Comment
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.CreateNewFolder
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.VisibilityOff
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -55,15 +51,12 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -142,7 +135,6 @@ fun ComicDetailScreen(
     LaunchedEffect(viewModel) {
         viewModel.messages.collect { snackbar.showSnackbar(failedTemplate.replace("%s", it)) }
     }
-    var folderPicker by rememberSaveable { mutableStateOf(false) }
     var downloadPicker by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
@@ -168,7 +160,6 @@ fun ComicDetailScreen(
                 onRead = { ep, page -> onRead(comic.id, ep, page) },
                 onLike = viewModel::toggleLike,
                 onFavourite = viewModel::toggleFavourite,
-                onLocal = { folderPicker = true },
                 onSubscribe = viewModel::toggleSubscribe,
                 onDownload = { downloadPicker = true },
                 onCategoryClick = onCategoryClick,
@@ -183,15 +174,6 @@ fun ComicDetailScreen(
     }
 
     val comic = state.comic
-    if (folderPicker && comic != null) {
-        FolderPickerSheet(
-            library = library,
-            onDismiss = { folderPicker = false },
-            onPick = { folderPicker = false; viewModel.putInFolder(it) },
-            onCreate = { folderPicker = false; viewModel.createFolderAndPut(it) },
-            onRemove = { folderPicker = false; viewModel.removeLocal() },
-        )
-    }
     if (downloadPicker && comic != null) {
         DownloadPickerSheet(
             eps = state.eps.orEmpty(),
@@ -227,7 +209,6 @@ private fun DetailBody(
     onRead: (Int, Int) -> Unit,
     onLike: () -> Unit,
     onFavourite: () -> Unit,
-    onLocal: () -> Unit,
     onSubscribe: () -> Unit,
     onDownload: () -> Unit,
     onCategoryClick: (String) -> Unit,
@@ -251,7 +232,6 @@ private fun DetailBody(
                     library = library,
                     onLike = onLike,
                     onFavourite = onFavourite,
-                    onLocal = onLocal,
                     onSubscribe = onSubscribe,
                     onDownload = onDownload,
                 )
@@ -411,7 +391,6 @@ private fun ActionRow(
     library: LibraryState,
     onLike: () -> Unit,
     onFavourite: () -> Unit,
-    onLocal: () -> Unit,
     onSubscribe: () -> Unit,
     onDownload: () -> Unit,
 ) {
@@ -430,12 +409,6 @@ private fun ActionRow(
             iconOn = Icons.Filled.Bookmark, iconOff = Icons.Outlined.BookmarkBorder,
             label = if (comic.isFavourite) stringResource(R.string.detail_favourited) else stringResource(R.string.detail_favourite),
             onClick = onFavourite,
-        )
-        ActionToggle(
-            on = library.localFolderId != null,
-            iconOn = Icons.Filled.Folder, iconOff = Icons.Outlined.FolderOpen,
-            label = library.localFolderName ?: stringResource(R.string.detail_local_favourite),
-            onClick = onLocal,
         )
         ActionToggle(
             on = library.subscribed,
@@ -634,62 +607,6 @@ private fun ReadButton(
             )
         }
         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
-    }
-}
-
-/** B4: a comic lives in exactly one local folder; pick, create, or remove. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun FolderPickerSheet(
-    library: LibraryState,
-    onDismiss: () -> Unit,
-    onPick: (Long) -> Unit,
-    onCreate: (String) -> Unit,
-    onRemove: () -> Unit,
-) {
-    var creating by rememberSaveable { mutableStateOf(false) }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Text(
-            stringResource(R.string.detail_folder_picker_title),
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-        )
-        library.folders.forEach { folder ->
-            ListItem(
-                headlineContent = { Text(folder.name) },
-                leadingContent = { RadioButton(selected = folder.folderId == library.localFolderId, onClick = null) },
-                modifier = Modifier.clickable { onPick(folder.folderId) },
-            )
-        }
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.detail_folder_new)) },
-            leadingContent = { Icon(Icons.Outlined.CreateNewFolder, null) },
-            modifier = Modifier.clickable { creating = true },
-        )
-        if (library.localFolderId != null) {
-            HorizontalDivider()
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.detail_folder_remove), color = MaterialTheme.colorScheme.error) },
-                modifier = Modifier.clickable(onClick = onRemove),
-            )
-        }
-        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars).height(16.dp))
-    }
-    if (creating) {
-        var name by rememberSaveable { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { creating = false },
-            title = { Text(stringResource(R.string.detail_folder_new)) },
-            text = {
-                OutlinedTextField(value = name, onValueChange = { name = it.take(40) }, singleLine = true, label = { Text(stringResource(R.string.detail_folder_name)) })
-            },
-            confirmButton = {
-                TextButton(onClick = { creating = false; onCreate(name) }, enabled = name.isNotBlank()) {
-                    Text(stringResource(R.string.detail_folder_create))
-                }
-            },
-            dismissButton = { TextButton(onClick = { creating = false }) { Text(stringResource(R.string.comics_cancel)) } },
-        )
     }
 }
 

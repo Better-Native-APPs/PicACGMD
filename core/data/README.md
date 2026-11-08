@@ -12,7 +12,7 @@ val database = PikapikaDatabase.create(applicationContext)
 val settingsRepository = SettingsRepository.create(applicationContext)
 ```
 
-应用生命周期内保留一个数据库实例；退出时可 `close()`。数据库名为 `pikapika.db`，版本 1，使用 WAL，不启用破坏性迁移。KSP 将 schema 导出至 `core/data/schemas/app.picacgmd.core.data.db.PikapikaDatabase/1.json`。
+应用生命周期内保留一个数据库实例；退出时可 `close()`。数据库名为 `pikapika.db`，版本 2，使用 WAL，不启用破坏性迁移。1 → 2 使用 `DropObsoleteFoldersSpec` 自动迁移，只删除废弃的收藏和文件夹表，保留浏览记录、阅读进度和下载。KSP 将当前 schema 导出至 `core/data/schemas/app.picacgmd.core.data.db.PikapikaDatabase/2.json`；版本 1 的 schema 保留用于升级。
 
 `SettingsRepository.create` 使用共享的 `app_settings` Preferences DataStore；测试或注入也可使用 `SettingsRepository(dataStore: DataStore<Preferences>)`。读取入口是 `val settings: Flow<AppSettings>`。所有 setter 返回 `Unit`，读写失败直接传播。
 
@@ -26,8 +26,6 @@ val settingsRepository = SettingsRepository.create(applicationContext)
 | `DownloadComic` | `comicId: String`, `title: String` | 漫画元数据，`status`, `selectedEpCount`, `completedEpCount`, `selectedPictureCount`, `completedPictureCount`, `downloadedBytes`, `folder`, `filePath`, `thumbFilePath`, `thumbFormat`, `error`, `createdAt`, `updatedAt`, `completedAt` |
 | `DownloadEp` | `epId: String`, `comicId: String`, `epOrder: Int`, `title: String` | `picturesFetched`, `status`, `selectedPictureCount`, `completedPictureCount`, `downloadedBytes`, `filePath`, `error`, `createdAt`, `updatedAt`, `completedAt` |
 | `DownloadPicture` | `pictureId: String`, `comicId: String`, `epId: String`, `epOrder: Int`, `pictureIndex: Int`, `fileServer: String`, `path: String` | `originalName`, `status`, `downloadedBytes`, `fileSizeBytes`, `format`, `width`, `height`, `filePath`, `attemptCount`, `error`, `createdAt`, `updatedAt`, `completedAt` |
-| `LocalFavouriteFolder` | `name: String`；自增 `folderId: Long = 0` | `sortOrder`, `createdAt`, `updatedAt` |
-| `LocalFavourite` | `comicId: String`, `folderId: Long`, `title: String` | `author`, `thumbFileServer`, `thumbPath`, `categoriesJson`, `createdAt`, `updatedAt` |
 | `SearchHistory` | `query: String` | `updatedAt` |
 | `ApiCache` | `key: String`, `json: String`, `expiresAt: Long` | `updatedAt`；`categories(json: String, now: Long)` / `collections(json: String, now: Long)` 默认缓存 3 小时 |
 | `RemoteImage` | 联合主键 `fileServer: String`, `path: String`；`filePath: String` | `fileSizeBytes`, `format`, `width`, `height`, `createdAt`, `updatedAt` |
@@ -56,7 +54,6 @@ fun Subscription.withLatest(epsCount: Int, comicUpdatedAt: Long?, checkedAt: Lon
 ```kotlin
 fun viewHistoryDao(): ViewHistoryDao
 fun downloadDao(): DownloadDao
-fun localFavouriteDao(): LocalFavouriteDao
 fun searchHistoryDao(): SearchHistoryDao
 fun apiCacheDao(): ApiCacheDao
 fun remoteImageDao(): RemoteImageDao
@@ -122,29 +119,6 @@ suspend fun deleteComic(comicId: String): Int
 - `refreshProgress` 只更新计数，不决定任务完成/失败状态；业务层在清单完整并检查结果后设置章节、漫画状态。
 - `recoverInterrupted` 只在服务启动、没有旧 worker 活动时调用。`retryFailed` 不唤醒用户已暂停的漫画。两者返回重排队的图片数。
 - 文件路径相对于应用自己的下载根目录：`{comicId}/logo`、`{comicId}/{epOrder}/{pictureIndex}`，无扩展名。先标记 deleting，取消 worker 并删掉文件，再调用 `deleteComic` 级联删除表记录。
-
-### LocalFavouriteDao
-
-```kotlin
-fun observeFolders(): Flow<List<LocalFavouriteFolder>>
-fun observeAll(): Flow<List<LocalFavourite>>
-fun observeFolder(folderId: Long): Flow<List<LocalFavourite>>
-fun observe(comicId: String): Flow<LocalFavourite?>
-suspend fun getFolders(): List<LocalFavouriteFolder>
-suspend fun getFolder(folderId: Long): LocalFavouriteFolder?
-suspend fun insertFolder(folder: LocalFavouriteFolder): Long
-suspend fun renameFolder(folderId: Long, name: String, updatedAt: Long): Int
-suspend fun reorderFolders(folderIds: List<Long>, updatedAt: Long)
-suspend fun get(comicId: String): LocalFavourite?
-suspend fun upsert(favourite: LocalFavourite)
-suspend fun moveComics(comicIds: List<String>, folderId: Long, updatedAt: Long): Int
-suspend fun deleteComics(comicIds: List<String>): Int
-suspend fun deleteEmptyFolder(folderId: Long): Int
-suspend fun moveAndDeleteFolder(folderId: Long, targetFolderId: Long, updatedAt: Long): Int
-suspend fun deleteFolderAndFavourites(folderId: Long): Int
-```
-
-文件夹数量不限，每本漫画只能在一个文件夹。非空文件夹受 RESTRICT 外键保护；默认采用 `moveAndDeleteFolder`，返回移动漫画数。只有用户明确确认移除内部收藏时才使用 `deleteFolderAndFavourites`。排序输入必须包含所有当前文件夹且不能重复。
 
 ### SearchHistoryDao / TagFavouriteDao
 
@@ -243,8 +217,6 @@ setShowAuthorSearch(value: Boolean)
 setShowSubscriptions(value: Boolean)
 setShowTagFavourites(value: Boolean)
 setShowOnlineFavourites(value: Boolean)
-setShowLocalFavourites(value: Boolean)
-setLastFavouriteFolderId(value: Long?)
 setCopyNameTemplate(value: String)
 setConfirmCopy(value: Boolean)
 setReaderMode(value: ReaderMode)
@@ -299,6 +271,4 @@ setAutoCleanCacheInterval(value: CacheCleanupInterval)
 nix develop -c ./gradlew :core:data:assembleDebug :core:data:testDebugUnitTest --no-daemon
 ```
 
-JVM 测试使用纯 Preferences 映射和内存 DataStore，覆盖设置默认值/写入/顺序/范围、状态跳转、过期边界、追更累计及过期 claim 结果。没有新增测试依赖；Room 运行时 DAO 测试未加入 androidTest。
-
-2026-11-07：上述命令成功（退出码 0），21 项 JVM 测试通过，schema 已生成。没有运行设备或模拟器上的 DAO 测试。
+JVM 测试使用纯 Preferences 映射和内存 DataStore，覆盖设置默认值/写入/顺序/范围、旧版废弃偏好的兼容、状态跳转、过期边界、追更累计及过期 claim 结果。升级测试检查 Room 生成的 1 → 2 迁移只删除两张废弃表，不改写其余表。没有新增测试依赖；现有设置不包含 Room 测试 helper、Android 测试 runner 或 JVM SQLite driver，未运行真实 SQLite 数据库升级测试。

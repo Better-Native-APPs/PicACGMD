@@ -1,6 +1,7 @@
 package app.picacgmd.core.data.db
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -12,22 +13,20 @@ import androidx.room.TypeConverters
         DownloadComic::class,
         DownloadEp::class,
         DownloadPicture::class,
-        LocalFavouriteFolder::class,
-        LocalFavourite::class,
         SearchHistory::class,
         ApiCache::class,
         RemoteImage::class,
         TagFavourite::class,
         Subscription::class,
     ],
-    version = 1,
+    version = 2,
+    autoMigrations = [AutoMigration(from = 1, to = 2, spec = DropObsoleteFoldersSpec::class)],
     exportSchema = true,
 )
 @TypeConverters(DownloadStatusConverters::class)
 abstract class PikapikaDatabase : RoomDatabase() {
     abstract fun viewHistoryDao(): ViewHistoryDao
     abstract fun downloadDao(): DownloadDao
-    abstract fun localFavouriteDao(): LocalFavouriteDao
     abstract fun searchHistoryDao(): SearchHistoryDao
     abstract fun apiCacheDao(): ApiCacheDao
     abstract fun remoteImageDao(): RemoteImageDao

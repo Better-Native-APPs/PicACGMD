@@ -82,8 +82,6 @@ data class AppSettings(
     val showSubscriptions: Boolean = true,
     val showTagFavourites: Boolean = true,
     val showOnlineFavourites: Boolean = true,
-    val showLocalFavourites: Boolean = true,
-    val lastFavouriteFolderId: Long? = null,
     val copyNameTemplate: String = "[{author}] {title}",
     val confirmCopy: Boolean = true,
     val readerMode: ReaderMode = ReaderMode.WEBTOON,

@@ -10,7 +10,6 @@ import app.picacgmd.core.domain.repository.CommentRepository
 import app.picacgmd.core.domain.repository.GameRepository
 import app.picacgmd.core.domain.repository.HistoryRepository
 import app.picacgmd.core.domain.repository.HomeRepository
-import app.picacgmd.core.domain.repository.LocalFavouriteRepository
 import app.picacgmd.core.domain.repository.SubscriptionCheckReport
 import app.picacgmd.core.domain.repository.SubscriptionRepository
 import app.picacgmd.core.domain.repository.TagFavouriteRepository
@@ -46,7 +45,6 @@ class AppContainer(context: Context) : AutoCloseable {
     val gameRepository: GameRepository = GameRepository(sessionManager)
     val userRepository: UserRepository = UserRepository(sessionManager, scope)
     val historyRepository: HistoryRepository = HistoryRepository(database.viewHistoryDao(), settingsRepository.settings)
-    val localFavouriteRepository: LocalFavouriteRepository = LocalFavouriteRepository(database.localFavouriteDao(), settingsRepository)
     val subscriptionRepository: SubscriptionRepository = SubscriptionRepository(
         database.subscriptionDao(), comicRepository, settingsRepository.settings,
     )

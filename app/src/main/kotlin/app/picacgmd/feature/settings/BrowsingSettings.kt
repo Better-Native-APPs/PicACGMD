@@ -168,9 +168,6 @@ private fun BrowsingRoot(onBack: () -> Unit, onOpen: (BrowsingSub) -> Unit, modi
                 row { shapes ->
                     SettingsSwitchRow(shapes, "在线收藏", settings.showOnlineFavourites, { writer.update { setShowOnlineFavourites(it) } })
                 }
-                row { shapes ->
-                    SettingsSwitchRow(shapes, "本地收藏", settings.showLocalFavourites, { writer.update { setShowLocalFavourites(it) } })
-                }
             }
         }
         item {

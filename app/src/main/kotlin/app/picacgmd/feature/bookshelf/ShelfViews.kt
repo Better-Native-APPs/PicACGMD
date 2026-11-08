@@ -1,6 +1,5 @@
 package app.picacgmd.feature.bookshelf
 
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -16,17 +15,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Sort
-import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.NotificationsActive
@@ -40,8 +33,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearWavyProgressIndicator
@@ -61,17 +52,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import app.picacgmd.core.data.db.LocalFavourite
-import app.picacgmd.core.data.db.LocalFavouriteFolder
 import app.picacgmd.core.data.db.Subscription
 import app.picacgmd.core.data.db.ViewHistory
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.designsystem.component.ComicCover
-import app.picacgmd.core.designsystem.component.ComicCoverCard
 import app.picacgmd.core.designsystem.component.ComicListItem
 import app.picacgmd.core.designsystem.component.EmptyState
 import app.picacgmd.core.domain.repository.SubscriptionCheckState
@@ -80,9 +67,6 @@ import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.comics.ComicResults
 
 private val ShelfBottomPadding = PaddingValues(bottom = 112.dp)
-
-private fun AppSettings.gridCells(): GridCells =
-    if (listColumnCount in 2..7) GridCells.Fixed(listColumnCount) else GridCells.Adaptive(108.dp)
 
 /** 收藏: server favourites, newest/oldest sort, no page cap (board 21). */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -156,119 +140,6 @@ internal fun OnlineFavouritesView(
                 }
             },
         )
-    }
-}
-
-/** A cover cell that shrinks and rounds when selected and shows the Cookie check (board 23). */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-internal fun SelectableCover(
-    title: String,
-    coverUrl: String?,
-    selected: Boolean,
-    selecting: Boolean,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    author: String? = null,
-    badge: String? = null,
-    progressLabel: String? = null,
-) {
-    val scale by animateFloatAsState(if (selected) 0.9f else 1f, MaterialTheme.motionScheme.fastSpatialSpec(), label = "coverScale")
-    Box(modifier) {
-        ComicCoverCard(
-            title = title,
-            coverUrl = coverUrl,
-            onClick = if (selecting) onLongClick else onClick,
-            onLongClick = onLongClick,
-            author = author,
-            badge = badge,
-            progressLabel = progressLabel,
-            modifier = Modifier.graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            },
-        )
-        SelectionMark(selected, Modifier.align(Alignment.TopEnd).padding(4.dp))
-    }
-}
-
-/** 本地: folder FilterChips (全部 first, 新建 pinned at the end), cover grid (board 21). */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-internal fun LocalFavouritesView(
-    settings: AppSettings,
-    folders: List<LocalFavouriteFolder>,
-    favourites: List<LocalFavourite>?,
-    folderFilter: Long?,
-    onFolderFilter: (Long?) -> Unit,
-    onCreateFolder: () -> Unit,
-    selection: Set<String>,
-    onToggle: (String) -> Unit,
-    onOpenComic: (String) -> Unit,
-) {
-    val container = LocalAppContainer.current
-    val visible = favourites.orEmpty().filter { folderFilter == null || it.folderId == folderFilter }
-    Column(Modifier.fillMaxSize()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            LazyRow(
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(start = 16.dp, end = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                item {
-                    FilterChip(
-                        selected = folderFilter == null,
-                        onClick = { onFolderFilter(null) },
-                        label = { Text("全部 ${favourites?.size ?: 0}") },
-                    )
-                }
-                items(folders, key = { it.folderId }) { folder ->
-                    val count = favourites.orEmpty().count { it.folderId == folder.folderId }
-                    FilterChip(
-                        selected = folderFilter == folder.folderId,
-                        onClick = { onFolderFilter(folder.folderId) },
-                        label = { Text("${folder.name} $count", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    )
-                }
-            }
-            FilledTonalIconButton(onClick = onCreateFolder, modifier = Modifier.padding(end = 12.dp)) {
-                Icon(Icons.Outlined.Add, contentDescription = "新建文件夹")
-            }
-        }
-        when {
-            favourites == null -> Unit
-            visible.isEmpty() -> EmptyState(
-                title = if (folderFilter == null) "还没有本地收藏" else "这个文件夹还是空的",
-                description = "在漫画详情里点「收藏」选择本地文件夹，或者在书架上多选后「存到文件夹」。本地收藏不限数量，离线也能看。",
-                icon = Icons.Outlined.FolderOpen,
-                shape = MaterialShapes.Clover4Leaf,
-                modifier = Modifier.fillMaxSize(),
-            )
-            else -> LazyVerticalGrid(
-                columns = settings.gridCells(),
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 112.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                items(visible, key = { it.comicId }) { favourite ->
-                    val cover = remember(favourite.comicId, favourite.thumbPath) {
-                        container.safeImageUrl(favourite.thumbFileServer, favourite.thumbPath)
-                    }
-                    SelectableCover(
-                        title = favourite.title,
-                        coverUrl = cover,
-                        author = favourite.author.ifBlank { null },
-                        selected = favourite.comicId in selection,
-                        selecting = selection.isNotEmpty(),
-                        onClick = { onOpenComic(favourite.comicId) },
-                        onLongClick = { onToggle(favourite.comicId) },
-                        modifier = Modifier.animateItem(),
-                    )
-                }
-            }
-        }
     }
 }
 

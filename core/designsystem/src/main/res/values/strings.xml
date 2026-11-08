@@ -6,7 +6,7 @@
     <string name="designsystem_error_title">加载失败</string>
     <string name="designsystem_error_description">网络或服务器没有响应，可以稍后再试。</string>
     <string name="designsystem_offline_title">没有网络连接</string>
-    <string name="designsystem_offline_description">联网后才能加载这里的内容。书架里的本地收藏、历史和下载仍然可以看。</string>
+    <string name="designsystem_offline_description">联网后才能加载这里的内容。浏览记录和下载仍然可以看。</string>
     <string name="designsystem_network_settings">网络设置</string>
     <string name="designsystem_offline_banner">当前离线，只能阅读已下载内容</string>
     <string name="designsystem_offline_banner_action">去下载</string>

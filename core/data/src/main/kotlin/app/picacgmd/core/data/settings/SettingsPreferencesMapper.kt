@@ -52,8 +52,6 @@ internal object SettingsPreferencesMapper {
             showSubscriptions = preferences[Keys.showSubscriptions] ?: d.showSubscriptions,
             showTagFavourites = preferences[Keys.showTagFavourites] ?: d.showTagFavourites,
             showOnlineFavourites = preferences[Keys.showOnlineFavourites] ?: d.showOnlineFavourites,
-            showLocalFavourites = preferences[Keys.showLocalFavourites] ?: d.showLocalFavourites,
-            lastFavouriteFolderId = preferences[Keys.lastFavouriteFolderId]?.takeIf { it > 0 },
             copyNameTemplate = preferences[Keys.copyNameTemplate] ?: d.copyNameTemplate,
             confirmCopy = preferences[Keys.confirmCopy] ?: d.confirmCopy,
             readerMode = preferences.readEnum(Keys.readerMode, d.readerMode),

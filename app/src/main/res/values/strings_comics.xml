@@ -68,8 +68,6 @@
     <string name="detail_liked">已点赞</string>
     <string name="detail_favourite">收藏</string>
     <string name="detail_favourited">已收藏</string>
-    <string name="detail_local_favourite">本地收藏</string>
-    <string name="detail_local_favourited">在「%1$s」</string>
     <string name="detail_subscribe">追更</string>
     <string name="detail_subscribed">已追更</string>
     <string name="detail_download">下载</string>
@@ -98,11 +96,6 @@
     <string name="detail_action_failed">操作失败：%1$s</string>
     <string name="detail_copy_title">复制标题</string>
     <string name="detail_copied">已复制</string>
-    <string name="detail_folder_picker_title">放到哪个收藏夹</string>
-    <string name="detail_folder_new">新建收藏夹</string>
-    <string name="detail_folder_name">收藏夹名称</string>
-    <string name="detail_folder_create">创建并放入</string>
-    <string name="detail_folder_remove">移出本地收藏</string>
     <string name="detail_download_title">选择要下载的章节</string>
     <string name="detail_download_confirm">下载 %1$d 话</string>
     <string name="detail_views">%1$s 指名</string>

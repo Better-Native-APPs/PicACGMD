@@ -146,7 +146,7 @@ internal fun DataSettingsPage(onBack: () -> Unit, onOpenDownloads: () -> Unit, m
                 row { shapes ->
                     SettingsNavRow(
                         shapes, "WebDAV 云同步", {},
-                        summary = "同步浏览记录和本地收藏",
+                        summary = "同步浏览记录",
                         value = "稍后提供",
                         enabled = false,
                         leading = { Icon(Icons.Outlined.CloudSync, contentDescription = null) },

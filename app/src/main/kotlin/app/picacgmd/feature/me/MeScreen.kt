@@ -308,7 +308,7 @@ fun MeScreen(
         MeDialog.Logout -> AlertDialog(
             onDismissRequest = { dialog = null },
             title = { Text("退出登录？") },
-            text = { Text("本地收藏、浏览记录和下载会保留在这台设备上。") },
+            text = { Text("浏览记录和下载会保留在这台设备上。") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -411,7 +411,7 @@ private fun SignedOutCard(expired: String?, onLogin: () -> Unit, modifier: Modif
         Column(Modifier.padding(20.dp)) {
             Text(if (expired != null) "登录已过期" else "还没有登录", style = MaterialTheme.typography.titleLarge)
             Text(
-                expired ?: "登录后可以看漫画、收藏和打卡。本地收藏、浏览记录和下载不需要登录。",
+                expired ?: "登录后可以看漫画、收藏和打卡。浏览记录和下载不需要登录。",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp, bottom = 16.dp),

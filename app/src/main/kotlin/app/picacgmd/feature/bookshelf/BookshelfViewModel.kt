@@ -2,7 +2,6 @@ package app.picacgmd.feature.bookshelf
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import app.picacgmd.core.data.db.LocalFavourite
 import app.picacgmd.core.data.db.Subscription
 import app.picacgmd.core.data.db.ViewHistory
 import app.picacgmd.core.data.settings.AppSettings
@@ -21,11 +20,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /** Bookshelf views in their fixed order (board 21); 记录 is always shown. */
-enum class ShelfView(val label: String) { Online("收藏"), Local("本地"), Follow("追更"), History("记录") }
+enum class ShelfView(val label: String) { Online("收藏"), Follow("追更"), History("记录") }
 
 internal fun AppSettings.visibleShelfViews(): List<ShelfView> = buildList {
     if (showOnlineFavourites) add(ShelfView.Online)
-    if (showLocalFavourites) add(ShelfView.Local)
     if (showSubscriptions) add(ShelfView.Follow)
     add(ShelfView.History)
 }
@@ -135,19 +133,6 @@ class BookshelfViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    fun copyToFolder(comics: List<ComicSimple>, folderId: Long, folderName: String) {
-        viewModelScope.launch {
-            try {
-                comics.forEach { container.localFavouriteRepository.add(it, folderId) }
-                say("已存到「$folderName」${comics.size} 本")
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: Exception) {
-                say("保存失败：${exception.message ?: "请重试"}")
-            }
-        }
-    }
-
     fun run(failure: String, success: String? = null, block: suspend AppContainer.() -> Unit) {
         viewModelScope.launch {
             try {
@@ -161,13 +146,6 @@ class BookshelfViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    /** Re-inserts removed local favourites for the undo action. */
-    fun restoreLocal(items: List<LocalFavourite>) = run("撤销失败") {
-        items.groupBy { it.folderId }.forEach { (folder, group) ->
-            group.forEach { localFavouriteRepository.add(it.toComic(), folder) }
-        }
-    }
-
     fun restoreHistory(items: List<ViewHistory>) = run("撤销失败") {
         items.forEach { database.viewHistoryDao().upsert(it) }
     }
@@ -176,9 +154,6 @@ class BookshelfViewModel(private val container: AppContainer) : ViewModel() {
         items.forEach { database.subscriptionDao().upsert(it) }
     }
 }
-
-internal fun LocalFavourite.toComic(): ComicSimple =
-    snapshotComic(comicId, title, author, thumbFileServer, thumbPath, categoriesJson)
 
 internal fun ViewHistory.toComic(): ComicSimple =
     snapshotComic(comicId, title, author, thumbFileServer, thumbPath, categoriesJson)

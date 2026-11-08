@@ -45,8 +45,6 @@ internal object SettingsKeys {
     val showSubscriptions = booleanPreferencesKey("show_subscriptions")
     val showTagFavourites = booleanPreferencesKey("show_tag_favourites")
     val showOnlineFavourites = booleanPreferencesKey("show_online_favourites")
-    val showLocalFavourites = booleanPreferencesKey("show_local_favourites")
-    val lastFavouriteFolderId = longPreferencesKey("last_favourite_folder_id")
     val copyNameTemplate = stringPreferencesKey("copy_name_template")
     val confirmCopy = booleanPreferencesKey("confirm_copy")
     val readerMode = stringPreferencesKey("reader_mode")
