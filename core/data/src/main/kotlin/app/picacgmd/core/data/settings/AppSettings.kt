@@ -66,6 +66,8 @@ data class AppSettings(
     val fullScreenDisplay: FullScreenDisplay = FullScreenDisplay.OFF,
     val doubleBackToExit: Boolean = false,
     val startupImageUri: String? = null,
+    /** Id of the newest 公告 the user has opened the announcement list for; drives the 我的 unread dot. */
+    val lastSeenAnnouncementId: String? = null,
     val listLayout: ListLayout = ListLayout.DETAILS,
     val listColumnCount: Int = 0,
     val categoryColumnCount: Int = 0,

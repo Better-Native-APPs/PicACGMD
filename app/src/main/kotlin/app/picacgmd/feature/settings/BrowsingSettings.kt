@@ -130,6 +130,13 @@ private fun BrowsingRoot(onBack: () -> Unit, onOpen: (BrowsingSub) -> Unit, modi
                 }
                 row { shapes ->
                     SettingsSwitchRow(
+                        shapes, "屏蔽 AI 作品", settings.hideAiComics,
+                        onCheckedChange = { writer.update { setHideAiComics(it) } },
+                        summary = "标题、分类或标签标明是 AI 生成的作品不再显示，计入列表上的「已隐藏 M 本」",
+                    )
+                }
+                row { shapes ->
+                    SettingsSwitchRow(
                         shapes, "隐藏看过的漫画", settings.hideViewedComics,
                         onCheckedChange = { writer.update { setHideViewedComics(it) } },
                         summary = "浏览记录里有的漫画不再出现在列表里",

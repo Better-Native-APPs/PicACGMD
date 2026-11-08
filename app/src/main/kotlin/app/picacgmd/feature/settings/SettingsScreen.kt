@@ -115,7 +115,7 @@ private val SearchIndex: List<SettingsEntry> = buildList {
     add(
         SettingsPage.Browsing, "封印",
         "封印分类" to "不想看到的分类", "封印方式" to "黑名单或白名单", "隐藏关键词" to "标题或作者包含关键词时隐藏",
-        "隐藏看过的漫画" to "列表里不再出现",
+        "隐藏看过的漫画" to "列表里不再出现", "屏蔽 AI 作品" to "隐藏 AI 生成的作品",
     )
     add(
         SettingsPage.Browsing, "首页",
@@ -149,7 +149,7 @@ private val SearchIndex: List<SettingsEntry> = buildList {
     add(
         SettingsPage.Network, "网络",
         "API 分流" to "不分流、分流 1–3、自定义 IP", "图片分流" to "不分流、分流 1–3、自定义地址",
-        "用 API 加载图片" to "", "代理服务器" to "HTTP、SOCKS5", "时区" to "服务器校验时间失败时再调整",
+        "用 API 加载图片" to "", "线路测速" to "测试各条 API 分流的响应时间", "代理服务器" to "HTTP、SOCKS5", "时区" to "服务器校验时间失败时再调整",
         "图片质量" to "原图、高、中、低", "连接超时" to "", "读取超时" to "",
     )
     add(

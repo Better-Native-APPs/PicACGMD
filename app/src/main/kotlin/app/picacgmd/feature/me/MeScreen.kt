@@ -23,6 +23,10 @@ import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CameraAlt
+import androidx.compose.material.icons.outlined.Campaign
+import androidx.compose.material.icons.outlined.Forum
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Password
@@ -103,6 +107,8 @@ fun MeScreen(
     onOpenLogin: () -> Unit,
     onOpenMyComments: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenAnnouncements: () -> Unit = {},
+    onOpenMessageBoard: () -> Unit = {},
     onBack: (() -> Unit)? = null,
     onLoggedOut: () -> Unit = {},
 ) {
@@ -152,6 +158,20 @@ fun MeScreen(
     }
 
     LaunchedEffect(signedIn) { if (signedIn && profile == null) reload() }
+    var newestAnnouncementId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(signedIn) {
+        if (signedIn) {
+            newestAnnouncementId = try {
+                container.announcementRepository.page(1).docs.firstOrNull()?.id
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (_: Exception) {
+                null
+            }
+        }
+    }
+    val unreadAnnouncement = newestAnnouncementId != null && settings != null &&
+        newestAnnouncementId != settings.lastSeenAnnouncementId
     LaunchedEffect(punch) {
         when (val state = punch) {
             is PunchInState.Done -> reload()
@@ -231,6 +251,28 @@ fun MeScreen(
                             onAutoPunchIn = { value -> writer.update { setAutoPunchIn(value) } },
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                         )
+                    }
+                    item {
+                        SettingsGroup("社区") {
+                            row { shapes ->
+                                SettingsNavRow(
+                                    shapes, "公告", onOpenAnnouncements,
+                                    summary = if (unreadAnnouncement) "有新公告" else "官方通知和活动",
+                                    leading = {
+                                        BadgedBox(badge = { if (unreadAnnouncement) Badge() }) {
+                                            Icon(Icons.Outlined.Campaign, contentDescription = null)
+                                        }
+                                    },
+                                )
+                            }
+                            row { shapes ->
+                                SettingsNavRow(
+                                    shapes, "嗶咔留言板", onOpenMessageBoard,
+                                    summary = "和大家聊聊天、反馈问题",
+                                    leading = { Icon(Icons.Outlined.Forum, contentDescription = null) },
+                                )
+                            }
+                        }
                     }
                     item {
                         SettingsGroup("账号") {

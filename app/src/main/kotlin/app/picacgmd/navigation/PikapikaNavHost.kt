@@ -43,6 +43,7 @@ import app.picacgmd.feature.downloads.DownloadsScreen
 import app.picacgmd.feature.games.GameCommentsScreen
 import app.picacgmd.feature.games.GameDetailScreen
 import app.picacgmd.feature.games.GamesScreen
+import app.picacgmd.feature.announcements.AnnouncementsScreen
 import app.picacgmd.feature.me.MeScreen
 import app.picacgmd.feature.me.MyCommentsScreen
 import app.picacgmd.feature.rankings.CollectionScreen
@@ -189,6 +190,8 @@ private fun NavGraphBuilder.topLevelGraphs(navController: NavHostController, com
                 onOpenSettings = { navController.navigate(SettingsRoute) },
                 onOpenLogin = { navController.navigate(LoginRoute) },
                 onOpenMyComments = { navController.navigate(MyCommentsRoute) },
+                onOpenAnnouncements = { navController.navigate(AnnouncementsRoute) },
+                onOpenMessageBoard = { navController.navigate(ComicCommentsRoute(MESSAGE_BOARD_COMIC_ID)) },
                 onBack = if (compact.value) navController.backAction() else null,
             )
         }
@@ -210,6 +213,9 @@ private fun NavGraphBuilder.sharedDestinations(
     }
     composable<DownloadSettingsRoute> {
         DownloadSettingsScreen(onBack = navController.backAction())
+    }
+    composable<AnnouncementsRoute> {
+        AnnouncementsScreen(onBack = navController.backAction())
     }
     composable<MyCommentsRoute> {
         MyCommentsScreen(
@@ -347,3 +353,6 @@ private fun NavGraphBuilder.sharedDestinations(
         LoginScreen(onBack = navController.backAction())
     }
 }
+
+/** The official 「嗶咔留言板」 is the comment section of this special comic. */
+private const val MESSAGE_BOARD_COMIC_ID = "5822a6e3ad7ede654696e482"

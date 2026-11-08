@@ -36,6 +36,7 @@ internal object SettingsPreferencesMapper {
             fullScreenDisplay = preferences.readEnum(Keys.fullScreenDisplay, d.fullScreenDisplay),
             doubleBackToExit = preferences[Keys.doubleBackToExit] ?: d.doubleBackToExit,
             startupImageUri = preferences[Keys.startupImageUri],
+            lastSeenAnnouncementId = preferences[Keys.lastSeenAnnouncementId],
             listLayout = preferences.readEnum(Keys.listLayout, d.listLayout),
             listColumnCount = preferences.readInt(Keys.listColumnCount, d.listColumnCount, SettingsValidation::isColumnCount),
             categoryColumnCount = preferences.readInt(Keys.categoryColumnCount, d.categoryColumnCount, SettingsValidation::isColumnCount),

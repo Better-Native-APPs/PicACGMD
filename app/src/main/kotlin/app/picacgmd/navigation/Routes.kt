@@ -32,6 +32,9 @@ import kotlinx.serialization.Serializable
 
 @Serializable data object MyCommentsRoute
 
+/** 公告: official announcement list with in-place detail. */
+@Serializable data object AnnouncementsRoute
+
 @Serializable data class SearchRoute(val keyword: String? = null)
 
 /** Comic list filtered by category, tag, author, team or uploader; all null = every comic. */

@@ -11,6 +11,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
+import androidx.compose.material.icons.outlined.Speed
+import androidx.compose.material3.Icon
+import app.picacgmd.core.domain.session.formatApiRouteLatency
+import app.picacgmd.core.domain.session.toApiRoute
+import app.picacgmd.core.network.ApiRoute
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -59,6 +64,24 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val writer = remember(container) { SettingsWriter(container.settingsRepository, scope, snackbar) }
     val settings = rememberAppSettings()
     var dialog by rememberSaveable { mutableStateOf<NetworkDialog?>(null) }
+    var latencies by remember { mutableStateOf<Map<ApiRoute, Long?>?>(null) }
+    var measuring by remember { mutableStateOf(false) }
+    val measure: () -> Unit = {
+        if (!measuring) {
+            measuring = true
+            scope.launch {
+                try {
+                    latencies = container.networkConfigProvider.measureApiRoutes()
+                } catch (exception: kotlinx.coroutines.CancellationException) {
+                    throw exception
+                } catch (exception: Exception) {
+                    snackbar.showSnackbar("测速失败：${exception.message ?: "请重试"}")
+                } finally {
+                    measuring = false
+                }
+            }
+        }
+    }
 
     SettingsPageScaffold(SettingsPage.Network.title, onBack, snackbar, modifier) {
         if (settings == null) return@SettingsPageScaffold
@@ -84,6 +107,16 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
                             } else {
                                 null
                             },
+                            latency = if (mode == RoutingMode.CUSTOM) null else {
+                                val route = mode.toApiRoute()
+                                when {
+                                    measuring -> "测速中…"
+                                    latencies?.containsKey(route) == true -> formatApiRouteLatency(latencies?.get(route))
+                                    else -> null
+                                }
+                            },
+                            latencyFailed = mode != RoutingMode.CUSTOM && !measuring &&
+                                latencies?.containsKey(mode.toApiRoute()) == true && latencies?.get(mode.toApiRoute()) == null,
                             selected = settings.apiRoutingMode == mode,
                             enabled = !proxyOn,
                             onClick = {
@@ -97,6 +130,23 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
                             },
                         )
                     }
+                }
+            }
+        }
+        item {
+            SettingsGroup(null, Modifier.padding(top = 8.dp)) {
+                row { shapes ->
+                    SettingsNavRow(
+                        shapes, "线路测速", measure,
+                        summary = if (proxyOn) {
+                            "测速直接连接各条线路，不经过代理；结果只作参考，不会切换线路"
+                        } else {
+                            "依次测试内置线路的响应时间，超过 5 秒算失败；不会切换线路"
+                        },
+                        value = if (measuring) "测速中" else if (latencies == null) "开始" else "重新测速",
+                        enabled = !measuring,
+                        leading = { Icon(Icons.Outlined.Speed, contentDescription = null) },
+                    )
                 }
             }
         }
@@ -240,6 +290,8 @@ private fun RadioRow(
     summary: String? = null,
     enabled: Boolean = true,
     trailing: (@Composable () -> Unit)? = null,
+    latency: String? = null,
+    latencyFailed: Boolean = false,
 ) {
     SegmentedListItem(
         selected = selected,
@@ -248,7 +300,15 @@ private fun RadioRow(
         enabled = enabled,
         leadingContent = { RadioButton(selected = selected, onClick = null, enabled = enabled) },
         supportingContent = summary?.let { { Text(it) } },
-        trailingContent = trailing,
+        trailingContent = trailing ?: latency?.let {
+            {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (latencyFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                )
+            }
+        },
     ) { Text(title) }
 }
 

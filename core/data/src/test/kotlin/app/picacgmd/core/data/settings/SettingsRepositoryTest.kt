@@ -175,6 +175,7 @@ class SettingsRepositoryTest {
         repository.setAutoDownloadWifiOnly(false)
         repository.setShowCommentsInDownloads(true)
         repository.setRecordDetailViews(false)
+        repository.setLastSeenAnnouncementId("announcement-1")
         assertEquals(
             AppSettings.DEFAULT.copy(
                 connectTimeoutSeconds = 60, readTimeoutSeconds = 10, timeOffsetHours = 8,
@@ -192,6 +193,7 @@ class SettingsRepositoryTest {
                 eInkReduceAnimations = true, eInkScrollByScreen = true, eInkScrollAmount = 0.4f,
                 eInkTriggerDistanceCm = 0.2f, autoDownloadOnFavourite = true, autoDownloadWifiOnly = false,
                 showCommentsInDownloads = true, recordDetailViews = false,
+                lastSeenAnnouncementId = "announcement-1",
             ),
             repository.settings.first(),
         )
