@@ -75,6 +75,7 @@ import app.picacgmd.feature.reader.logic.autoScrollDelta
 import app.picacgmd.feature.reader.logic.effectiveDirection
 import app.picacgmd.feature.reader.logic.forwardSwipeFor
 import app.picacgmd.feature.reader.media.PageLabel
+import app.picacgmd.feature.reader.media.rememberGallerySavePermission
 import app.picacgmd.feature.reader.media.savePageToGallery
 import app.picacgmd.feature.reader.media.sharePage
 import app.picacgmd.feature.reader.ui.AllReadDialog
@@ -197,6 +198,7 @@ fun ReaderScreen(
     val volumeKeys = remember { VolumeKeyInterpreter() }
     val keyFocus = remember { FocusRequester() }
     val snackbar = remember { SnackbarHostState() }
+    val gallerySavePermission = rememberGallerySavePermission(snackbar)
     val overlayMemory = remember(context) { TapOverlayMemory(context) }
 
     var controlsVisible by rememberSaveable { mutableStateOf(!settings.autoFullscreen) }
@@ -573,6 +575,7 @@ fun ReaderScreen(
                             onDismiss = { openSheet = null },
                             onSave = {
                                 scope.launch {
+                                    if (!gallerySavePermission()) return@launch
                                     val saved = savePageToGallery(context, page.image, label)
                                     snackbar.showSnackbar(if (saved) savedMessage else saveFailedMessage)
                                 }

@@ -2,6 +2,7 @@ package app.picacgmd.core.domain.download
 
 import android.content.Context
 import android.content.pm.ServiceInfo
+import android.os.Build
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
@@ -18,7 +19,7 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
             setForeground(ForegroundInfo(
                 DownloadNotifications.FOREGROUND_ID,
                 manager.notifications.ongoing(manager.progress.value),
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC else 0,
             ))
         } catch (_: IllegalStateException) {
             // Android can defer a dataSync foreground start from a background-only launch.
