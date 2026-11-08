@@ -96,6 +96,7 @@ private class ReaderViewModel(
             historyRepository = container.historyRepository,
             networkConfigProvider = container.networkConfigProvider,
             onProgressError = { reportError("保存阅读进度失败", it) },
+            qualityProvider = { config.quality },
         )
         val index = source.indexOfEpisode(episodeOrder)
         return ReaderStart(source, index.coerceAtLeast(0), if (index >= 0) page else 0)
@@ -128,13 +129,16 @@ internal fun OnlineReaderDestination(
     page: Int,
     onBack: () -> Unit,
     onMessage: (String) -> Unit,
+    onOpenComments: () -> Unit,
+    onOpenRelated: () -> Unit,
+    onOpenAllSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val container = LocalAppContainer.current
     val viewModel = viewModel(key = "online-reader:$comicId:$episodeOrder:$page") {
         ReaderViewModel(container, comicId, onMessage, episodeOrder, page)
     }
-    ReaderDestination(viewModel, onBack, modifier)
+    ReaderDestination(viewModel, onBack, modifier, onOpenComments, onOpenRelated, onOpenAllSettings)
 }
 
 @Composable
@@ -142,6 +146,9 @@ internal fun DownloadedReaderDestination(
     comicId: String,
     onBack: () -> Unit,
     onMessage: (String) -> Unit,
+    onOpenComments: () -> Unit,
+    onOpenRelated: () -> Unit,
+    onOpenAllSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val container = LocalAppContainer.current
@@ -149,7 +156,7 @@ internal fun DownloadedReaderDestination(
     val viewModel = viewModel(key = "downloaded-reader:$comicId") {
         ReaderViewModel(container, comicId, onMessage, downloads = downloads)
     }
-    ReaderDestination(viewModel, onBack, modifier)
+    ReaderDestination(viewModel, onBack, modifier, onOpenComments, onOpenRelated, onOpenAllSettings)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -158,6 +165,9 @@ private fun ReaderDestination(
     viewModel: ReaderViewModel,
     onBack: () -> Unit,
     modifier: Modifier,
+    onOpenComments: () -> Unit,
+    onOpenRelated: () -> Unit,
+    onOpenAllSettings: () -> Unit,
 ) {
     val start = viewModel.start
     if (start != null) {
@@ -169,6 +179,9 @@ private fun ReaderDestination(
             onConfigChange = viewModel::updateConfig,
             onBack = onBack,
             modifier = modifier,
+            onOpenComments = onOpenComments,
+            onOpenRelated = onOpenRelated,
+            onOpenAllSettings = onOpenAllSettings,
         )
     } else {
         Scaffold(

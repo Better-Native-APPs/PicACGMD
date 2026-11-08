@@ -2,6 +2,7 @@ package app.picacgmd.feature.reader
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
+import kotlinx.coroutines.flow.StateFlow
 import java.io.File
 
 /**
@@ -47,6 +48,13 @@ interface ReaderSource {
 
     /** Comment count shown on the chapter-end card (「评论 N」), or null when unknown. */
     val commentCount: Int? get() = null
+
+    /**
+     * Download progress of a remote page, keyed by [PageImage.Remote.url] exactly as given.
+     * Returns null when the source can't report progress (the default, and for downloaded comics).
+     * The flow's value is null while the total size is unknown, otherwise a fraction in 0f..1f.
+     */
+    fun imageLoadProgress(url: String): StateFlow<Float?>? = null
 }
 
 /** One chapter (话) of the comic. */

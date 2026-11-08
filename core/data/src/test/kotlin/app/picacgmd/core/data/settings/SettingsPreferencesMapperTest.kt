@@ -10,6 +10,48 @@ import kotlin.test.assertTrue
 
 class SettingsPreferencesMapperTest {
     @Test
+    fun missingReaderAdditionsMatchReaderDefaults() {
+        val settings = SettingsPreferencesMapper.decode(emptyPreferences())
+        assertFalse(settings.twoPageCoverAlone)
+        assertEquals(2, settings.readerPreloadAhead)
+        assertEquals(6, settings.readerAutoTurnSeconds)
+    }
+
+    @Test
+    fun readerAdditionsDecodeWithoutChangingExistingPreferences() {
+        val preferences = mutablePreferencesOf(
+            SettingsKeys.twoPageCoverAlone to true,
+            SettingsKeys.readerPreloadAhead to 5,
+            SettingsKeys.readerAutoTurnSeconds to 30,
+            SettingsKeys.readerBackground to ReaderBackground.PAPER.name,
+        )
+        assertEquals(
+            AppSettings.DEFAULT.copy(
+                twoPageCoverAlone = true,
+                readerPreloadAhead = 5,
+                readerAutoTurnSeconds = 30,
+                readerBackground = ReaderBackground.PAPER,
+            ),
+            SettingsPreferencesMapper.decode(preferences),
+        )
+    }
+
+    @Test
+    fun readerAdditionsRejectUnsupportedStoredNumbers() {
+        for ((preload, interval) in listOf(0 to 1, 6 to 31)) {
+            val preferences = mutablePreferencesOf(
+                SettingsKeys.readerPreloadAhead to preload,
+                SettingsKeys.readerAutoTurnSeconds to interval,
+                SettingsKeys.twoPageCoverAlone to true,
+            )
+            assertEquals(
+                AppSettings.DEFAULT.copy(twoPageCoverAlone = true),
+                SettingsPreferencesMapper.decode(preferences),
+            )
+        }
+    }
+
+    @Test
     fun emptyPreferencesMatchEveryDocumentedDefault() {
         assertEquals(AppSettings.DEFAULT, SettingsPreferencesMapper.decode(emptyPreferences()))
         val defaults = AppSettings.DEFAULT

@@ -19,6 +19,48 @@ import kotlin.test.assertNull
 
 class SettingsRepositoryTest {
     @Test
+    fun readerAdditionsRoundTripAndSurviveNewRepositoryInstances() = runTest {
+        val store = MemoryPreferencesStore()
+        val repository = SettingsRepository(store)
+        repository.setTwoPageCoverAlone(true)
+        repository.setReaderPreloadAhead(4)
+        repository.setReaderAutoTurnSeconds(12)
+        repository.setReaderFilter(ReaderFilter.SEPIA)
+        assertEquals(
+            AppSettings.DEFAULT.copy(
+                twoPageCoverAlone = true,
+                readerPreloadAhead = 4,
+                readerAutoTurnSeconds = 12,
+                readerFilter = ReaderFilter.SEPIA,
+            ),
+            SettingsRepository(store).settings.first(),
+        )
+        repository.setTwoPageCoverAlone(false)
+        assertFalse(repository.settings.first().twoPageCoverAlone)
+    }
+
+    @Test
+    fun readerAdditionSettersCoerceToSliderRanges() = runTest {
+        val repository = SettingsRepository(MemoryPreferencesStore())
+        for (count in 1..5) {
+            repository.setReaderPreloadAhead(count)
+            assertEquals(count, repository.settings.first().readerPreloadAhead)
+        }
+        for (seconds in listOf(2, 6, 30)) {
+            repository.setReaderAutoTurnSeconds(seconds)
+            assertEquals(seconds, repository.settings.first().readerAutoTurnSeconds)
+        }
+        repository.setReaderPreloadAhead(Int.MIN_VALUE)
+        repository.setReaderAutoTurnSeconds(Int.MIN_VALUE)
+        assertEquals(1, repository.settings.first().readerPreloadAhead)
+        assertEquals(2, repository.settings.first().readerAutoTurnSeconds)
+        repository.setReaderPreloadAhead(Int.MAX_VALUE)
+        repository.setReaderAutoTurnSeconds(Int.MAX_VALUE)
+        assertEquals(5, repository.settings.first().readerPreloadAhead)
+        assertEquals(30, repository.settings.first().readerAutoTurnSeconds)
+    }
+
+    @Test
     fun requiredTypedSettingsRoundTrip() = runTest {
         val repository = SettingsRepository(MemoryPreferencesStore())
         repository.setAccountEmail("reader@example.com")

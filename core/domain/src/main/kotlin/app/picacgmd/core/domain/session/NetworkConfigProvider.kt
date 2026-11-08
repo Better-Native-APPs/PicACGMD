@@ -2,6 +2,8 @@ package app.picacgmd.core.domain.session
 
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.data.settings.RoutingMode
+import app.picacgmd.core.domain.image.ImageLoadProgressInterceptor
+import app.picacgmd.core.domain.image.ImageLoadProgressRegistry
 import app.picacgmd.core.network.ApiRoute
 import app.picacgmd.core.network.ImageQuality
 import app.picacgmd.core.network.ImageServer
@@ -82,6 +84,7 @@ class NetworkConfigProvider(
     private val tokenProvider: () -> String? = { null },
 ) {
     private val lock = Any()
+    val imageLoadProgress = ImageLoadProgressRegistry()
     private val mutableClients = MutableStateFlow(build(NetworkConfiguration.from(AppSettings.DEFAULT)))
     private val mutableError = MutableStateFlow<IllegalArgumentException?>(null)
     val clients: StateFlow<NetworkClients> = mutableClients.asStateFlow()
@@ -131,8 +134,13 @@ class NetworkConfigProvider(
     private fun build(configuration: NetworkConfiguration): NetworkClients {
         val apiClient = PicaClientFactory.apiClient(configuration.networkConfig).withTimeouts(configuration)
         // API clients contain no authentication interceptors; API headers are added by PicaApi only.
-        val imageClient = if (configuration.useApiClientForImages) apiClient else
+        val imageTransport = if (configuration.useApiClientForImages) apiClient else
             PicaClientFactory.imageClient(configuration.networkConfig).withTimeouts(configuration)
+        val progress = ImageLoadProgressInterceptor(imageLoadProgress)
+        val imageClient = imageTransport.newBuilder()
+            .addNetworkInterceptor(progress)
+            .eventListenerFactory(progress.eventListenerFactory())
+            .build()
         val api = PicaApi(
             tokenProvider = tokenProvider,
             client = apiClient,
@@ -154,5 +162,6 @@ class NetworkConfigProvider(
             client.connectionPool.evictAll()
             client.dispatcher.executorService.shutdown()
         }
+        imageLoadProgress.clear()
     }
 }

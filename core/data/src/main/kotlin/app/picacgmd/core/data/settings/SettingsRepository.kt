@@ -144,6 +144,9 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
 
     suspend fun setReaderSliderPosition(value: ReaderSliderPosition) = setEnum(Keys.readerSliderPosition, value)
     suspend fun setTwoPagePlacement(value: TwoPagePlacement) = setEnum(Keys.twoPagePlacement, value)
+    suspend fun setTwoPageCoverAlone(value: Boolean) = set(Keys.twoPageCoverAlone, value)
+    suspend fun setReaderPreloadAhead(value: Int) = set(Keys.readerPreloadAhead, value.coerceIn(1..5))
+    suspend fun setReaderAutoTurnSeconds(value: Int) = set(Keys.readerAutoTurnSeconds, value.coerceIn(2..30))
 
     suspend fun setGestureSpeed(value: Float) {
         require(value in 0.5f..3f) { "Gesture speed must be 0.5..3" }

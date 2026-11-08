@@ -258,13 +258,20 @@ private fun NavGraphBuilder.sharedDestinations(
             page = route.page,
             onBack = navController.backAction(),
             onMessage = onReaderMessage,
+            onOpenComments = { navController.navigate(ComicCommentsRoute(route.comicId)) },
+            onOpenRelated = { navController.navigate(ComicDetailRoute(route.comicId)) },
+            onOpenAllSettings = { navController.navigate(SettingsRoute) },
         )
     }
     composable<DownloadedReaderRoute> { entry ->
+        val comicId = entry.toRoute<DownloadedReaderRoute>().comicId
         DownloadedReaderDestination(
-            comicId = entry.toRoute<DownloadedReaderRoute>().comicId,
+            comicId = comicId,
             onBack = navController.backAction(),
             onMessage = onReaderMessage,
+            onOpenComments = { navController.navigate(ComicCommentsRoute(comicId)) },
+            onOpenRelated = { navController.navigate(ComicDetailRoute(comicId)) },
+            onOpenAllSettings = { navController.navigate(SettingsRoute) },
         )
     }
     composable<RankingsRoute> {

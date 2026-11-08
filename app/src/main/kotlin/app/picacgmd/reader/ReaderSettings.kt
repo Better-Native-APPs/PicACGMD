@@ -1,6 +1,7 @@
 package app.picacgmd.reader
 
 import app.picacgmd.core.data.settings.AppSettings
+import app.picacgmd.core.data.settings.FullScreenDisplay
 import app.picacgmd.core.data.settings.ReaderScrollMode
 import app.picacgmd.core.data.settings.ReaderSliderPosition
 import app.picacgmd.core.data.settings.ReaderTapZones
@@ -22,7 +23,7 @@ import app.picacgmd.core.data.settings.ReaderDirection as StoredReaderDirection
 import app.picacgmd.core.data.settings.ReaderFilter as StoredReaderFilter
 import app.picacgmd.core.data.settings.ReaderMode as StoredReaderMode
 
-/** Keep session-only options (auto-turn, cover-alone and preload count) when stored settings change. */
+/** Keep the auto-turn switch session-local when stored settings change. */
 internal fun AppSettings.toReaderConfig(base: ReaderConfig = ReaderConfig()): ReaderConfig = base.copy(
     mode = when (readerMode) {
         StoredReaderMode.WEBTOON, StoredReaderMode.WEBTOON_ZOOM -> ReaderMode.Strip
@@ -75,9 +76,13 @@ internal fun AppSettings.toReaderConfig(base: ReaderConfig = ReaderConfig()): Re
         TwoPagePlacement.PULL_APART -> TwoPageArrangement.PullAway
         TwoPagePlacement.EACH_CENTERED -> TwoPageArrangement.EachCentered
     },
+    twoPageCoverAlone = twoPageCoverAlone,
+    preloadAhead = readerPreloadAhead,
+    autoTurnSeconds = readerAutoTurnSeconds,
     lockDragBounds = lockDragBounds,
     volumeKeyPaging = volumeKeyPaging,
     volumeKeyChapterJump = volumeKeyChapterPaging,
+    fullscreen = fullScreenDisplay != FullScreenDisplay.OFF,
     autoFullscreen = readerFullScreen,
     autoFullscreenOnForward = fullScreenOnForward,
     keepScreenOn = keepScreenOn,
@@ -160,9 +165,15 @@ internal suspend fun SettingsRepository.saveReaderConfig(previous: ReaderConfig,
             TwoPageArrangement.EachCentered -> TwoPagePlacement.EACH_CENTERED
         },
     )
+    if (previous.twoPageCoverAlone != next.twoPageCoverAlone) setTwoPageCoverAlone(next.twoPageCoverAlone)
+    if (previous.preloadAhead != next.preloadAhead) setReaderPreloadAhead(next.preloadAhead)
+    if (previous.autoTurnSeconds != next.autoTurnSeconds) setReaderAutoTurnSeconds(next.autoTurnSeconds)
     if (previous.lockDragBounds != next.lockDragBounds) setLockDragBounds(next.lockDragBounds)
     if (previous.volumeKeyPaging != next.volumeKeyPaging) setVolumeKeyPaging(next.volumeKeyPaging)
     if (previous.volumeKeyChapterJump != next.volumeKeyChapterJump) setVolumeKeyChapterPaging(next.volumeKeyChapterJump)
+    if (previous.fullscreen != next.fullscreen) {
+        setFullScreenDisplay(if (next.fullscreen) FullScreenDisplay.HIDE_SYSTEM_BARS else FullScreenDisplay.OFF)
+    }
     if (previous.autoFullscreen != next.autoFullscreen) setReaderFullScreen(next.autoFullscreen)
     if (previous.autoFullscreenOnForward != next.autoFullscreenOnForward) setFullScreenOnForward(next.autoFullscreenOnForward)
     if (previous.keepScreenOn != next.keepScreenOn) setKeepScreenOn(next.keepScreenOn)
