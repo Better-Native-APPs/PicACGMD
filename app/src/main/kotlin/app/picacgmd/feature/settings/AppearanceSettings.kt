@@ -115,8 +115,8 @@ internal fun AppearanceSettingsPage(onBack: () -> Unit, modifier: Modifier = Mod
         }
         item {
             Text(
-                if (isDynamicColorSupported) "壁纸取色跟随系统壁纸变化；书本和灰蓝是两套固定配色。"
-                else "壁纸取色需要 Android 12 或更高版本，当前系统会显示为品牌粉。",
+                if (isDynamicColorSupported) "「壁纸取色」跟随系统壁纸"
+                else "需要 Android 12 及以上",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 20.dp),
@@ -128,7 +128,7 @@ internal fun AppearanceSettingsPage(onBack: () -> Unit, modifier: Modifier = Mod
                     SettingsSwitchRow(
                         shapes = shapes,
                         title = "深色时用纯黑背景",
-                        summary = "省电，适合 OLED 屏幕",
+                        summary = "适合 OLED 屏幕",
                         checked = settings.pureBlack,
                         onCheckedChange = { writer.update { setPureBlack(it) } },
                     )
@@ -142,7 +142,7 @@ internal fun AppearanceSettingsPage(onBack: () -> Unit, modifier: Modifier = Mod
                     SettingsNavRow(
                         shapes = shapes,
                         title = "屏幕刷新率",
-                        summary = "只影响本应用；刷新率越高越顺滑，也更耗电",
+                        summary = "仅对本应用生效",
                         value = current?.let { "${it.refreshRate.roundToInt()} Hz" } ?: "跟随系统",
                         onClick = { dialog = AppearanceDialog.RefreshRate },
                         enabled = displayModes.size > 1,
@@ -169,7 +169,7 @@ internal fun AppearanceSettingsPage(onBack: () -> Unit, modifier: Modifier = Mod
                     SettingsSwitchRow(
                         shapes = shapes,
                         title = "连按两次返回退出",
-                        summary = "在首页按一次返回会先提示，防止误触",
+                        summary = "仅在首页生效",
                         checked = settings.doubleBackToExit,
                         onCheckedChange = { writer.update { setDoubleBackToExit(it) } },
                     )
@@ -178,7 +178,7 @@ internal fun AppearanceSettingsPage(onBack: () -> Unit, modifier: Modifier = Mod
                     SettingsNavRow(
                         shapes = shapes,
                         title = "启动图片",
-                        summary = "启动时显示自己选的图片",
+                        summary = "使用自选图片",
                         value = if (settings.startupImageUri == null) "默认" else "已设置",
                         onClick = {
                             if (settings.startupImageUri == null) pickImage.launch(arrayOf("image/*"))
@@ -193,7 +193,7 @@ internal fun AppearanceSettingsPage(onBack: () -> Unit, modifier: Modifier = Mod
     when (dialog) {
         AppearanceDialog.RefreshRate -> ChoiceDialog(
             title = "屏幕刷新率",
-            description = "只影响本应用。高刷新率更顺滑，也更耗电。",
+            description = "仅对本应用生效",
             options = listOf<Int?>(null) + displayModes.map { it.modeId },
             selected = settings?.displayModeId,
             label = { id ->
@@ -202,7 +202,7 @@ internal fun AppearanceSettingsPage(onBack: () -> Unit, modifier: Modifier = Mod
             },
             detail = { id ->
                 val mode = displayModes.firstOrNull { it.modeId == id }
-                if (mode == null) "由系统自动调节" else "${mode.physicalWidth} × ${mode.physicalHeight}"
+                if (mode == null) null else "${mode.physicalWidth} × ${mode.physicalHeight}"
             },
             onSelect = { writer.update { setDisplayModeId(it) } },
             onDismiss = { dialog = null },

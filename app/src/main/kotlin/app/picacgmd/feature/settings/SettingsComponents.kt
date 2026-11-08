@@ -86,7 +86,7 @@ internal class SettingsWriter(
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {
-                snackbar.showSnackbar(exception.message ?: "保存失败，请重试")
+                snackbar.showSnackbar(exception.message ?: "保存失败")
             }
         }
     }

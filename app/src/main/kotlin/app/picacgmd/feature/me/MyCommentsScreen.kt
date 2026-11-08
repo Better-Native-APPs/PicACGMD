@@ -127,8 +127,8 @@ fun MyCommentsScreen(
                 state.items.isEmpty() && state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LoadingIndicator() }
                 state.items.isEmpty() && state.error != null -> ErrorState(onRetry = { load(1) }, description = state.error, modifier = Modifier.fillMaxSize())
                 state.items.isEmpty() -> EmptyState(
-                    title = "还没有发过评论",
-                    description = "在漫画详情的评论区里说点什么吧。",
+                    title = "还没有评论",
+                    description = "在漫画详情页发表评论",
                     icon = Icons.AutoMirrored.Outlined.Comment,
                     shape = MaterialShapes.Clover4Leaf,
                     modifier = Modifier.fillMaxSize(),
@@ -146,9 +146,9 @@ fun MyCommentsScreen(
                         Box(Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
                             when {
                                 state.loading -> LoadingIndicator(Modifier.size(40.dp))
-                                state.error != null -> TextButton(onClick = { load(state.page + 1) }) { Text("加载失败，点按重试") }
+                                state.error != null -> TextButton(onClick = { load(state.page + 1) }) { Text("加载失败，重试") }
                                 state.page >= state.pages -> Text(
-                                    "没有更多了",
+                                    "没有更多",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -199,7 +199,7 @@ private fun CommentCard(comment: MyComment, onOpenComic: (String) -> Unit) {
                     modifier = Modifier.weight(1f),
                 )
                 if (comment.hide) {
-                    Icon(Icons.Outlined.VisibilityOff, contentDescription = "已被隐藏", tint = colors.error, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Outlined.VisibilityOff, contentDescription = "已隐藏", tint = colors.error, modifier = Modifier.size(16.dp))
                 }
                 Meta(Icons.Outlined.FavoriteBorder, comment.likesCount, "赞")
                 Meta(Icons.Outlined.ChatBubbleOutline, comment.commentsCount, "回复")
