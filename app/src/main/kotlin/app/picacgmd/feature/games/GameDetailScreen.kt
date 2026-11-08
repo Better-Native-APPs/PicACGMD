@@ -45,7 +45,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -57,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import app.picacgmd.R
+import app.picacgmd.core.designsystem.component.SoftBackdrop
 import app.picacgmd.core.network.GameInfo
 import app.picacgmd.core.network.PicaImage
 import app.picacgmd.di.LocalAppContainer
@@ -124,7 +124,7 @@ fun GameDetailScreen(gameId: String, onBack: () -> Unit, onComments: (String) ->
         else LazyColumn(Modifier.fillMaxSize().padding(padding), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item {
                 Box {
-                    GameImage(info.icon, null, Modifier.fillMaxWidth().height(180.dp).blur(30.dp))
+                    SoftBackdrop(rememberGameImageUrl(info.icon), Modifier.fillMaxWidth().height(180.dp))
                     Box(Modifier.fillMaxWidth().height(180.dp).background(Brush.verticalGradient(listOf(MaterialTheme.colorScheme.surface.copy(alpha = 0.25f), MaterialTheme.colorScheme.surface))))
                     Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         GameImage(info.icon, info.title, Modifier.size(96.dp).clip(RoundedCornerShape(28.dp)))
