@@ -3,7 +3,10 @@ package app.picacgmd.feature.reader.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
@@ -49,6 +52,7 @@ internal fun pageRequest(
         .precision(Precision.INEXACT)
         .crossfade(false)
         .apply {
+            (image as? PageImage.Remote)?.cacheKey?.let { diskCacheKey(it) }
             if (fresh) {
                 memoryCachePolicy(CachePolicy.WRITE_ONLY)
                 diskCachePolicy(CachePolicy.WRITE_ONLY)
@@ -65,8 +69,18 @@ internal fun rememberPagePainter(
     reloads: PageReloadState,
 ): AsyncImagePainter {
     val context = LocalPlatformContext.current
-    val request = remember(image, size) { pageRequest(context, image, size, fresh = reloads.needsFresh(index)) }
-    return rememberAsyncImagePainter(model = request)
+    // Keyed on the image's identity, not its address: when the address changes (another image
+    // server), a page already on screen stays as it is, while one still loading or one that failed
+    // starts over from the new address.
+    val identity = (image as? PageImage.Remote)?.stableKey ?: image
+    var request by remember(identity, size) { mutableStateOf(pageRequest(context, image, size, fresh = reloads.needsFresh(index))) }
+    val painter = rememberAsyncImagePainter(model = request)
+    LaunchedEffect(image) {
+        if (request.data != image.coilModel && painter.state.value !is AsyncImagePainter.State.Success) {
+            request = pageRequest(context, image, size, fresh = reloads.needsFresh(index))
+        }
+    }
+    return painter
 }
 
 /**

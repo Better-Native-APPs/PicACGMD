@@ -1,5 +1,6 @@
 package app.picacgmd.feature.categories
 
+import app.picacgmd.feature.routing.RouteMenuButton
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -127,6 +128,7 @@ fun CategoriesScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.categories_title)) },
                 navigationIcon = { BackButton(onBack) },
+                actions = { RouteMenuButton() },
             )
         },
     ) { padding ->

@@ -1,5 +1,10 @@
 package app.picacgmd.reader
 
+import androidx.compose.runtime.remember
+import app.picacgmd.feature.reader.ReaderRouteControls
+import app.picacgmd.feature.routing.RouteKind
+import app.picacgmd.feature.routing.RoutePickerDialog
+import app.picacgmd.feature.routing.rememberRouteSummary
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -171,6 +176,20 @@ private fun ReaderDestination(
 ) {
     val start = viewModel.start
     if (start != null) {
+        // Online pages offer 分流 / 图片分流 in the reader settings; the pickers are the app's own.
+        var picker by remember { mutableStateOf<RouteKind?>(null) }
+        val summary = rememberRouteSummary()
+        val routes = if (start.source is OnlineReaderSource) {
+            ReaderRouteControls(
+                apiLabel = summary?.apiLabel.orEmpty(),
+                imageLabel = summary?.imageLabel.orEmpty(),
+                onOpenApiRoutes = { picker = RouteKind.Api },
+                onOpenImageRoutes = { picker = RouteKind.Image },
+            )
+        } else {
+            null
+        }
+        picker?.let { RoutePickerDialog(it) { picker = null } }
         ReaderScreen(
             source = start.source,
             config = viewModel.config,
@@ -182,6 +201,7 @@ private fun ReaderDestination(
             onOpenComments = onOpenComments,
             onOpenRelated = onOpenRelated,
             onOpenAllSettings = onOpenAllSettings,
+            routes = routes,
         )
     } else {
         Scaffold(

@@ -126,7 +126,8 @@ internal fun StripReader(
         }
     }
     val fling = ScrollableDefaults.flingBehavior()
-    val aspects = remember(pages) { mutableStateMapOf<Int, Float>() }
+    // Keyed on the count: a page whose address changed keeps its measured shape.
+    val aspects = remember(pages.size) { mutableStateMapOf<Int, Float>() }
     val pull = rememberChapterPull(ForwardSwipe.Up, host.onPastEnd)
     val colorFilter = rememberPageColorFilter(config.filter)
     val haptics = LocalHapticFeedback.current

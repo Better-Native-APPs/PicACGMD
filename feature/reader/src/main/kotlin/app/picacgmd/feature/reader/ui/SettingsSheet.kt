@@ -91,6 +91,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.picacgmd.feature.reader.ImageQuality
+import app.picacgmd.feature.reader.ReaderRouteControls
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.icons.rounded.Image
 import app.picacgmd.feature.reader.R
 import app.picacgmd.feature.reader.ReaderBackground
 import app.picacgmd.feature.reader.ReaderConfig
@@ -151,6 +155,7 @@ internal fun ReaderSettingsSheet(
     onDismiss: () -> Unit,
     onOpenAllSettings: (() -> Unit)?,
     onPreviewZones: () -> Unit,
+    routes: ReaderRouteControls? = null,
 ) {
     ReaderSheet(onDismiss = onDismiss, scrim = SettingsScrim) { hide ->
         Column(
@@ -298,6 +303,14 @@ internal fun ReaderSettingsSheet(
                     )
                 }
             }
+            if (routes != null) {
+                SettingRow(Icons.Rounded.Dns, stringResource(R.string.reader_setting_api_route)) {
+                    RoutePill(routes.apiLabel, routes.onOpenApiRoutes)
+                }
+                SettingRow(Icons.Rounded.Image, stringResource(R.string.reader_setting_image_route)) {
+                    RoutePill(routes.imageLabel, routes.onOpenImageRoutes)
+                }
+            }
             SettingRow(Icons.Rounded.TouchApp, stringResource(R.string.reader_setting_tap)) {
                 Column {
                     TapModeDropdown(config.tapMode) { onConfigChange(config.copy(tapMode = it)) }
@@ -383,6 +396,38 @@ private fun AutoTurnSlider(seconds: Int, onChange: (Int) -> Unit) {
             .padding(horizontal = 16.dp)
             .semantics { contentDescription = label },
     )
+}
+
+/** The current route as a pill, in the shape of the tap-mode field; a tap opens the app's picker. */
+@Composable
+private fun RoutePill(label: String, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(40.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 16.dp, end = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 @Composable

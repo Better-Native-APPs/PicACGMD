@@ -148,11 +148,11 @@ private suspend fun <T> withPageFile(
         is PageImage.Local -> if (image.file.isFile) block(image.file) else null
         is PageImage.Remote -> {
             val loader = SingletonImageLoader.get(context)
-            val cached = loader.readCached(image.url, block)
+            val cached = loader.readCached(image.stableKey, block)
             when {
                 cached != null -> cached.value
                 !download -> null
-                else -> fetchThenRead(context, loader, image.url, block)
+                else -> fetchThenRead(context, loader, image.url, image.stableKey, block)
             }
         }
     }
@@ -164,15 +164,16 @@ private class Found<T>(val value: T)
 private fun <T> ImageLoader.readCached(url: String, block: (File) -> T): Found<T>? =
     diskCache?.openSnapshot(url)?.use { snapshot -> Found(block(snapshot.data.toFile())) }
 
-private suspend fun <T> fetchThenRead(context: Context, loader: ImageLoader, url: String, block: (File) -> T): T? {
+private suspend fun <T> fetchThenRead(context: Context, loader: ImageLoader, url: String, cacheKey: String, block: (File) -> T): T? {
     val request = ImageRequest.Builder(context)
         .data(url)
+        .diskCacheKey(cacheKey)
         .size(CoilSize.ORIGINAL)
         .memoryCachePolicy(CachePolicy.DISABLED)
         .allowHardware(false)
         .build()
     val result = loader.execute(request) as? SuccessResult ?: return null
-    loader.readCached(url, block)?.let { return it.value }
+    loader.readCached(cacheKey, block)?.let { return it.value }
     val temporary = File.createTempFile("page", ".png", context.cacheDir)
     return try {
         temporary.outputStream().use { out -> result.image.toBitmap().compress(Bitmap.CompressFormat.PNG, 100, out) }

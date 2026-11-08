@@ -144,6 +144,8 @@ private data class PreviewTarget(val image: PageImage, val label: PageLabel)
  * @param onOpenComments the comic's comments (评论 / 看评论); the buttons are hidden when null.
  * @param onOpenRelated other comics readers also viewed (也在看); the button is hidden when null.
  * @param onOpenAllSettings the app's reader settings page (全部设置); the links are hidden when null.
+ * @param routes 分流 / 图片分流 rows in the settings sheet; also what 「换分流」 on a failed page
+ *   opens. Hidden when null (downloaded comics).
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -158,6 +160,7 @@ fun ReaderScreen(
     onOpenComments: (() -> Unit)? = null,
     onOpenRelated: (() -> Unit)? = null,
     onOpenAllSettings: (() -> Unit)? = null,
+    routes: ReaderRouteControls? = null,
 ) {
     val settings = remember(config) { config.normalized() }
     val latestSettings by rememberUpdatedState(settings)
@@ -171,10 +174,17 @@ fun ReaderScreen(
     var savedChapter by rememberSaveable { mutableIntStateOf(startChapter) }
     var savedPage by rememberSaveable { mutableIntStateOf(startPage) }
     val session = remember(source) { ReaderSession(source, scope, savedChapter, savedPage) }
+    val latestRoutes by rememberUpdatedState(routes)
+    // Whether routes are offered depends only on the kind of source, so this is stable per source.
     val retry = remember(source) {
         lateinit var state: PageRetryState
-        state = PageRetryState(canSwitchServer = source.canSwitchImageServer) {
-            scope.launch { if (source.switchImageServer()) state.retryAllFailed() }
+        state = PageRetryState(canSwitchServer = source.canSwitchImageServer || routes != null) {
+            val picker = latestRoutes
+            if (picker != null) {
+                picker.onOpenImageRoutes()
+            } else {
+                scope.launch { if (source.switchImageServer()) state.retryAllFailed() }
+            }
         }
         state
     }
@@ -225,6 +235,13 @@ fun ReaderScreen(
         )
     }
 
+    LaunchedEffect(session, retry) {
+        // After an image-server switch, pages not loaded yet (and failed ones) load from the new address.
+        source.pageAddressChanges?.collect {
+            session.refreshAddresses()
+            retry.retryAllFailed()
+        }
+    }
     LaunchedEffect(session) {
         session.open()
         var previousChapter = -1
@@ -492,6 +509,7 @@ fun ReaderScreen(
                     onDismiss = { openSheet = null },
                     onOpenAllSettings = onOpenAllSettings,
                     onPreviewZones = { zoneOverlayVisible = true },
+                    routes = routes,
                 )
                 OpenSheet.Chapters -> ChapterSheet(
                     chapters = session.chapters,

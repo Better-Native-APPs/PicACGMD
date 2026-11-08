@@ -1,5 +1,13 @@
 package app.picacgmd.feature.search
 
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.HorizontalDivider
+import app.picacgmd.feature.comics.LayoutMenuItems
+import app.picacgmd.feature.routing.RouteKind
+import app.picacgmd.feature.routing.RouteMenuButton
+import app.picacgmd.feature.routing.RouteMenuItems
+import app.picacgmd.feature.routing.RoutePickerDialog
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -80,7 +88,8 @@ import app.picacgmd.core.network.ComicSort
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.comics.ComicPager
 import app.picacgmd.feature.comics.ComicResults
-import app.picacgmd.feature.comics.LayoutMenuButton
+import app.picacgmd.core.data.settings.ListLayout
+import androidx.compose.foundation.layout.Box
 import app.picacgmd.feature.comics.SelectionTopBar
 import app.picacgmd.feature.comics.foundLabel
 import app.picacgmd.feature.comics.labelRes
@@ -238,7 +247,8 @@ fun SearchScreen(
                     BadgedBox(badge = { if (filter.isActive) Badge() }) {
                         IconButton(onClick = { showFilter = true }) { Icon(Icons.Outlined.Tune, stringResource(R.string.search_filter)) }
                     }
-                    if (keyword != null) LayoutMenuButton(settings.listLayout, viewModel::setLayout)
+                    // Field + filter leave room for one more action: results fold layout and routes into one overflow.
+                    if (keyword != null) SearchOverflowMenu(settings.listLayout, viewModel::setLayout) else RouteMenuButton()
                 }
             }
         }
@@ -432,4 +442,19 @@ private fun SearchFilterSheet(
             }
         }
     }
+}
+
+@Composable
+private fun SearchOverflowMenu(layout: ListLayout, onLayout: (ListLayout) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    var picker by remember { mutableStateOf<RouteKind?>(null) }
+    Box {
+        IconButton(onClick = { open = true }) { Icon(Icons.Outlined.MoreVert, stringResource(R.string.routes_more_options)) }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            LayoutMenuItems(layout) { open = false; onLayout(it) }
+            HorizontalDivider(Modifier.padding(vertical = 4.dp))
+            RouteMenuItems { open = false; picker = it }
+        }
+    }
+    picker?.let { RoutePickerDialog(it) { picker = null } }
 }

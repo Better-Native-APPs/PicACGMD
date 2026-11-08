@@ -1,5 +1,6 @@
 package app.picacgmd.feature.comics
 
+import app.picacgmd.feature.routing.RouteMenuButton
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -178,6 +179,7 @@ private fun ComicListContent(
                                 Icon(Icons.Outlined.Checklist, stringResource(R.string.comics_select))
                             }
                             LayoutMenuButton(settings.listLayout, viewModel::setLayout)
+                            RouteMenuButton()
                         },
                         scrollBehavior = scrollBehavior,
                     )
@@ -240,18 +242,24 @@ fun LayoutMenuButton(layout: ListLayout, onLayout: (ListLayout) -> Unit) {
         Icon(layout.icon(), stringResource(R.string.comics_layout))
     }
     DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-        ListLayout.entries.forEach { option ->
-            DropdownMenuItem(
-                text = { Text(stringResource(option.labelRes())) },
-                leadingIcon = { Icon(option.icon(), null) },
-                onClick = { open = false; onLayout(option) },
-                trailingIcon = if (option == layout) {
-                    { Icon(Icons.Outlined.Check, null, tint = MaterialTheme.colorScheme.primary) }
-                } else {
-                    null
-                },
-            )
-        }
+        LayoutMenuItems(layout) { open = false; onLayout(it) }
+    }
+}
+
+/** The layout choices, also embedded in the search overflow menu. */
+@Composable
+fun LayoutMenuItems(layout: ListLayout, onLayout: (ListLayout) -> Unit) {
+    ListLayout.entries.forEach { option ->
+        DropdownMenuItem(
+            text = { Text(stringResource(option.labelRes())) },
+            leadingIcon = { Icon(option.icon(), null) },
+            onClick = { onLayout(option) },
+            trailingIcon = if (option == layout) {
+                { Icon(Icons.Outlined.Check, null, tint = MaterialTheme.colorScheme.primary) }
+            } else {
+                null
+            },
+        )
     }
 }
 

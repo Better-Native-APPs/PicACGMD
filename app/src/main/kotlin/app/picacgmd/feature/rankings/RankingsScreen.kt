@@ -1,5 +1,6 @@
 package app.picacgmd.feature.rankings
 
+import app.picacgmd.feature.routing.RouteMenuButton
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.draw.clip
@@ -140,6 +141,7 @@ fun RankingsScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.rankings_title)) },
                 navigationIcon = { BackButton(onBack) },
+                actions = { RouteMenuButton() },
             )
         },
     ) { padding ->

@@ -162,7 +162,19 @@ internal class ReaderSession(
             current.pages.cancel()
             return null
         }
-        return current.pages.await()
+        return current.pages.await()?.map(source::refreshPage)
+    }
+
+    /** Re-resolves page addresses after [ReaderSource.pageAddressChanges]; the reading position stays. */
+    fun refreshAddresses() {
+        (content as? ChapterContent.Ready)?.let { ready ->
+            val pages = ready.pages.map(source::refreshPage)
+            if (pages != ready.pages) content = ready.copy(pages = pages)
+        }
+        nextChapterPages?.let { next ->
+            val pages = next.map(source::refreshPage)
+            if (pages != next) nextChapterPages = pages
+        }
     }
 
     /** The page on screen is [index]; a two-page spread also shows the pages up to [lastVisible]. */

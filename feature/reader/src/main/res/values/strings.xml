@@ -135,4 +135,6 @@
     <string name="reader_setting_lock_drag_detail">拖动时不越过图片边缘</string>
     <string name="reader_zoom_percent">%1$d%%</string>
     <string name="reader_minimap">当前页的可见范围，拖动可移动画面</string>
+    <string name="reader_setting_api_route">分流</string>
+    <string name="reader_setting_image_route">图片分流</string>
 </resources>
