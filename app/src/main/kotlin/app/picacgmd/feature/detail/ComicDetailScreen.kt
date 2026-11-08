@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -37,8 +39,10 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.DownloadDone
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Person
@@ -98,12 +102,21 @@ import app.picacgmd.core.designsystem.component.LoadingState
 import app.picacgmd.core.designsystem.component.MetaIcons
 import app.picacgmd.core.designsystem.component.MetaInfo
 import app.picacgmd.core.designsystem.component.SectionHeader
+import app.picacgmd.core.designsystem.theme.PikapikaTheme
+import app.picacgmd.core.designsystem.theme.withTabularFigures
+import app.picacgmd.core.domain.repository.ReadingProgress
 import app.picacgmd.core.network.ComicInfo
+import app.picacgmd.core.network.ComicSimple
 import app.picacgmd.core.network.Ep
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.comics.formatCount
+import app.picacgmd.feature.comics.readMarkText
 import app.picacgmd.feature.comics.rememberImageUrl
+import app.picacgmd.feature.comics.rememberReadMarks
 import app.picacgmd.feature.comments.CommentRow
+
+/** Chapter rows shown before 「展开全部」 (board 10). */
+private const val COLLAPSED_CHAPTER_COUNT = 8
 
 /**
  * Boards 10–11: comic detail. Wire as `composable<ComicDetailRoute> { ComicDetailScreen(comicId = it.comicId, …) }`.
@@ -222,6 +235,10 @@ private fun DetailBody(
     val listState = rememberLazyListState()
     val collapsed by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
     val clipboard = LocalClipboardManager.current
+    var showAllChapters by rememberSaveable { mutableStateOf(false) }
+    var chaptersReversed by rememberSaveable { mutableStateOf(false) }
+    // Outside the LazyColumn: the marks keep one holder however often the row scrolls away.
+    val readMarks = rememberReadMarks(remember(state.recommendations) { state.recommendations.map(ComicSimple::id) })
     Box(Modifier.fillMaxSize()) {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 112.dp)) {
             item(key = "hero") { Hero(comic, onAuthorClick) }
@@ -241,17 +258,30 @@ private fun DetailBody(
             item(key = "eps-header") {
                 SectionHeader(title = stringResource(R.string.detail_chapters, state.eps?.size ?: comic.epsCount))
             }
-            item(key = "eps") { Chapters(state, library, onRead, onRetryEps) }
+            chapters(
+                state = state,
+                library = library,
+                showAll = showAllChapters,
+                reversed = chaptersReversed,
+                onRead = onRead,
+                onRetry = onRetryEps,
+                onToggleShowAll = { showAllChapters = !showAllChapters },
+                onToggleReversed = { chaptersReversed = !chaptersReversed },
+            )
             if (state.recommendations.isNotEmpty()) {
                 item(key = "rec-header") { SectionHeader(title = stringResource(R.string.detail_recommend)) }
                 item(key = "rec") {
                     LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         items(state.recommendations, key = { it.id }) { rec ->
+                            val mark = readMarkText(readMarks.chapterOf(rec.id), rec.epsCount)
                             ComicCoverCard(
                                 title = rec.title,
                                 coverUrl = rememberImageUrl(rec.thumb),
                                 onClick = { onComicClick(rec.id) },
                                 modifier = Modifier.width(112.dp),
+                                progressLabel = mark?.label,
+                                progressDetail = mark?.detail,
+                                progressDetailShort = mark?.detailShort,
                             )
                         }
                     }
@@ -535,42 +565,111 @@ private fun Description(text: String) {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun Chapters(state: DetailState, library: LibraryState, onRead: (Int, Int) -> Unit, onRetry: () -> Unit) {
+/** Chapter rows as lazy items, so a comic with hundreds of chapters stays light once expanded. */
+private fun LazyListScope.chapters(
+    state: DetailState,
+    library: LibraryState,
+    showAll: Boolean,
+    reversed: Boolean,
+    onRead: (Int, Int) -> Unit,
+    onRetry: () -> Unit,
+    onToggleShowAll: () -> Unit,
+    onToggleReversed: () -> Unit,
+) {
     val eps = state.eps
-    var showAll by rememberSaveable { mutableStateOf(false) }
-    var reversed by rememberSaveable { mutableStateOf(false) }
-    when {
-        eps == null && state.epsError != null -> ErrorState(onRetry = onRetry, description = state.epsError)
-        eps == null -> LoadingState()
-        else -> Column(Modifier.padding(horizontal = 16.dp)) {
-            val ordered = if (reversed) eps.reversed() else eps
-            val visible = if (showAll || ordered.size <= 12) ordered else ordered.take(12)
-            val lastRead = library.progress?.epOrder
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                visible.forEach { ep ->
-                    val current = ep.order == lastRead
-                    Surface(
-                        onClick = { onRead(ep.order, if (current) library.progress?.pictureIndex ?: 0 else 0) },
-                        shape = MaterialTheme.shapes.medium,
-                        color = if (current) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = if (current) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                    ) {
-                        Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                            Text(ep.title.ifBlank { ep.order.toString() }, style = MaterialTheme.typography.labelLarge, maxLines = 1)
-                            if (current) {
-                                Text(stringResource(R.string.detail_chapter_last_read), style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-                    }
+    if (eps == null) {
+        item(key = "eps-status") {
+            if (state.epsError != null) ErrorState(onRetry = onRetry, description = state.epsError) else LoadingState()
+        }
+        return
+    }
+    val progress = library.progress
+    val ordered = if (reversed) eps.asReversed() else eps
+    val visible = if (showAll) ordered else collapsedChapters(ordered, progress?.epOrder)
+    // With a download column in every row, the ✓ marks and the download marks each line up.
+    val hasDownloads = library.downloadedEpIds.isNotEmpty()
+    items(visible, key = { "ep-${it.id}" }) { ep ->
+        val resumeAt = progress?.takeIf { it.epOrder == ep.order }
+        ChapterRow(
+            ep = ep,
+            progress = progress,
+            currentEpPages = library.currentEpPages,
+            downloaded = ep.id in library.downloadedEpIds,
+            showDownloadColumn = hasDownloads,
+            onClick = { onRead(ep.order, (resumeAt?.pictureIndex ?: 1) - 1) },
+        )
+    }
+    item(key = "eps-actions") {
+        Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 4.dp), horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = onToggleReversed) { Text(stringResource(R.string.detail_chapters_reverse)) }
+            if (ordered.size > COLLAPSED_CHAPTER_COUNT) {
+                TextButton(onClick = onToggleShowAll) {
+                    Text(if (showAll) stringResource(R.string.detail_collapse) else stringResource(R.string.detail_chapters_expand, ordered.size))
                 }
             }
-            Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.End) {
-                TextButton(onClick = { reversed = !reversed }) { Text(stringResource(R.string.detail_chapters_reverse)) }
-                if (ordered.size > 12) {
-                    TextButton(onClick = { showAll = !showAll }) {
-                        Text(stringResource(if (showAll) R.string.detail_collapse else R.string.detail_chapters_all))
+        }
+    }
+}
+
+/** The rows shown before 「展开全部」: from the top, or around the chapter being read so it is always in view. */
+private fun collapsedChapters(ordered: List<Ep>, lastRead: Int?): List<Ep> {
+    if (ordered.size <= COLLAPSED_CHAPTER_COUNT) return ordered
+    val current = ordered.indexOfFirst { it.order == lastRead }
+    val start = (current - 2).coerceIn(0, ordered.size - COLLAPSED_CHAPTER_COUNT)
+    return ordered.subList(start, start + COLLAPSED_CHAPTER_COUNT)
+}
+
+/** Board 10 chapter row: 已读 is a ✓ and a quieter title, 当前 a tinted band with 看到 14/22, 已下载 a green mark. */
+@Composable
+private fun ChapterRow(
+    ep: Ep,
+    progress: ReadingProgress?,
+    currentEpPages: Int?,
+    downloaded: Boolean,
+    showDownloadColumn: Boolean,
+    onClick: () -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    // History keeps only the last position, so every chapter before it counts as read.
+    val read = progress != null && ep.order < progress.epOrder
+    val position = progress?.takeIf { it.epOrder == ep.order }
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        color = if (position != null) colors.secondaryContainer else Color.Transparent,
+        contentColor = if (position != null) colors.onSecondaryContainer else colors.onSurface,
+    ) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                ep.title.ifBlank { ep.order.toString() },
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = if (read) FontWeight.Normal else null,
+                color = if (read) colors.onSurfaceVariant else Color.Unspecified,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            if (position != null) {
+                Text(
+                    if (currentEpPages != null) {
+                        stringResource(R.string.detail_chapter_progress, position.pictureIndex.coerceAtMost(currentEpPages), currentEpPages)
+                    } else {
+                        stringResource(R.string.detail_chapter_progress_page, position.pictureIndex)
+                    },
+                    style = MaterialTheme.typography.labelMedium.withTabularFigures(),
+                )
+            }
+            if (read) {
+                Icon(Icons.Outlined.Check, stringResource(R.string.viewed_mark), Modifier.size(20.dp), tint = colors.onSurfaceVariant)
+            }
+            if (showDownloadColumn) {
+                Box(Modifier.size(20.dp)) {
+                    if (downloaded) {
+                        Icon(Icons.Outlined.DownloadDone, stringResource(R.string.detail_chapter_downloaded), tint = PikapikaTheme.extendedColors.success)
                     }
                 }
             }
@@ -592,7 +691,7 @@ private fun ReadButton(
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
         Button(
-            onClick = { if (progress != null) onRead(progress.epOrder, progress.pictureIndex) else onRead(firstEp, 0) },
+            onClick = { if (progress != null) onRead(progress.epOrder, progress.pictureIndex - 1) else onRead(firstEp, 0) },
             modifier = Modifier.fillMaxWidth().height(56.dp),
             contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
         ) {

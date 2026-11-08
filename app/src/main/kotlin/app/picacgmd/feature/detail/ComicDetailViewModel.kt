@@ -2,6 +2,8 @@ package app.picacgmd.feature.detail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.picacgmd.core.data.db.DownloadEp
+import app.picacgmd.core.data.db.DownloadStatus
 import app.picacgmd.core.domain.di.AppContainer
 import app.picacgmd.core.domain.repository.ReadingProgress
 import app.picacgmd.core.network.ComicInfo
@@ -9,6 +11,7 @@ import app.picacgmd.core.network.ComicSimple
 import app.picacgmd.core.network.Comment
 import app.picacgmd.core.network.Ep
 import app.picacgmd.feature.comics.readable
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,8 +21,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
@@ -42,6 +47,10 @@ data class DetailState(
 data class LibraryState(
     val progress: ReadingProgress? = null,
     val subscribed: Boolean = false,
+    /** Chapters whose download has finished. */
+    val downloadedEpIds: Set<String> = emptySet(),
+    /** Pictures in the chapter being read, the 22 of 「看到 14/22」; null until the API has answered. */
+    val currentEpPages: Int? = null,
 )
 
 class ComicDetailViewModel(private val container: AppContainer, val comicId: String) : ViewModel() {
@@ -51,14 +60,39 @@ class ComicDetailViewModel(private val container: AppContainer, val comicId: Str
     private val mutableMessages = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val messages: SharedFlow<String> = mutableMessages.asSharedFlow()
 
+    /** Chapter order → picture count, so coming back from the reader does not ask again. */
+    private val epPageCounts = HashMap<Int, Int>()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
     val library: StateFlow<LibraryState> = combine(
         container.historyRepository.observeProgress(comicId),
         container.subscriptionRepository.observe(comicId).map { it != null },
-    ) { progress, subscribed ->
-        LibraryState(progress, subscribed)
+        // Download progress rewrites these rows constantly; only the set of finished chapters matters here.
+        container.database.downloadDao().observeEps(comicId)
+            .map { eps -> eps.filter { it.status == DownloadStatus.DONE }.mapTo(HashSet(), DownloadEp::epId) }
+            .distinctUntilChanged(),
+    ) { progress, subscribed, downloaded ->
+        LibraryState(progress, subscribed, downloaded)
+    }.transformLatest { library ->
+        // The count travels with the progress it belongs to, so a new chapter never shows the old total.
+        val epOrder = library.progress?.epOrder
+        val known = epOrder?.let { epPageCounts[it] }
+        emit(library.copy(currentEpPages = known))
+        if (epOrder != null && known == null) {
+            fetchEpPages(epOrder)?.let { emit(library.copy(currentEpPages = it)) }
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryState())
 
     init { load() }
+
+    /** Best effort: without an answer the chapter row just says 「看到第 N 页」. */
+    private suspend fun fetchEpPages(epOrder: Int): Int? = try {
+        comics.pictures(comicId, epOrder).pages.total.takeIf { it > 0 }?.also { epPageCounts[epOrder] = it }
+    } catch (cancel: CancellationException) {
+        throw cancel
+    } catch (_: Exception) {
+        null
+    }
 
     fun load() {
         mutableState.update { it.copy(loading = true, error = null) }

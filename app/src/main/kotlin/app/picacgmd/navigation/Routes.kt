@@ -50,7 +50,8 @@ data class ComicListRoute(
 
 @Serializable data class ComicDetailRoute(val comicId: String)
 
-@Serializable data class ComicCommentsRoute(val comicId: String)
+/** @param title top bar title when this comment section has a name of its own (the message board). */
+@Serializable data class ComicCommentsRoute(val comicId: String, val title: String? = null)
 
 @Serializable
 data class ReaderRoute(
