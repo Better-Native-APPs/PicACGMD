@@ -79,6 +79,9 @@ internal fun AppSettings.toReaderConfig(base: ReaderConfig = ReaderConfig()): Re
     twoPageCoverAlone = twoPageCoverAlone,
     preloadAhead = readerPreloadAhead,
     autoTurnSeconds = readerAutoTurnSeconds,
+    autoScrollSpeed = readerAutoScrollSpeed,
+    autoScrollPauseOnTouch = readerAutoScrollPauseOnTouch,
+    autoNextChapter = readerAutoNextChapter,
     lockDragBounds = lockDragBounds,
     volumeKeyPaging = volumeKeyPaging,
     volumeKeyChapterJump = volumeKeyChapterPaging,
@@ -168,6 +171,11 @@ internal suspend fun SettingsRepository.saveReaderConfig(previous: ReaderConfig,
     if (previous.twoPageCoverAlone != next.twoPageCoverAlone) setTwoPageCoverAlone(next.twoPageCoverAlone)
     if (previous.preloadAhead != next.preloadAhead) setReaderPreloadAhead(next.preloadAhead)
     if (previous.autoTurnSeconds != next.autoTurnSeconds) setReaderAutoTurnSeconds(next.autoTurnSeconds)
+    if (previous.autoScrollSpeed != next.autoScrollSpeed) setReaderAutoScrollSpeed(next.autoScrollSpeed)
+    if (previous.autoScrollPauseOnTouch != next.autoScrollPauseOnTouch) {
+        setReaderAutoScrollPauseOnTouch(next.autoScrollPauseOnTouch)
+    }
+    if (previous.autoNextChapter != next.autoNextChapter) setReaderAutoNextChapter(next.autoNextChapter)
     if (previous.lockDragBounds != next.lockDragBounds) setLockDragBounds(next.lockDragBounds)
     if (previous.volumeKeyPaging != next.volumeKeyPaging) setVolumeKeyPaging(next.volumeKeyPaging)
     if (previous.volumeKeyChapterJump != next.volumeKeyChapterJump) setVolumeKeyChapterPaging(next.volumeKeyChapterJump)

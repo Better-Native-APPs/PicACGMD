@@ -41,6 +41,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.snapshots.Snapshot
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -57,17 +58,20 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.picacgmd.feature.reader.logic.AutoScrollSpeed
 import app.picacgmd.feature.reader.logic.PagingAxis
 import app.picacgmd.feature.reader.logic.TapAction
 import app.picacgmd.feature.reader.logic.VolumeAction
 import app.picacgmd.feature.reader.logic.VolumeKey
 import app.picacgmd.feature.reader.logic.VolumeKeyInterpreter
+import app.picacgmd.feature.reader.logic.autoScrollDelta
 import app.picacgmd.feature.reader.logic.effectiveDirection
 import app.picacgmd.feature.reader.logic.forwardSwipeFor
 import app.picacgmd.feature.reader.media.PageLabel
@@ -283,8 +287,8 @@ fun ReaderScreen(
         controlsShown || openSheet != null || preview != null || allReadVisible || zoneOverlayVisible || chapterEndVisible,
     )
     val lifecycleState = LocalLifecycleOwner.current.lifecycle.currentStateAsState()
-    LaunchedEffect(settings.autoTurn, settings.autoTurnSeconds, ready?.generation) {
-        if (!settings.autoTurn || ready == null) return@LaunchedEffect
+    LaunchedEffect(settings.autoTurn, settings.autoTurnSeconds, settings.mode, ready?.generation) {
+        if (!settings.autoTurn || settings.mode.isContinuous || ready == null) return@LaunchedEffect
         val wait = settings.autoTurnSeconds * 1_000L
         snapshotFlow {
             val resumed = lifecycleState.value.isAtLeast(Lifecycle.State.RESUMED)
@@ -297,6 +301,46 @@ fun ReaderScreen(
                 // that must not cut its own animation short half-way between two pages.
                 val turn = scope.async { navigator.active?.step(forward = true, leaveAtEnd = false) ?: false }
                 if (!turn.await()) awaitCancellation()
+            }
+        }
+    }
+
+    // 自动滚动 (the strips' 自动翻页): a steady scroll, held by everything that holds 自动翻页 except that a
+    // finger only holds it while 手指触摸时暂停 is on. At the end of the last page it stops, or, with
+    // 自动翻章, opens the next chapter with a short cue and carries on there.
+    val autoScrollPixelsPerSecond = with(LocalDensity.current) {
+        AutoScrollSpeed.dpPerSecond(settings.autoScrollSpeed).dp.toPx()
+    }
+    val nextChapterCue = stringResource(R.string.reader_auto_next_chapter_cue)
+    LaunchedEffect(settings.autoTurn, settings.mode, autoScrollPixelsPerSecond, ready?.generation) {
+        if (!settings.autoTurn || !settings.mode.isContinuous || ready == null) return@LaunchedEffect
+        snapshotFlow {
+            val resumed = lifecycleState.value.isAtLeast(Lifecycle.State.RESUMED)
+            val fingerHolds = touching && latestSettings.autoScrollPauseOnTouch
+            !autoTurnHeld && !fingerHolds && !zoomedIn && resumed
+        }.collectLatest { running ->
+            if (!running) return@collectLatest
+            var lastFrame = withFrameNanos { it }
+            while (true) {
+                val frame = withFrameNanos { it }
+                val active = navigator.active ?: break
+                val remaining = active.autoScrollRemaining()
+                val delta = autoScrollDelta(autoScrollPixelsPerSecond, frame - lastFrame, remaining)
+                lastFrame = frame
+                if (delta > 0f) {
+                    active.autoScrollBy(delta)
+                    continue
+                }
+                if (remaining > 0f) continue
+                val next = session.nextChapter
+                if (latestSettings.autoNextChapter && next != null) {
+                    scope.launch {
+                        snackbar.currentSnackbarData?.dismiss()
+                        snackbar.showSnackbar(nextChapterCue.format(next.title))
+                    }
+                    session.openNext()
+                }
+                awaitCancellation()
             }
         }
     }

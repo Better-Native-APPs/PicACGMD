@@ -47,10 +47,16 @@ data class ReaderConfig(
     val autoFullscreenOnForward: Boolean = false,
     /** Keep the screen awake while the reader is open. */
     val keepScreenOn: Boolean = true,
-    /** 自动翻页. */
+    /** 自动翻页; in the continuous strips (条漫 / 自由缩放) it is 自动滚动 instead. */
     val autoTurn: Boolean = false,
     /** 自动翻页间隔, 2–30 seconds. */
     val autoTurnSeconds: Int = 6,
+    /** 自动滚动速度 step, 1 (很慢) – 5 (很快); see [app.picacgmd.feature.reader.logic.AutoScrollSpeed]. */
+    val autoScrollSpeed: Int = 3,
+    /** 手指触摸屏幕时暂停自动滚动. */
+    val autoScrollPauseOnTouch: Boolean = true,
+    /** 自动翻章: the strip opens the next chapter by itself when it reaches the end of one. */
+    val autoNextChapter: Boolean = false,
     /** 取消翻页动画: jump instead of animating when turning pages by tap or key. */
     val noPageAnimation: Boolean = false,
     /** 减少动画 (e-ink): also drops loading animations. */
@@ -73,6 +79,7 @@ data class ReaderConfig(
         return copy(
             scrollFraction = scrollFraction.coerceIn(SCROLL_FRACTION_RANGE),
             autoTurnSeconds = autoTurnSeconds.coerceIn(AUTO_TURN_SECONDS_RANGE),
+            autoScrollSpeed = autoScrollSpeed.coerceIn(AUTO_SCROLL_SPEED_RANGE),
             minZoom = min,
             maxZoom = max,
             doubleTapZoom = doubleTapZoom.coerceIn(DOUBLE_TAP_ZOOM_RANGE).coerceIn(min, max),
@@ -84,6 +91,7 @@ data class ReaderConfig(
     companion object {
         val SCROLL_FRACTION_RANGE: ClosedFloatingPointRange<Float> = 0.1f..1f
         val AUTO_TURN_SECONDS_RANGE: IntRange = 2..30
+        val AUTO_SCROLL_SPEED_RANGE: IntRange = 1..5
         val MIN_ZOOM_RANGE: ClosedFloatingPointRange<Float> = 0.5f..2f
         val MAX_ZOOM_RANGE: ClosedFloatingPointRange<Float> = 2f..5f
         val DOUBLE_TAP_ZOOM_RANGE: ClosedFloatingPointRange<Float> = 1.5f..3f
@@ -94,6 +102,10 @@ data class ReaderConfig(
         const val PRELOAD_BEHIND: Int = 1
     }
 }
+
+/** Whether [mode] scrolls as one continuous strip, where 自动翻页 becomes 自动滚动. */
+val ReaderMode.isContinuous: Boolean
+    get() = this == ReaderMode.Strip || this == ReaderMode.FreeZoom
 
 /** 阅读模式. */
 enum class ReaderMode {

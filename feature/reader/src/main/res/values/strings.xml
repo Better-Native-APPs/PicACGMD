@@ -72,6 +72,17 @@
     <string name="reader_setting_auto_fullscreen">进入时自动全屏</string>
     <string name="reader_setting_auto_turn">自动翻页</string>
     <string name="reader_setting_auto_turn_every">每 %1$d 秒</string>
+    <string name="reader_setting_auto_scroll">自动滚动</string>
+    <string name="reader_setting_auto_scroll_speed">滚动速度：%1$s</string>
+    <string name="reader_auto_scroll_speed_1">很慢</string>
+    <string name="reader_auto_scroll_speed_2">慢</string>
+    <string name="reader_auto_scroll_speed_3">适中</string>
+    <string name="reader_auto_scroll_speed_4">快</string>
+    <string name="reader_auto_scroll_speed_5">很快</string>
+    <string name="reader_setting_auto_scroll_pause_on_touch">手指触摸时暂停</string>
+    <string name="reader_setting_auto_next_chapter">自动翻章</string>
+    <string name="reader_setting_auto_next_chapter_supporting">滚动到章节末尾时自动进入下一话</string>
+    <string name="reader_auto_next_chapter_cue">下一话：%1$s</string>
     <string name="reader_setting_no_animation">取消翻页动画</string>
 
     <!-- Tap zone overlay. -->

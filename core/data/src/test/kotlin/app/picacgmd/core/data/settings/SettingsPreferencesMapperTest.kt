@@ -51,6 +51,9 @@ class SettingsPreferencesMapperTest {
         assertFalse(settings.twoPageCoverAlone)
         assertEquals(2, settings.readerPreloadAhead)
         assertEquals(6, settings.readerAutoTurnSeconds)
+        assertEquals(3, settings.readerAutoScrollSpeed)
+        assertTrue(settings.readerAutoScrollPauseOnTouch)
+        assertFalse(settings.readerAutoNextChapter)
     }
 
     @Test
@@ -59,6 +62,9 @@ class SettingsPreferencesMapperTest {
             SettingsKeys.twoPageCoverAlone to true,
             SettingsKeys.readerPreloadAhead to 5,
             SettingsKeys.readerAutoTurnSeconds to 30,
+            SettingsKeys.readerAutoScrollSpeed to 5,
+            SettingsKeys.readerAutoScrollPauseOnTouch to false,
+            SettingsKeys.readerAutoNextChapter to true,
             SettingsKeys.readerBackground to ReaderBackground.PAPER.name,
         )
         assertEquals(
@@ -66,6 +72,9 @@ class SettingsPreferencesMapperTest {
                 twoPageCoverAlone = true,
                 readerPreloadAhead = 5,
                 readerAutoTurnSeconds = 30,
+                readerAutoScrollSpeed = 5,
+                readerAutoScrollPauseOnTouch = false,
+                readerAutoNextChapter = true,
                 readerBackground = ReaderBackground.PAPER,
             ),
             SettingsPreferencesMapper.decode(preferences),
@@ -74,10 +83,11 @@ class SettingsPreferencesMapperTest {
 
     @Test
     fun readerAdditionsRejectUnsupportedStoredNumbers() {
-        for ((preload, interval) in listOf(0 to 1, 6 to 31)) {
+        for ((preload, interval, speed) in listOf(Triple(0, 1, 0), Triple(6, 31, 6))) {
             val preferences = mutablePreferencesOf(
                 SettingsKeys.readerPreloadAhead to preload,
                 SettingsKeys.readerAutoTurnSeconds to interval,
+                SettingsKeys.readerAutoScrollSpeed to speed,
                 SettingsKeys.twoPageCoverAlone to true,
             )
             assertEquals(
