@@ -70,6 +70,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import app.picacgmd.core.data.db.LocalFavouriteEntry
 import app.picacgmd.core.data.db.Subscription
 import app.picacgmd.core.data.db.ViewHistory
 import app.picacgmd.core.domain.repository.toSimple
@@ -127,6 +128,7 @@ fun BookshelfScreen(
     var menu by remember { mutableStateOf(false) }
     var newLocalFolder by rememberSaveable { mutableStateOf(false) }
     var manageLocalFolders by rememberSaveable { mutableStateOf(false) }
+    var movingLocalComic by remember { mutableStateOf<LocalFavouriteEntry?>(null) }
     var tagFavouritesOpen by rememberSaveable { mutableStateOf(false) }
     var tagSearch by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -333,6 +335,7 @@ fun BookshelfScreen(
                             onSort = viewModel::setLocalNewestFirst,
                             onToggle = ::toggle,
                             onOpenComic = onOpenComic,
+                            onMove = { movingLocalComic = it },
                             onRemove = ::removeLocal,
                         )
                         ShelfView.Follow -> FollowView(
@@ -465,6 +468,16 @@ fun BookshelfScreen(
         onRenameFolder = viewModel::renameLocalFolder,
         onDeleteFolder = viewModel::deleteLocalFolder,
     )
+    movingLocalComic?.let { entry ->
+        LocalFavouritePickerSheet(
+            folders = localFolders.orEmpty(),
+            selectedFolderId = entry.folderId,
+            title = "移动到…",
+            onDismiss = { movingLocalComic = null },
+            onCreateFolder = viewModel::createLocalFolder,
+            onSelectFolder = { viewModel.moveLocalComic(entry.comicId, it) },
+        )
+    }
     if (tagFavouritesOpen && current.showTagFavourites) TagFavouritesSheet(
         tags = favouriteTags,
         onDismiss = { tagFavouritesOpen = false },

@@ -11,7 +11,6 @@ import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
@@ -29,7 +28,7 @@ class LocalFavouriteRepository(
         emitAll(dao.observeFolders())
     }
     val entries: Flow<List<LocalFavouriteEntry>> = dao.observeEntries()
-    fun folderIds(comicId: String): Flow<Set<String>> = dao.observeFolderIds(comicId).map { it.toSet() }
+    fun folderId(comicId: String): Flow<String?> = dao.observeFolderId(comicId)
 
     /** IGNORE makes first access idempotent and never resets a renamed default folder. */
     suspend fun ensureDefaultFolder() {
@@ -52,12 +51,12 @@ class LocalFavouriteRepository(
         dao.moveAndDeleteFolder(folderId, targetFolderId)
     }
 
-    suspend fun setFolders(comic: ComicInfo, folderIds: Set<String>) = setFolders(comic.toSimple(), folderIds)
+    suspend fun setFolder(comic: ComicInfo, folderId: String?) = setFolder(comic.toSimple(), folderId)
 
-    suspend fun setFolders(comic: ComicSimple, folderIds: Set<String>) = mutex.withLock {
+    suspend fun setFolder(comic: ComicSimple, folderId: String?) = mutex.withLock {
         require(comic.id.isNotBlank()) { "漫画 ID 不能为空" }
         ensureDefaultFolder()
-        dao.setFolders(
+        dao.setFolder(
             LocalFavouriteEntry(
                 folderId = "",
                 comicId = comic.id,
@@ -72,11 +71,17 @@ class LocalFavouriteRepository(
                 finished = comic.finished,
                 addedAt = now(),
             ),
-            folderIds.toList(),
+            folderId,
         )
     }
 
-    /** A null folder removes the comic everywhere; a selected folder removes only that membership. */
+    /** Move the saved snapshot without needing to reload the comic from the network. */
+    suspend fun move(comicId: String, folderId: String) = mutex.withLock {
+        val snapshot = requireNotNull(dao.getComicEntry(comicId)) { "漫画已移出本地收藏" }
+        dao.setFolder(snapshot.copy(addedAt = now()), folderId)
+    }
+
+    /** A selected folder only removes comics still in that folder; null removes by comic ID. */
     suspend fun remove(comicIds: List<String>, folderId: String? = null): Int = mutex.withLock {
         comicIds.distinct().chunked(500).sumOf { dao.removeEntries(it, folderId) }
     }

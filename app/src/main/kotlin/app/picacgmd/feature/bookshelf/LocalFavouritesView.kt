@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.DriveFileMove
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.BookmarkRemove
@@ -56,6 +57,7 @@ internal fun LocalFavouritesView(
     onSort: (Boolean) -> Unit,
     onToggle: (String) -> Unit,
     onOpenComic: (String) -> Unit,
+    onMove: (LocalFavouriteEntry) -> Unit,
     onRemove: (List<String>) -> Unit,
 ) {
     val container = LocalAppContainer.current
@@ -121,6 +123,11 @@ internal fun LocalFavouritesView(
                                 Box {
                                     IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, "更多操作") }
                                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                                        DropdownMenuItem(
+                                            text = { Text("移动到…") },
+                                            leadingIcon = { Icon(Icons.AutoMirrored.Outlined.DriveFileMove, null) },
+                                            onClick = { menu = false; onMove(entry) },
+                                        )
                                         DropdownMenuItem(
                                             text = { Text("移出本地收藏") },
                                             leadingIcon = { Icon(Icons.Outlined.BookmarkRemove, null) },

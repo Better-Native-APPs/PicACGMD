@@ -1,6 +1,5 @@
 package app.picacgmd.feature.bookshelf
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,7 +11,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
@@ -21,11 +19,9 @@ import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -100,72 +96,73 @@ internal fun LocalFolderNameDialog(
 @Composable
 internal fun LocalFavouritePickerSheet(
     folders: List<LocalFavouriteFolder>,
-    selectedFolderIds: Set<String>,
+    selectedFolderId: String?,
     onDismiss: () -> Unit,
     onCreateFolder: suspend (String) -> String,
-    onSave: suspend (Set<String>) -> Unit,
+    onSelectFolder: suspend (String) -> Unit,
+    onRemove: (suspend () -> Unit)? = null,
+    title: String = "本地收藏",
 ) {
-    var chosen by rememberSaveable {
-        mutableStateOf(
-            if (selectedFolderIds.isNotEmpty()) selectedFolderIds.toList()
-            else listOf(folders.maxByOrNull { it.lastSelectedAt }?.folderId ?: LocalFavouriteFolder.DEFAULT_ID),
-        )
-    }
     var creating by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+
+    fun save(action: suspend () -> Unit) {
+        if (saving) return
+        saving = true
+        error = null
+        scope.launch {
+            try {
+                action()
+                onDismiss()
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (exception: Exception) {
+                error = exception.message ?: "保存失败，请重试"
+            } finally {
+                saving = false
+            }
+        }
+    }
+
     ModalBottomSheet(onDismissRequest = { if (!saving) onDismiss() }) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("本地收藏", style = MaterialTheme.typography.titleLarge)
-            Text("选择收藏夹，可多选。仅保存在本机，不影响在线收藏。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(title, style = MaterialTheme.typography.titleLarge)
+            Text("选择收藏夹后立即保存。仅保存在本机，不影响在线收藏。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             TextButton(onClick = { creating = true }, enabled = !saving) {
                 Icon(Icons.Outlined.Add, null)
                 Text("新建收藏夹", Modifier.padding(start = 8.dp))
             }
         }
-        LazyColumn(Modifier.weight(1f, fill = false)) {
+        LazyColumn(Modifier.weight(1f, fill = false).selectableGroup()) {
             items(folders, key = { it.folderId }) { folder ->
                 ListItem(
                     headlineContent = { Text(folder.name) },
-                    leadingContent = { Checkbox(checked = folder.folderId in chosen, onCheckedChange = null) },
-                    modifier = Modifier.toggleable(
-                        value = folder.folderId in chosen,
+                    leadingContent = { RadioButton(selected = folder.folderId == selectedFolderId, onClick = null, enabled = !saving) },
+                    modifier = Modifier.selectable(
+                        selected = folder.folderId == selectedFolderId,
                         enabled = !saving,
-                        role = Role.Checkbox,
-                        onValueChange = {
-                            chosen = if (folder.folderId in chosen) chosen - folder.folderId else chosen + folder.folderId
-                            error = null
-                        },
+                        role = Role.RadioButton,
+                        onClick = { save { onSelectFolder(folder.folderId) } },
                     ),
                 )
             }
         }
-        if (error != null) Text(error.orEmpty(), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 24.dp))
-        FilledTonalButton(
-            enabled = !saving,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
-            onClick = {
-                saving = true
-                scope.launch {
-                    try {
-                        onSave(chosen.toSet())
-                        onDismiss()
-                    } catch (cancel: CancellationException) {
-                        throw cancel
-                    } catch (exception: Exception) {
-                        error = exception.message ?: "保存失败，请重试"
-                    } finally {
-                        saving = false
-                    }
+        Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 16.dp)) {
+            if (saving) Text("正在保存", style = MaterialTheme.typography.bodyMedium)
+            if (error != null) Text(error.orEmpty(), color = MaterialTheme.colorScheme.error)
+            if (selectedFolderId != null && onRemove != null) {
+                TextButton(onClick = { save(onRemove) }, enabled = !saving, modifier = Modifier.fillMaxWidth()) {
+                    Text("移出本地收藏", color = MaterialTheme.colorScheme.error)
                 }
-            },
-        ) { Text(if (saving) "正在保存" else if (chosen.isEmpty()) "移出本地收藏" else "保存到收藏夹") }
+            }
+        }
     }
     if (creating) LocalFolderNameDialog(
         title = "新建收藏夹",
         onDismiss = { creating = false },
-        onConfirm = { name -> chosen = chosen + onCreateFolder(name) },
+        onConfirm = { onCreateFolder(it) },
     )
 }
 
