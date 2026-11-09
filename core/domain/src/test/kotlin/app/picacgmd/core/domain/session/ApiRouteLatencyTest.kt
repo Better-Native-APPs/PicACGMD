@@ -29,9 +29,8 @@ class ApiRouteLatencyTest {
 
     @Test
     fun independentRowsReturnBeforeSlowerRowsAndEachHasItsOwnDeadline() = runTest {
-        val clock = { testScheduler.currentTime * 1_000_000 }
-        val slow = async { measureRouteLatency(clock) { delay(6_000); true } }
-        val fast = async { measureRouteLatency(clock) { delay(200); true } }
+        val slow = async { withRouteProbeDeadline { delay(6_000); 6_000L } }
+        val fast = async { withRouteProbeDeadline { delay(200); 200L } }
         assertEquals(200L, fast.await())
         assertFalse(slow.isCompleted)
         assertEquals(200L, testScheduler.currentTime)
@@ -41,10 +40,9 @@ class ApiRouteLatencyTest {
 
     @Test
     fun failuresAndExceptionsMapToNullWithoutCancellingOtherRows() = runTest {
-        val clock = { testScheduler.currentTime * 1_000_000 }
-        val exception = async { measureRouteLatency(clock) { throw IOException("unreachable") } }
-        val failed = async { measureRouteLatency(clock) { false } }
-        val success = async { measureRouteLatency(clock) { delay(100); true } }
+        val exception = async { withRouteProbeDeadline { throw IOException("unreachable") } }
+        val failed = async { withRouteProbeDeadline { null } }
+        val success = async { withRouteProbeDeadline { delay(100); 100L } }
         assertNull(exception.await())
         assertNull(failed.await())
         assertEquals(100L, success.await())
@@ -52,14 +50,20 @@ class ApiRouteLatencyTest {
 
     @Test
     fun measuredSuccessOverFiveSecondsIsStillRejected() = runTest {
-        var nanos = 0L
-        assertNull(measureRouteLatency({ nanos }) { nanos += 5_000_000_001L; true })
+        assertNull(withRouteProbeDeadline { 5_001L })
+        assertNull(withRouteProbeDeadline { -1L })
+        assertEquals(5_000L, withRouteProbeDeadline { 5_000L })
+    }
+
+    @Test
+    fun transportLatencyIsNotReplacedByCleanupOrDispatchTime() = runTest {
+        assertEquals(850L, withRouteProbeDeadline { delay(1_000); 850L })
     }
 
     @Test
     fun callerCancellationPropagatesRatherThanBecomingNull() = runTest {
         assertFailsWith<TimeoutCancellationException> {
-            withTimeout(100) { measureRouteLatency { delay(1_000); true } }
+            withTimeout(100) { withRouteProbeDeadline { delay(1_000); 1_000L } }
         }
     }
 }

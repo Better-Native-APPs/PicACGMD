@@ -1,10 +1,5 @@
 package app.picacgmd.feature.settings
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -57,9 +52,9 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import androidx.activity.compose.BackHandler
 import androidx.graphics.shapes.RoundedPolygon
 import app.picacgmd.R
+import app.picacgmd.core.designsystem.component.PredictiveBackContent
 
 /**
  * Settings sub pages (boards 25–28b). The name is stable, so a navigation route can carry it as a
@@ -244,10 +239,6 @@ fun SettingsScreen(
     var searching by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    BackHandler(enabled = searching) {
-        searching = false
-        query = ""
-    }
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
@@ -414,23 +405,17 @@ fun SettingsHost(
     val popOrExit: () -> Unit = {
         if (stack.isEmpty() || (startedOnPage && stack.size == 1)) onBack() else stack.removeAt(stack.lastIndex)
     }
-    BackHandler(enabled = current != null && !(startedOnPage && stack.size == 1)) { stack.removeAt(stack.lastIndex) }
-    AnimatedContent(
-        targetState = current,
-        transitionSpec = {
-            if (targetState != null && initialState == null) {
-                (slideInHorizontally { it / 8 } + fadeIn()) togetherWith fadeOut()
-            } else {
-                fadeIn() togetherWith fadeOut()
-            }
-        },
+    PredictiveBackContent(
+        current = current?.name ?: "home",
+        previous = stack.getOrNull(stack.lastIndex - 1)?.name ?: "home",
+        onBack = popOrExit,
+        enabled = current != null && !(startedOnPage && stack.size == 1),
         modifier = modifier,
-        label = "settingsHost",
-    ) { page ->
-        if (page == null) {
+    ) { key, back ->
+        if (key == "home") {
             SettingsScreen(onBack = onBack, onOpenPage = { stack.add(it) })
         } else {
-            SettingsPageScreen(page = page, onBack = popOrExit, onOpenDownloads = onOpenDownloads)
+            SettingsPageScreen(page = SettingsPage.valueOf(key), onBack = back, onOpenDownloads = onOpenDownloads)
         }
     }
 }

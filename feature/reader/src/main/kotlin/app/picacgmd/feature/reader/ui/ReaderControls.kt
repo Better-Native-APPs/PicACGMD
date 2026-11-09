@@ -32,7 +32,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.FormatListNumbered
 import androidx.compose.material.icons.rounded.Fullscreen
@@ -78,6 +77,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import app.picacgmd.feature.reader.R
+import app.picacgmd.core.designsystem.component.BackButton
 import app.picacgmd.feature.reader.SliderPosition
 import app.picacgmd.feature.reader.logic.pageToSlider
 import app.picacgmd.feature.reader.logic.sliderToPage
@@ -222,13 +222,7 @@ private fun TopCapsule(
             modifier = Modifier.padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = actions.onBack, modifier = Modifier.size(ChromeIconButtonSize)) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = stringResource(R.string.reader_back),
-                    tint = MaterialTheme.colorScheme.onSurface,
-                )
-            }
+            BackButton(actions.onBack, Modifier.size(ChromeIconButtonSize))
             Column(Modifier.weight(1f)) {
                 Text(
                     text = chapterTitle,

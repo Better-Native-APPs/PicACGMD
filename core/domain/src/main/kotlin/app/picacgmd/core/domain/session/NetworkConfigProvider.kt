@@ -12,9 +12,7 @@ import app.picacgmd.core.network.PicaHeaderBuilder
 import app.picacgmd.core.network.PicaImage
 import app.picacgmd.core.network.PicaImageUrls
 import app.picacgmd.core.network.PicaNetworkConfig
-import app.picacgmd.core.network.PicaResult
-import app.picacgmd.core.network.ROUTE_PROBE_TIMEOUT_MILLIS
-import java.net.Proxy
+import app.picacgmd.core.network.PicaRouteTransport
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,7 +24,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 
 data class NetworkConfiguration(
@@ -101,14 +98,14 @@ class NetworkConfigProvider(
     suspend fun awaitReady() { api() }
 
     /**
-     * One independently measured signed keyword request with a five-second ceiling.
+     * One independently measured API response with a five-second ceiling. HTTP errors (including
+     * an expired login's 401) still prove reachability; no response body or session is needed.
      * Probes connect directly (not through a proxy, which would bypass route DNS) and never update
      * the selected route, session, or retained transports. Values are milliseconds; failures are null.
      * Main-safe: the probe and its socket cleanup run on [Dispatchers.IO].
      */
-    suspend fun measureApiRoute(route: ApiRoute): Long? = withContext(Dispatchers.IO) {
-        val timeOffsetHours = settings.first().timeOffsetHours
-        measureRouteLatency { probeApiRoute(route, timeOffsetHours) }
+    suspend fun measureApiRoute(route: ApiRoute): Long? = withRouteProbeDeadline {
+        PicaRouteTransport().measureApiRoute(route)
     }
 
     fun imageUrl(image: PicaImage): String = PicaImageUrls.build(image, current.configuration.imageServer)
@@ -156,37 +153,6 @@ class NetworkConfigProvider(
         .connectTimeout(configuration.connectTimeoutSeconds.toLong(), TimeUnit.SECONDS)
         .readTimeout(configuration.readTimeoutSeconds.toLong(), TimeUnit.SECONDS)
         .build()
-
-    private suspend fun probeApiRoute(route: ApiRoute, timeOffsetHours: Int): Boolean {
-        val client = PicaClientFactory.apiClient(PicaNetworkConfig(apiRoute = route)).newBuilder()
-            .proxy(Proxy.NO_PROXY)
-            .callTimeout(ROUTE_PROBE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
-            .connectTimeout(ROUTE_PROBE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
-            .readTimeout(ROUTE_PROBE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
-            .writeTimeout(ROUTE_PROBE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
-            .build()
-        try {
-            val api = PicaApi(
-                tokenProvider = tokenProvider,
-                client = client,
-                headerBuilder = PicaHeaderBuilder(
-                    epochSeconds = { System.currentTimeMillis() / 1_000 + timeOffsetHours * 3_600L },
-                ),
-            )
-            return api.hotKeywords() is PicaResult.Success
-        } finally {
-            client.releaseQuietly()
-        }
-    }
-
-    /** Cleanup never turns a finished probe into a failure. */
-    private fun OkHttpClient.releaseQuietly() {
-        runCatching {
-            dispatcher.cancelAll()
-            connectionPool.evictAll()
-            dispatcher.executorService.shutdown()
-        }
-    }
 
     fun close() {
         listOf(mutableClients.value.apiClient, mutableClients.value.imageClient).distinct().forEach { client ->

@@ -45,7 +45,7 @@ internal fun ForgotPasswordScreen(onBack: () -> Unit) {
     var newPassword by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
-    AccountScaffold("找回密码", if (busy) null else onBack) {
+    AccountScaffold("找回密码", onBack) {
         OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), label = { Text("账号") }, singleLine = true, enabled = questions.isEmpty() && !busy)
         if (questions.isEmpty()) Text("输入账号查看安全问题")
         if (questions.isNotEmpty() && newPassword == null) {

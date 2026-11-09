@@ -1,9 +1,10 @@
 package app.picacgmd.navigation
 
 import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.AnimatedContentScope
+import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
@@ -32,6 +33,8 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.toRoute
 import app.picacgmd.R
 import app.picacgmd.core.designsystem.component.HomeChannel
+import app.picacgmd.core.designsystem.component.BackPreviewFrame
+import app.picacgmd.core.designsystem.component.predictiveBackExit
 import app.picacgmd.core.domain.download.DownloadManagerOwner
 import app.picacgmd.feature.account.LoginScreen
 import app.picacgmd.feature.bookshelf.BookshelfScreen
@@ -77,7 +80,6 @@ fun PikapikaNavHost(
 ) {
     val motion = MaterialTheme.motionScheme
     val slideSpec = motion.defaultSpatialSpec<IntOffset>()
-    val scaleSpec = motion.defaultSpatialSpec<Float>()
     val fadeSpec = motion.defaultEffectsSpec<Float>()
     val fastFadeSpec = motion.fastEffectsSpec<Float>()
     // Read through State so the graph builder lambda stays the same across window size changes.
@@ -116,14 +118,14 @@ fun PikapikaNavHost(
                 if (isTabSwitch()) {
                     fadeIn(fadeSpec)
                 } else {
-                    slideInHorizontally(slideSpec) { -it / 16 } + fadeIn(fadeSpec)
+                    EnterTransition.None
                 }
             },
             popExitTransition = {
                 if (isTabSwitch()) {
                     fadeOut(fastFadeSpec)
                 } else {
-                    scaleOut(scaleSpec, targetScale = 0.9f) + fadeOut(fadeSpec)
+                    predictiveBackExit()
                 }
             },
             sizeTransform = null,
@@ -142,11 +144,23 @@ private fun AnimatedContentTransitionScope<NavBackStackEntry>.isTabSwitch(): Boo
 }
 
 @Composable
-private fun NavHostController.backAction(): () -> Unit = dropUnlessResumed { popBackStack() }
+private fun NavHostController.backAction(): () -> Unit = dropUnlessResumed {
+    // A destination opened as the start of a deep link may have no previous entry.
+    if (!popBackStack()) navigate(DiscoverGraph) { launchSingleTop = true }
+}
+
+/** Every destination, including the reader, clips its own predictive back preview. */
+private inline fun <reified T : Any> NavGraphBuilder.page(
+    noinline content: @Composable AnimatedContentScope.(NavBackStackEntry) -> Unit,
+) {
+    composable<T> { entry ->
+        BackPreviewFrame(roundCorners = !entry.destination.isTopLevelStart()) { content(entry) }
+    }
+}
 
 private fun NavGraphBuilder.topLevelGraphs(navController: NavHostController, compact: State<Boolean>) {
     navigation<DiscoverGraph>(startDestination = DiscoverRoute) {
-        composable<DiscoverRoute> {
+        page<DiscoverRoute> {
             DiscoverScreen(
                 showProfileEntry = compact.value,
                 onSearchClick = { navController.navigate(SearchRoute()) },
@@ -169,7 +183,7 @@ private fun NavGraphBuilder.topLevelGraphs(navController: NavHostController, com
         }
     }
     navigation<BookshelfGraph>(startDestination = BookshelfRoute) {
-        composable<BookshelfRoute> {
+        page<BookshelfRoute> {
             BookshelfScreen(
                 onOpenComic = { navController.navigate(ComicDetailRoute(it)) },
                 onContinueReading = { id, ep, page -> navController.navigate(ReaderRoute(id, ep, page)) },
@@ -177,7 +191,7 @@ private fun NavGraphBuilder.topLevelGraphs(navController: NavHostController, com
         }
     }
     navigation<DownloadsGraph>(startDestination = DownloadsRoute) {
-        composable<DownloadsRoute> {
+        page<DownloadsRoute> {
             DownloadsScreen(
                 onReadDownloaded = { navController.navigate(DownloadedReaderRoute(it)) },
                 onOpenSettings = { navController.navigate(DownloadSettingsRoute) },
@@ -187,7 +201,7 @@ private fun NavGraphBuilder.topLevelGraphs(navController: NavHostController, com
         }
     }
     navigation<MeGraph>(startDestination = MeRoute) {
-        composable<MeRoute> {
+        page<MeRoute> {
             val messageBoardTitle = stringResource(R.string.comments_message_board)
             MeScreen(
                 onOpenSettings = { navController.navigate(SettingsRoute) },
@@ -208,25 +222,25 @@ private fun NavGraphBuilder.sharedDestinations(
     downloads: DownloadActions,
     onReaderMessage: (String) -> Unit,
 ) {
-    composable<SettingsRoute> {
+    page<SettingsRoute> {
         SettingsHost(
             onBack = navController.backAction(),
             onOpenDownloads = { navController.navigateToTopLevel(TopLevelDestination.Downloads) },
         )
     }
-    composable<DownloadSettingsRoute> {
+    page<DownloadSettingsRoute> {
         DownloadSettingsScreen(onBack = navController.backAction())
     }
-    composable<AnnouncementsRoute> {
+    page<AnnouncementsRoute> {
         AnnouncementsScreen(onBack = navController.backAction())
     }
-    composable<MyCommentsRoute> {
+    page<MyCommentsRoute> {
         MyCommentsScreen(
             onBack = navController.backAction(),
             onOpenComic = { navController.navigate(ComicDetailRoute(it)) },
         )
     }
-    composable<SearchRoute> { entry ->
+    page<SearchRoute> { entry ->
         SearchScreen(
             initialKeyword = entry.toRoute<SearchRoute>().keyword,
             onBack = navController.backAction(),
@@ -234,7 +248,7 @@ private fun NavGraphBuilder.sharedDestinations(
             onBatchDownload = downloads::enqueueBatch,
         )
     }
-    composable<ComicListRoute> { entry ->
+    page<ComicListRoute> { entry ->
         val route = entry.toRoute<ComicListRoute>()
         ComicListScreen(
             category = route.category,
@@ -248,7 +262,7 @@ private fun NavGraphBuilder.sharedDestinations(
             onBatchDownload = downloads::enqueueBatch,
         )
     }
-    composable<ComicDetailRoute> { entry ->
+    page<ComicDetailRoute> { entry ->
         val comicId = entry.toRoute<ComicDetailRoute>().comicId
         ComicDetailScreen(
             comicId = comicId,
@@ -264,7 +278,7 @@ private fun NavGraphBuilder.sharedDestinations(
             onOpenComments = { navController.navigate(ComicCommentsRoute(it)) },
         )
     }
-    composable<ComicCommentsRoute> { entry ->
+    page<ComicCommentsRoute> { entry ->
         val route = entry.toRoute<ComicCommentsRoute>()
         CommentsScreen(
             comicId = route.comicId,
@@ -272,7 +286,7 @@ private fun NavGraphBuilder.sharedDestinations(
             onBack = navController.backAction(),
         )
     }
-    composable<ReaderRoute> { entry ->
+    page<ReaderRoute> { entry ->
         val route = entry.toRoute<ReaderRoute>()
         OnlineReaderDestination(
             comicId = route.comicId,
@@ -285,7 +299,7 @@ private fun NavGraphBuilder.sharedDestinations(
             onOpenAllSettings = { navController.navigate(SettingsRoute) },
         )
     }
-    composable<DownloadedReaderRoute> { entry ->
+    page<DownloadedReaderRoute> { entry ->
         val comicId = entry.toRoute<DownloadedReaderRoute>().comicId
         DownloadedReaderDestination(
             comicId = comicId,
@@ -296,23 +310,23 @@ private fun NavGraphBuilder.sharedDestinations(
             onOpenAllSettings = { navController.navigate(SettingsRoute) },
         )
     }
-    composable<RankingsRoute> {
+    page<RankingsRoute> {
         RankingsScreen(
             onBack = navController.backAction(),
             onOpenComic = { navController.navigate(ComicDetailRoute(it)) },
             onOpenKnight = { id, name -> navController.navigate(ComicListRoute(creatorId = id, title = name)) },
         )
     }
-    composable<RandomRoute> {
+    page<RandomRoute> {
         RandomScreen(
             onBack = navController.backAction(),
             onOpenComic = { navController.navigate(ComicDetailRoute(it)) },
         )
     }
-    composable<GamesRoute> {
+    page<GamesRoute> {
         GamesScreen(onBack = navController.backAction(), onGameClick = { navController.navigate(GameDetailRoute(it)) })
     }
-    composable<GameDetailRoute> { entry ->
+    page<GameDetailRoute> { entry ->
         val route = entry.toRoute<GameDetailRoute>()
         GameDetailScreen(
             gameId = route.gameId,
@@ -320,7 +334,7 @@ private fun NavGraphBuilder.sharedDestinations(
             onComments = { title -> navController.navigate(GameCommentsRoute(route.gameId, title)) },
         )
     }
-    composable<GameCommentsRoute> { entry ->
+    page<GameCommentsRoute> { entry ->
         val route = entry.toRoute<GameCommentsRoute>()
         GameCommentsScreen(
             gameId = route.gameId,
@@ -329,21 +343,21 @@ private fun NavGraphBuilder.sharedDestinations(
             onReplies = { navController.navigate(GameRepliesRoute(route.gameId, it)) },
         )
     }
-    composable<GameRepliesRoute> { entry ->
+    page<GameRepliesRoute> { entry ->
         val route = entry.toRoute<GameRepliesRoute>()
         GameCommentsScreen(
             gameId = route.gameId, title = "评论回复", parentCommentId = route.commentId,
             onBack = navController.backAction(),
         )
     }
-    composable<CollectionsRoute> {
+    page<CollectionsRoute> {
         CollectionsScreen(
             onBack = navController.backAction(),
             onOpenComic = { navController.navigate(ComicDetailRoute(it)) },
             onOpenCollection = { index, title -> navController.navigate(CollectionRoute(index, title)) },
         )
     }
-    composable<CollectionRoute> { entry ->
+    page<CollectionRoute> { entry ->
         val route = entry.toRoute<CollectionRoute>()
         CollectionScreen(
             index = route.index,
@@ -352,10 +366,10 @@ private fun NavGraphBuilder.sharedDestinations(
             onOpenComic = { navController.navigate(ComicDetailRoute(it)) },
         )
     }
-    composable<CategoriesRoute> {
+    page<CategoriesRoute> {
         CategoriesScreen(onBack = navController.backAction())
     }
-    composable<LoginRoute> {
+    page<LoginRoute> {
         LoginScreen(onBack = navController.backAction())
     }
 }

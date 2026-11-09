@@ -8,6 +8,8 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 
@@ -66,5 +68,51 @@ class PicaRouteTransportTest {
             server.enqueue(MockResponse.Builder().code(503).build())
             assertTrue(PicaRouteTransport().measureImageHost(server.url("/").toString()) >= 0)
         }
+    }
+
+    @Test
+    fun apiProbeAcceptsUnauthorizedWithoutALoggedInSession() = runTest {
+        MockWebServer().use { server ->
+            server.start()
+            server.enqueue(MockResponse.Builder().code(401).body("""{"code":401,"message":"unauthorized"}""").build())
+            val transport = PicaRouteTransport(apiBaseUrl = server.url("/").toString())
+            assertTrue(transport.measureApiRoute(ApiRoute.None) >= 0)
+            val request = server.takeRequest(5, TimeUnit.SECONDS)!!
+            assertEquals("/keywords", request.url.encodedPath)
+            assertEquals("", request.headers["authorization"])
+            assertEquals(PicaProtocol.API_KEY, request.headers["api-key"])
+        }
+    }
+
+    @Test
+    fun apiProbeDoesNotDecodeErrorBodiesOrFollowRedirects() = runTest {
+        MockWebServer().use { server ->
+            server.start()
+            val transport = PicaRouteTransport(apiBaseUrl = server.url("/").toString())
+            server.enqueue(MockResponse.Builder().code(503).body("not JSON").build())
+            assertTrue(transport.measureApiRoute(ApiRoute.None) >= 0)
+            server.enqueue(MockResponse.Builder().code(302).addHeader("Location", server.url("/redirected")).build())
+            assertTrue(transport.measureApiRoute(ApiRoute.None) >= 0)
+            assertEquals(2, server.requestCount)
+        }
+    }
+
+    @Test
+    fun apiProbeCompletesAtHeadersWithoutWaitingForTheBody() = runBlocking {
+        MockWebServer().use { server ->
+            server.start()
+            server.enqueue(MockResponse.Builder().code(401).body("slow body").bodyDelay(10, TimeUnit.SECONDS).build())
+            val transport = PicaRouteTransport(apiBaseUrl = server.url("/").toString())
+            assertTrue(withTimeout(2_000) { transport.measureApiRoute(ApiRoute.None) } >= 0)
+        }
+    }
+
+    @Test
+    fun apiProbeStillFailsForAnUnreachableTransport() = runTest {
+        val server = MockWebServer()
+        server.start()
+        val transport = PicaRouteTransport(apiBaseUrl = server.url("/").toString())
+        server.close()
+        assertFailsWith<IOException> { transport.measureApiRoute(ApiRoute.None) }
     }
 }
