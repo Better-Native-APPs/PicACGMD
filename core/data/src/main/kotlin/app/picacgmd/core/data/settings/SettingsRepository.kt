@@ -202,6 +202,16 @@ class SettingsRepository(
     }
 
     suspend fun setDownloadWifiOnly(value: Boolean) = set(Keys.downloadWifiOnly, value)
+
+    suspend fun setDownloadTreeUri(value: String?) {
+        require(value == null || value.startsWith("content://") && value.isNotBlank()) { "Download location must be a content URI or null" }
+        setNullable(Keys.downloadTreeUri, value)
+    }
+
+    /** A revoked old selection must not clear a newer folder chosen while validation was running. */
+    suspend fun clearDownloadTreeUriIfMatches(expected: String) {
+        dataStore.edit { if (it[Keys.downloadTreeUri] == expected) it.remove(Keys.downloadTreeUri) }
+    }
     suspend fun setAutoDownloadOnFavourite(value: Boolean) = set(Keys.autoDownloadOnFavourite, value)
     suspend fun setAutoDownloadWifiOnly(value: Boolean) = set(Keys.autoDownloadWifiOnly, value)
     suspend fun setAutoDeleteDownloadOnUnfavourite(value: Boolean) = set(Keys.autoDeleteDownloadOnUnfavourite, value)

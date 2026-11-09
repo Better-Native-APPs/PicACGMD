@@ -5,6 +5,7 @@ import app.picacgmd.core.data.db.DownloadDao
 import app.picacgmd.core.data.db.DownloadEp
 import app.picacgmd.core.data.db.DownloadStatus
 import app.picacgmd.core.domain.download.DownloadFileStore
+import app.picacgmd.core.domain.download.DownloadedFileLocation
 import app.picacgmd.core.domain.repository.HistoryRepository
 import app.picacgmd.core.network.ComicInfo
 import app.picacgmd.core.network.PicaImage
@@ -14,7 +15,6 @@ import app.picacgmd.feature.reader.ReaderChapter
 import app.picacgmd.feature.reader.ReaderPage
 import app.picacgmd.feature.reader.ReaderProgress
 import app.picacgmd.feature.reader.ReaderSource
-import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
@@ -30,7 +30,7 @@ class DownloadedReaderSource(
     private val onProgressError: (Exception) -> Unit,
 ) : ReaderSource {
     override val comicTitle: String = comic.title
-    override val comicCover: PageImage? = files.coverFile(comic.comicId).takeIf { it.isFile }?.let { PageImage.Local(it) }
+    override val comicCover: PageImage? = files.coverLocation(comic)?.pageImage()
 
     private val historyComic = ComicInfo(
         id = comic.comicId,
@@ -69,12 +69,12 @@ class DownloadedReaderSource(
     }
 
     override suspend fun loadPages(chapter: ReaderChapter): List<ReaderPage> = withContext(Dispatchers.IO) {
-        val root = files.rootDirectory()
+        files.requireReadAccess(comic)
         downloadDao.observePictures(chapter.id).first()
             .filter { it.status == DownloadStatus.DONE }
             .map { picture ->
                 ReaderPage(
-                    image = PageImage.Local(File(root, picture.filePath)),
+                    image = files.readLocation(comic, picture.filePath).pageImage(),
                     width = picture.width ?: 0,
                     height = picture.height ?: 0,
                 )
@@ -87,4 +87,9 @@ class DownloadedReaderSource(
             historyRepository.saveProgress(historyComic, ep.epOrder, ep.title, progress.pageIndex + 1)
         }
     }
+}
+
+private fun DownloadedFileLocation.pageImage(): PageImage = when (this) {
+    is DownloadedFileLocation.OnDisk -> PageImage.Local(file)
+    is DownloadedFileLocation.Document -> PageImage.Document(uri)
 }

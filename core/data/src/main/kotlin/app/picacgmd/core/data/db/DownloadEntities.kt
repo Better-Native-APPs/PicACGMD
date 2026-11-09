@@ -1,11 +1,12 @@
 package app.picacgmd.core.data.db
 
 import androidx.room.Entity
+import androidx.room.ColumnInfo
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
-/** Paths are relative to the app-managed download root, never external export destinations. */
+/** Null storageRoot preserves legacy app-private paths; SAF downloads persist their document URIs. */
 @Entity(tableName = "download_comics", indices = [Index(value = ["status", "createdAt"]), Index(value = ["folder"])])
 data class DownloadComic(
     @PrimaryKey val comicId: String,
@@ -26,6 +27,7 @@ data class DownloadComic(
     val filePath: String = comicId,
     val thumbFilePath: String = "$comicId/logo",
     val thumbFormat: String? = null,
+    @ColumnInfo(defaultValue = "NULL") val storageRoot: String? = null,
     val error: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = createdAt,

@@ -1,10 +1,18 @@
 package app.picacgmd.feature.downloads
 
-import android.content.Context
+import android.app.Activity
+import android.content.Intent
+import android.net.Uri
+import android.provider.DocumentsContract
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -13,9 +21,13 @@ import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -39,6 +51,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.picacgmd.core.designsystem.window.secureModalBottomSheetProperties
 import app.picacgmd.core.designsystem.theme.PikapikaTheme
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.settings.SettingsGroup
@@ -49,8 +65,10 @@ import app.picacgmd.feature.settings.SettingsWriter
 import app.picacgmd.feature.settings.formatBytes
 import app.picacgmd.feature.settings.rememberAppSettings
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
+import java.io.IOException
 import kotlin.math.roundToInt
 
 private const val ThrottleHint = 8
@@ -60,7 +78,7 @@ private val QuickThreads = listOf(1, 4, 8, 16)
  * Board 18 下载设置: 1–16 threads (device-dependent default, applies to running work immediately), automation and
  * network rules. Reached from the downloads top bar and from 设置 › 下载.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val container = LocalAppContainer.current
@@ -69,7 +87,70 @@ fun DownloadSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val writer = remember(container) { SettingsWriter(container.settingsRepository, scope, snackbar) }
     val settings = rememberAppSettings()
-    val downloadBytes by produceState<Long?>(null) { value = downloadFolderSize(context) }
+    val manager = rememberDownloadManager()
+    val downloads by remember(manager) { manager.observeQueue() }.collectAsStateWithLifecycle(initialValue = null)
+    val treeUri = settings?.downloadTreeUri
+    val downloadBytes = downloads?.filter {
+        if (treeUri == null) it.storageRoot?.startsWith("content://") != true else it.storageRoot == treeUri
+    }?.sumOf { it.downloadedBytes }
+    var choosingLocation by remember { mutableStateOf(false) }
+    val folderName by produceState<String?>(null, treeUri) {
+        value = treeUri?.let { selected -> withContext(Dispatchers.IO) {
+            try {
+                val tree = Uri.parse(selected)
+                val document = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+                context.contentResolver.query(document, arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME), null, null, null)
+                    ?.use { if (it.moveToFirst()) it.getString(0) else "目录不可用" } ?: "目录不可用"
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (_: Exception) { "目录不可用" }
+        } }
+    }
+
+    fun changeLocation(tree: String?) {
+        scope.launch {
+            try {
+                manager.setDownloadLocation(tree)
+                choosingLocation = false
+                snackbar.showSnackbar("下载位置已更改，已有下载保持原位置")
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                snackbar.showSnackbar("更改下载位置失败：${exception.message ?: "请重试"}")
+            }
+        }
+    }
+
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val data = result.data
+            val tree = data?.data
+            scope.launch {
+                try {
+                    if (data == null || tree == null) throw IOException("未获取到下载目录，请重试")
+                    val flags = data.flags and (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                    if (flags != (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)) {
+                        throw IOException("请选择允许读写的下载目录")
+                    }
+                    withContext(Dispatchers.IO) { context.contentResolver.takePersistableUriPermission(tree, flags) }
+                    manager.setDownloadLocation(tree.toString())
+                    snackbar.showSnackbar("下载位置已更改，已有下载保持原位置")
+                } catch (exception: CancellationException) {
+                    throw exception
+                } catch (exception: Exception) {
+                    snackbar.showSnackbar("更改下载位置失败：${exception.message ?: "请重新选择"}")
+                }
+            }
+        }
+    }
+    DownloadStorageNotice(manager, snackbar)
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        scope.launch {
+            try { manager.validateDownloadLocation() } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) { snackbar.showSnackbar("检查下载位置失败：${exception.message ?: "请重试"}") }
+        }
+    }
 
     SettingsPageScaffold("下载设置", onBack, snackbar, modifier) {
         if (settings == null) return@SettingsPageScaffold
@@ -124,20 +205,44 @@ fun DownloadSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             SettingsGroup("位置") {
                 row { shapes ->
                     SettingsNavRow(
-                        shapes, "下载位置", {},
-                        summary = "应用专属存储 · 已用 ${downloadBytes?.let(context::formatBytes) ?: "…"}",
-                        showChevron = false,
+                        shapes, "下载位置", { choosingLocation = true },
+                        summary = "${if (treeUri == null) "应用内部存储" else folderName ?: "所选文件夹"} · 已下载 ${downloadBytes?.let(context::formatBytes) ?: "…"}",
                         leading = { Icon(Icons.Outlined.FolderOpen, contentDescription = null) },
                     )
                 }
             }
         }
     }
-}
 
-internal suspend fun downloadFolderSize(context: Context): Long = withContext(Dispatchers.IO) {
-    val root = context.getExternalFilesDir(null)?.let { File(it, "downloads") } ?: return@withContext 0L
-    if (!root.exists()) 0L else root.walkBottomUp().filter(File::isFile).sumOf(File::length)
+    if (choosingLocation) ModalBottomSheet(
+        onDismissRequest = { choosingLocation = false },
+        properties = secureModalBottomSheetProperties(),
+    ) {
+        Text("下载位置", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
+        Text("只影响新下载的漫画，已有下载保留原位置。重新选择原目录可恢复失效的授权。",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp))
+        ListItem(
+            headlineContent = { Text("应用内部存储") },
+            supportingContent = { Text("无需目录授权") },
+            leadingContent = { RadioButton(selected = treeUri == null, onClick = null) },
+            modifier = Modifier.clickable { changeLocation(null) },
+        )
+        ListItem(
+            headlineContent = { Text(if (treeUri == null) "选择文件夹" else "更改文件夹") },
+            supportingContent = { Text(folderName ?: "使用系统文件选择器") },
+            leadingContent = { Icon(Icons.Outlined.FolderOpen, null) },
+            modifier = Modifier.clickable {
+                choosingLocation = false
+                picker.launch(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+                        Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION or Intent.FLAG_GRANT_PREFIX_URI_PERMISSION)
+                    treeUri?.let { putExtra(DocumentsContract.EXTRA_INITIAL_URI, Uri.parse(it)) }
+                })
+            },
+        )
+        Spacer(Modifier.height(24.dp))
+    }
 }
 
 /** Big number + 1–16 slider with ticks + quick presets; the warning appears only above 8. */

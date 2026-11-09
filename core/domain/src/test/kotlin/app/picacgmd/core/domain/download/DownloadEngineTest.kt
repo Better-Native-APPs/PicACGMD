@@ -317,10 +317,39 @@ class DownloadEngineTest {
         assertEquals(0, apiServer.requestCount)
     }
 
-    private fun engine(scope: TestScope) = DownloadEngine(
+    @Test
+    fun treeDownloadsPersistDocumentUrisAndKeepTheirRootWhenAddingChapters() = runTest {
+        val provider = FakeDownloadTreeAccess()
+        val files = DownloadFileStore({ root }, { root }, { File(root, "staging") }) { TreeDownloadBackend(provider) }
+        settings.value = settings.value.copy(downloadTreeUri = FakeDownloadTreeAccess.TREE)
+        val engine = engine(this, files)
+        engine.enqueue(listOf(DownloadRequest(DownloadComic(COMIC, "漫画",
+            thumbFileServer = imageServer.url("/").toString(), thumbPath = "cover.gif"), listOf(DownloadEp(EP, COMIC, 1, "第一话")))))
+        enqueuePictures("picture-1", 1, 1)
+        repeat(2) { imageServer.enqueue(imageResponse()) }
+        engine.runUntilIdle()
+        val comic = checkNotNull(dao.getComic(COMIC))
+        val picture = checkNotNull(dao.getPicture("picture-1"))
+        assertEquals(FakeDownloadTreeAccess.TREE, comic.storageRoot)
+        assertTrue(comic.thumbFilePath.startsWith("content://"))
+        assertTrue(picture.filePath.startsWith("content://"))
+        assertEquals(IMAGE, provider.openRead(provider.documentId(picture.filePath)).reader().use { it.readText() })
+        assertFalse(File(root, "$COMIC/1/1").exists())
+
+        settings.value = settings.value.copy(downloadTreeUri = null)
+        engine.enqueue(listOf(DownloadRequest(DownloadComic(COMIC, "漫画"), listOf(DownloadEp("ep-2", COMIC, 2, "第二话")))))
+        enqueuePictures("picture-2", 1, 1)
+        imageServer.enqueue(imageResponse())
+        engine.runUntilIdle()
+        assertEquals(FakeDownloadTreeAccess.TREE, dao.getComic(COMIC)?.storageRoot)
+        assertTrue(checkNotNull(dao.getPicture("picture-2")).filePath.startsWith("content://"))
+        assertEquals(DownloadStatus.DONE, dao.getComic(COMIC)?.status)
+    }
+
+    private fun engine(scope: TestScope, files: DownloadFileStore = DownloadFileStore(root)) = DownloadEngine(
         apiProvider = { PicaApi(baseUrl = apiServer.url("/").toString(), client = client) },
         imageClientProvider = { client }, dao = dao, settings = settings, network = network,
-        files = DownloadFileStore(root),
+        files = files,
         retryPolicy = DownloadRetryPolicy(jitter = { 0 }),
         limiter = AdaptiveDownloadLimiter(nowMillis = { scope.testScheduler.currentTime }, jitter = { 0 }),
         nowMillis = { scope.testScheduler.currentTime }, ioDispatcher = StandardTestDispatcher(scope.testScheduler),

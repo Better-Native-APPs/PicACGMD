@@ -77,6 +77,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -94,6 +95,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.Lifecycle
 import app.picacgmd.core.data.db.DownloadComic
 import app.picacgmd.core.data.db.DownloadStatus
 import app.picacgmd.core.designsystem.component.ComicCover
@@ -102,15 +105,18 @@ import app.picacgmd.core.designsystem.component.StatusPane
 import app.picacgmd.core.domain.download.DownloadManager
 import app.picacgmd.core.domain.download.DownloadManagerOwner
 import app.picacgmd.core.domain.download.DownloadProgress
+import app.picacgmd.core.domain.download.DownloadedFileLocation
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.bookshelf.SelectionMark
 import app.picacgmd.feature.bookshelf.ViewSwitcher
 import app.picacgmd.feature.bookshelf.safeImageUrl
 import app.picacgmd.feature.settings.formatBytes
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.Collator
 import java.util.Locale
 
@@ -180,6 +186,9 @@ fun DownloadsScreen(
             }
         }
     }
+
+    DownloadStorageNotice(manager, snackbar)
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { act("检查下载位置失败") { validateDownloadLocation() } }
 
     BackHandler(enabled = selecting) { selection = emptySet() }
     BackHandler(enabled = searching && !selecting) {
@@ -391,10 +400,26 @@ private fun DownloadsEmpty(onBrowse: () -> Unit, modifier: Modifier = Modifier) 
 internal fun rememberCover(comic: DownloadComic): String? {
     val container = LocalAppContainer.current
     val manager = rememberDownloadManager()
-    return remember(comic.comicId, comic.thumbPath, comic.status) {
-        val local = runCatching { manager.files.coverFile(comic.comicId) }.getOrNull()
-        if (local != null && local.isFile && local.length() > 0) local.toURI().toString()
-        else container.safeImageUrl(comic.thumbFileServer, comic.thumbPath)
+    val cover by produceState<String?>(null, comic.comicId, comic.storageRoot, comic.thumbFilePath, comic.thumbPath, comic.status) {
+        value = withContext(Dispatchers.IO) {
+            val local = try { manager.files.coverLocation(comic) } catch (exception: CancellationException) {
+                throw exception
+            } catch (_: Exception) { null }
+            when (local) {
+                is DownloadedFileLocation.OnDisk -> local.file.toURI().toString()
+                is DownloadedFileLocation.Document -> local.uri
+                null -> container.safeImageUrl(comic.thumbFileServer, comic.thumbPath)
+            }
+        }
+    }
+    return cover
+}
+
+@Composable
+internal fun DownloadStorageNotice(manager: DownloadManager, snackbar: SnackbarHostState) {
+    val notice by manager.files.storageNotice.collectAsStateWithLifecycle()
+    LaunchedEffect(notice) {
+        notice?.let { snackbar.showSnackbar(it); manager.files.clearStorageNotice() }
     }
 }
 

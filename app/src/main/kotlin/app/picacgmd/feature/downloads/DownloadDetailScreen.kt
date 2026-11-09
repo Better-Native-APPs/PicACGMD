@@ -90,6 +90,7 @@ fun DownloadDetailScreen(
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     val settings = rememberAppSettings()
+    DownloadStorageNotice(manager, snackbar)
     val snapshot by remember(manager, comicId) {
         combine(manager.observeComic(comicId), manager.observeChapters(comicId), ::DownloadDetailSnapshot)
     }.collectAsStateWithLifecycle(initialValue = null)

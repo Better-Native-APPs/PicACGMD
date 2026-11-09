@@ -26,7 +26,7 @@ class DatabaseMigrationTest {
     }
 
     @Test
-    fun versionTwoUpgradeOnlyCreatesTheNewLocalLibrary() {
+    fun versionTwoUpgradeCreatesLocalLibraryAndAddsOnlyTheDownloadRoot() {
         val migration = PikapikaDatabase_AutoMigration_2_3_Impl()
         assertEquals(2, migration.startVersion)
         assertEquals(3, migration.endVersion)
@@ -35,7 +35,9 @@ class DatabaseMigrationTest {
         assertEquals(2, createdTables.size)
         assertTrue(createdTables.any { "`local_folders`" in it })
         assertTrue(createdTables.any { "`local_folder_entries`" in it && "ON DELETE CASCADE" in it })
-        assertTrue(statements.none { Regex("^(DROP|ALTER|DELETE|UPDATE|REPLACE)\\b").containsMatchIn(it) })
+        val altered = statements.filter { it.startsWith("ALTER TABLE") }
+        assertEquals(listOf("ALTER TABLE `download_comics` ADD COLUMN `storageRoot` TEXT DEFAULT NULL"), altered)
+        assertTrue(statements.none { Regex("^(DROP|DELETE|UPDATE|REPLACE)\\b").containsMatchIn(it) })
         assertTrue(createdTables.none { "`local_favourites`" in it || "`local_favourite_folders`" in it })
     }
 

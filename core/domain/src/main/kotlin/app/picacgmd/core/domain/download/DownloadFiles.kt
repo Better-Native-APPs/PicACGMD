@@ -1,25 +1,118 @@
 package app.picacgmd.core.domain.download
 
+import app.picacgmd.core.data.db.DownloadComic
+import app.picacgmd.core.data.db.DownloadPicture
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.InputStream
+import java.net.URI
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 
-/** All files, including temporary files, remain in app-specific external storage. */
+/** Legacy file paths, root-pinned new downloads, and app-private staging for SAF streams. */
 class DownloadFileStore(private val rootProvider: () -> File) {
     constructor(root: File) : this({ root })
+    private var internalRootProvider: () -> File = rootProvider
+    private var stagingRootProvider: () -> File = { File(rootDirectory(), ".staging") }
+    private var treeBackendProvider: ((String) -> DownloadStorageBackend)? = null
+    private val backends = ConcurrentHashMap<String, DownloadStorageBackend>()
+    private val mutableStorageNotice = MutableStateFlow<String?>(null)
+    val storageNotice = mutableStorageNotice.asStateFlow()
+
+    internal constructor(
+        rootProvider: () -> File,
+        internalRootProvider: () -> File,
+        stagingRootProvider: () -> File,
+        treeBackendProvider: (String) -> DownloadStorageBackend,
+    ) : this(rootProvider) {
+        this.internalRootProvider = internalRootProvider
+        this.stagingRootProvider = stagingRootProvider
+        this.treeBackendProvider = treeBackendProvider
+    }
+
+    private fun backend(root: String?): DownloadStorageBackend {
+        val key = root ?: rootDirectory().toURI().toString()
+        return backends.computeIfAbsent(key) {
+            if (it.startsWith("content://")) treeBackendProvider?.invoke(it) ?: throw DownloadStorageAccessException(it)
+            else FileDownloadBackend(File(URI(it)))
+        }
+    }
+
+    internal fun selectStorageRoot(treeUri: String?): DownloadStorageSelection {
+        if (treeUri != null) {
+            try {
+                backend(treeUri).checkAccess(write = true)
+                return DownloadStorageSelection(treeUri)
+            } catch (exception: DownloadStorageAccessException) {
+                reportStorageAccessFailure(exception)
+            }
+        }
+        val root = internalRootProvider().also { it.ensureDirectory() }.toURI().toString()
+        return DownloadStorageSelection(root, unavailableTree = treeUri)
+    }
+
+    internal fun validateTree(treeUri: String) { backend(treeUri).checkAccess(write = true) }
+
+    fun reportStorageAccessFailure(exception: DownloadStorageAccessException) {
+        backends.remove(exception.treeUri)
+        mutableStorageNotice.value = "下载目录授权已失效，新下载将使用应用内部存储；已有下载请重新授权原目录"
+    }
+
+    fun clearStorageNotice() { mutableStorageNotice.value = null }
+
+    fun requireReadAccess(comic: DownloadComic) {
+        try { backend(comic.storageRoot).checkAccess(write = false) } catch (exception: DownloadStorageAccessException) {
+            reportStorageAccessFailure(exception)
+            throw exception
+        }
+    }
+
+    internal fun coverDestination(comic: DownloadComic): DownloadDestination {
+        val storage = backend(comic.storageRoot)
+        storage.checkAccess(write = true)
+        return DownloadDestination(storage, "${comic.comicId}/logo", comic.thumbFilePath.takeIf(::isStoredLocation))
+    }
+
+    internal fun pictureDestination(comic: DownloadComic, picture: DownloadPicture): DownloadDestination {
+        val storage = backend(comic.storageRoot)
+        storage.checkAccess(write = true)
+        return DownloadDestination(storage, "${comic.comicId}/${picture.epOrder}/${picture.pictureIndex}",
+            picture.filePath.takeIf(::isStoredLocation))
+    }
+
+    fun readLocation(comic: DownloadComic, path: String): DownloadedFileLocation = when {
+        path.startsWith("content://") -> DownloadedFileLocation.Document(path)
+        path.startsWith("file:") -> DownloadedFileLocation.OnDisk(File(URI(path)))
+        comic.storageRoot?.startsWith("content://") == true -> DownloadedFileLocation.Document(
+            backend(comic.storageRoot).location(path) ?: throw IOException("未找到下载文件"),
+        )
+        else -> DownloadedFileLocation.OnDisk(checkNotNull(backend(comic.storageRoot).localFile(path)))
+    }
+
+    fun coverLocation(comic: DownloadComic): DownloadedFileLocation? {
+        requireReadAccess(comic)
+        if (comic.storageRoot?.startsWith("content://") == true && !isStoredLocation(comic.thumbFilePath)) return null
+        val location = readLocation(comic, comic.thumbFilePath)
+        return when (location) {
+            is DownloadedFileLocation.OnDisk -> location.takeIf { it.file.isFile && it.file.length() > 0 }
+            is DownloadedFileLocation.Document -> location.takeIf { backend(comic.storageRoot).exists(it.uri) }
+        }
+    }
 
     fun rootDirectory(): File = rootProvider().also { it.ensureDirectory() }
 
@@ -63,11 +156,12 @@ class DownloadFileStore(private val rootProvider: () -> File) {
     /** Once per process/root; new sessions must not rescan a large library or delete live staging files. */
     fun removeInterruptedTemporaryFiles() {
         synchronized(temporaryFileCleanupRoots) {
-            val root = rootDirectory().absoluteFile
-            if (root !in temporaryFileCleanupRoots) {
-                root.walkTopDown().filter { it.isFile && it.name.startsWith('.') && it.name.endsWith(".part") }
-                    .forEach { if (!it.delete()) throw IOException("无法清理未完成的下载文件") }
-                temporaryFileCleanupRoots.add(root)
+            for (root in listOf(rootDirectory(), internalRootProvider(), stagingRootProvider()).map { it.absoluteFile }.distinct()) {
+                if (root !in temporaryFileCleanupRoots) {
+                    root.walkTopDown().filter { it.isFile && it.name.startsWith('.') && it.name.endsWith(".part") }
+                        .forEach { if (!it.delete()) throw IOException("无法清理未完成的下载文件") }
+                    temporaryFileCleanupRoots.add(root)
+                }
             }
         }
     }
@@ -83,6 +177,23 @@ class DownloadFileStore(private val rootProvider: () -> File) {
         if (directory.exists() && !directory.deleteRecursively()) throw IOException("删除章节文件失败")
     }
 
+    fun deleteComic(comic: DownloadComic) {
+        backend(comic.storageRoot).delete(comic.comicId)
+        // All-chapters request markers are app-owned even when the actual pages live in a tree.
+        if (comic.storageRoot != null) deleteComic(comic.comicId)
+    }
+
+    fun deleteChapter(comic: DownloadComic, epOrder: Int) {
+        require(epOrder > 0) { "Chapter order must be one-based" }
+        backend(comic.storageRoot).delete("${comic.comicId}/$epOrder")
+    }
+
+    internal fun createTemporaryFile(destination: DownloadDestination): File {
+        destination.localFile?.let { return createTemporaryFile(it) }
+        val directory = stagingRootProvider().also { it.ensureDirectory() }
+        return File.createTempFile(".download.", ".part", directory)
+    }
+
     internal fun createTemporaryFile(destination: File): File {
         destination.parentFile!!.ensureDirectory()
         return File.createTempFile(".${destination.name}.", ".part", destination.parentFile)
@@ -91,6 +202,7 @@ class DownloadFileStore(private val rootProvider: () -> File) {
     companion object {
         private const val ALL_EPISODES_MARKER = ".all-episodes"
         private val temporaryFileCleanupRoots = mutableSetOf<File>()
+        private fun isStoredLocation(path: String): Boolean = path.startsWith("content://") || path.startsWith("file:")
 
         fun requireComicId(comicId: String) {
             require(comicId.isNotBlank() && comicId != "." && comicId != ".." &&
@@ -101,11 +213,13 @@ class DownloadFileStore(private val rootProvider: () -> File) {
 
 internal data class StagedDownload(
     val temporaryFile: File,
-    val destination: File,
+    val destination: DownloadDestination,
     val bytes: Long,
     val format: String?,
 ) {
-    fun commit() = atomicMove(temporaryFile, destination)
+    private var committedLocation: String? = null
+    fun commit(): String = destination.publish(temporaryFile, format).also { committedLocation = it }
+    fun deleteCommitted() { committedLocation?.let(destination::delete) }
     fun discard() { temporaryFile.delete() }
 }
 
@@ -116,7 +230,7 @@ internal class StreamingImageDownloader(
     private val onBytes: (Int) -> Unit = {},
     private val nowMillis: () -> Long = System::currentTimeMillis,
 ) {
-    suspend fun download(url: String, destination: File): StagedDownload = suspendCancellableCoroutine { continuation ->
+    suspend fun download(url: String, destination: DownloadDestination): StagedDownload = suspendCancellableCoroutine { continuation ->
         val call = clientProvider().newCall(Request.Builder().url(url).build())
         continuation.invokeOnCancellation { call.cancel() }
         call.enqueue(object : Callback {
@@ -166,8 +280,10 @@ internal class StreamingImageDownloader(
 }
 
 /** Only inspect a small header; never decode a bitmap or load the complete image into memory. */
-internal fun imageFormat(file: File, contentType: String? = null): String? {
-    val header = file.inputStream().use { input ->
+internal fun imageFormat(file: File, contentType: String? = null): String? = imageFormat(file.inputStream(), contentType)
+
+internal fun imageFormat(stream: InputStream, contentType: String? = null): String? {
+    val header = stream.use { input ->
         val buffer = ByteArray(32)
         var size = 0
         while (size < buffer.size) {
@@ -194,11 +310,11 @@ internal fun imageFormat(file: File, contentType: String? = null): String? {
     }
 }
 
-private fun atomicMove(source: File, destination: File) {
+internal fun atomicMove(source: File, destination: File) {
     Files.move(source.toPath(), destination.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
 }
 
-private fun File.ensureDirectory() {
+internal fun File.ensureDirectory() {
     if (!isDirectory && !mkdirs() && !isDirectory) throw IOException("创建下载目录失败")
 }
 
