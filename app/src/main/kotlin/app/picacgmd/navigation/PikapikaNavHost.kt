@@ -36,7 +36,6 @@ import app.picacgmd.core.designsystem.component.HomeChannel
 import app.picacgmd.core.designsystem.component.BackPreviewFrame
 import app.picacgmd.core.designsystem.component.predictiveBackExit
 import app.picacgmd.core.domain.download.DownloadManagerOwner
-import app.picacgmd.feature.account.LoginScreen
 import app.picacgmd.feature.bookshelf.BookshelfScreen
 import app.picacgmd.feature.categories.CategoriesScreen
 import app.picacgmd.feature.comments.CommentsScreen
@@ -203,7 +202,6 @@ private fun NavGraphBuilder.topLevelGraphs(navController: NavHostController, com
             val messageBoardTitle = stringResource(R.string.comments_message_board)
             MeScreen(
                 onOpenSettings = { navController.navigate(SettingsRoute) },
-                onOpenLogin = { navController.navigate(LoginRoute) },
                 onOpenMyComments = { navController.navigate(MyCommentsRoute) },
                 onOpenAnnouncements = { navController.navigate(AnnouncementsRoute) },
                 onOpenMessageBoard = { navController.navigate(ComicCommentsRoute(MESSAGE_BOARD_COMIC_ID, messageBoardTitle)) },
@@ -354,9 +352,6 @@ private fun NavGraphBuilder.sharedDestinations(
             onBack = navController.backAction(),
             onOpenAllComics = { navController.navigate(ComicListRoute(title = allComicsTitle)) },
         )
-    }
-    page<LoginRoute> {
-        LoginScreen(onBack = navController.backAction())
     }
 }
 

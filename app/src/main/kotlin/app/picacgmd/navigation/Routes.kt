@@ -76,5 +76,3 @@ data class ReaderRoute(
 
 /** 分类管理: home category pins, order and visibility. */
 @Serializable data object CategoriesRoute
-
-@Serializable data object LoginRoute
