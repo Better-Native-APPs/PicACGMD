@@ -91,11 +91,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
@@ -106,7 +104,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil3.compose.AsyncImage
 import app.picacgmd.R
 import app.picacgmd.core.designsystem.component.ComicCover
 import app.picacgmd.core.designsystem.component.ComicCoverCard
@@ -115,6 +112,7 @@ import app.picacgmd.core.designsystem.component.LoadingState
 import app.picacgmd.core.designsystem.component.MetaIcons
 import app.picacgmd.core.designsystem.component.MetaInfo
 import app.picacgmd.core.designsystem.component.SectionHeader
+import app.picacgmd.core.designsystem.component.SoftBackdrop
 import app.picacgmd.core.designsystem.theme.PikapikaTheme
 import app.picacgmd.core.designsystem.theme.withTabularFigures
 import app.picacgmd.core.domain.repository.ReadingProgress
@@ -391,12 +389,7 @@ private fun Hero(comic: ComicInfo, onAuthorClick: (String) -> Unit) {
     val cover = rememberImageUrl(comic.thumb)
     val surface = MaterialTheme.colorScheme.surface
     Box(Modifier.fillMaxWidth()) {
-        AsyncImage(
-            model = cover,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.matchParentSize().blur(36.dp),
-        )
+        SoftBackdrop(cover, Modifier.matchParentSize())
         Box(
             Modifier
                 .matchParentSize()

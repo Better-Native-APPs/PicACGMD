@@ -172,10 +172,15 @@ fun GamesScreen(onBack: () -> Unit, onGameClick: (String) -> Unit) {
 }
 
 @Composable
-internal fun GameImage(image: PicaImage?, description: String?, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Crop) {
+internal fun rememberGameImageUrl(image: PicaImage?): String? {
     val provider = LocalAppContainer.current.networkConfigProvider
     val clients by provider.clients.collectAsStateWithLifecycle()
-    val url = remember(image, clients.configuration) { image?.takeIf { it.path.isNotBlank() }?.let(provider::imageUrl) }
+    return remember(image, clients.configuration) { image?.takeIf { it.path.isNotBlank() }?.let(provider::imageUrl) }
+}
+
+@Composable
+internal fun GameImage(image: PicaImage?, description: String?, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Crop) {
+    val url = rememberGameImageUrl(image)
     Surface(modifier, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         AsyncImage(model = url, contentDescription = description, modifier = Modifier.fillMaxSize(), contentScale = contentScale)
     }
