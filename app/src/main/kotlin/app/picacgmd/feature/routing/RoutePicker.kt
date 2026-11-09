@@ -212,7 +212,12 @@ private fun <T> RoutePickerContent(
         // Probes belong to the dialog, not to rows that can move while results are sorted.
         coroutineScope {
             options.forEach { option ->
-                launch { latencies = latencies + (option.value to probe(option.value)) }
+                launch {
+                    // Read the map only after the probe resumes: `latencies + (k to probe(k))` would
+                    // capture the map from before the suspension and drop every concurrent result.
+                    val latency = probe(option.value)
+                    latencies = latencies + (option.value to latency)
+                }
             }
         }
         if (!usingProxy && !busy) {
