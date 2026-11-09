@@ -28,7 +28,6 @@ import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -212,7 +211,6 @@ internal fun FollowView(
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun FollowHeader(sorted: List<Subscription>, onRefresh: () -> Unit) {
     val container = LocalAppContainer.current
@@ -240,11 +238,9 @@ private fun FollowHeader(sorted: List<Subscription>, onRefresh: () -> Unit) {
             color = if (checkState is SubscriptionCheckState.Failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f),
         )
-        if (checking) {
-            ContainedLoadingIndicator(Modifier.size(36.dp))
-        } else {
-            TextButton(onClick = onRefresh, enabled = sorted.isNotEmpty()) { Text("检查更新") }
-        }
+        // No spinner while checking: a check walks every subscription in turn and can take minutes,
+        // and the count on the left plus the bar below already show how far it got.
+        TextButton(onClick = onRefresh, enabled = sorted.isNotEmpty() && !checking) { Text("检查更新") }
     }
     if (checkState is SubscriptionCheckState.Checking && checkState.total > 0) {
         LinearProgressIndicator(

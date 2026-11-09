@@ -408,6 +408,9 @@ private fun BatchCard(progress: BatchProgress, modifier: Modifier = Modifier) {
                 progress = { if (progress.total == 0) 0f else progress.done.toFloat() / progress.total },
                 color = MaterialTheme.colorScheme.inversePrimary,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                // Still wave: a batch walks every favourite one request at a time and can take
+                // minutes; a moving wave would redraw every frame until it ends.
+                waveSpeed = 0.dp,
             )
         }
     }

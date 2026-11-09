@@ -68,6 +68,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -103,6 +104,8 @@ import app.picacgmd.feature.bookshelf.ViewSwitcher
 import app.picacgmd.feature.bookshelf.safeImageUrl
 import app.picacgmd.feature.settings.formatBytes
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.launch
 import java.text.Collator
 import java.util.Locale
@@ -407,7 +410,10 @@ private fun EngineCard(
     onResumeAll: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val progress by manager.progress.collectAsStateWithLifecycle()
+    // The engine re-measures speed every 250 ms. One refresh a second still reads as live and stops
+    // the card from waking the screen four times a second for the whole queue; the latest value wins.
+    val progressUpdates = remember(manager) { manager.progress.transform { emit(it); delay(1_000) } }
+    val progress by progressUpdates.collectAsStateWithLifecycle(manager.progress.value)
     val context = LocalContext.current
     val colors = MaterialTheme.colorScheme
     val throttled = running && progress.effectiveThreads < progress.configuredThreads
@@ -449,7 +455,16 @@ private fun EngineCard(
         Row(Modifier.padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
                 if (running && !progress.waitingForWifi) {
-                    LoadingIndicator(color = content, polygons = listOf(MaterialShapes.Cookie9Sided, MaterialShapes.Cookie4Sided))
+                    // A still cookie badge, not the morphing LoadingIndicator: a queue can run for an
+                    // hour, and the morph asked for a new frame on every vsync the whole time.
+                    // The engine's picture total only covers chapters resolved so far, so a ring
+                    // would refill to 100% after every chapter; the subtitle carries the numbers.
+                    Box(
+                        Modifier.size(32.dp).background(content, MaterialShapes.Cookie9Sided.toShape()),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Outlined.Download, contentDescription = null, tint = container, modifier = Modifier.size(20.dp))
+                    }
                 } else {
                     Icon(if (progress.waitingForWifi) Icons.Outlined.WifiOff else Icons.Outlined.Pause, contentDescription = null)
                 }
@@ -529,11 +544,14 @@ private fun ActiveList(
                 },
                 progressBar = {
                     when (comic.status) {
-                        DownloadStatus.RUNNING -> if (comic.selectedPictureCount > 0) {
-                            LinearWavyProgressIndicator(progress = { comic.fraction() }, modifier = Modifier.fillMaxWidth())
-                        } else {
-                            LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
-                        }
+                        // Wavy but still: the default wave speed redraws every frame for as long as a
+                        // comic is RUNNING, including hours spent offline or waiting for Wi-Fi. Before
+                        // the first chapter resolves, fraction() is 0 and the bar shows an empty track.
+                        DownloadStatus.RUNNING -> LinearWavyProgressIndicator(
+                            progress = { comic.fraction() },
+                            modifier = Modifier.fillMaxWidth(),
+                            waveSpeed = 0.dp,
+                        )
                         else -> LinearProgressIndicator(progress = { comic.fraction() }, modifier = Modifier.fillMaxWidth())
                     }
                 },
