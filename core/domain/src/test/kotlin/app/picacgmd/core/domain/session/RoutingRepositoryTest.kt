@@ -51,6 +51,17 @@ class RoutingRepositoryTest {
     }
 
     @Test
+    fun customAddressMatchingACatalogueEntryHasOnlyOneProbeAndRow() {
+        val address = defaultApiAddresses.first()
+        val state = apiRouteState(AppSettings(
+            apiRouteAddress = address, customApiIp = address, syncedApiAddresses = listOf(address),
+        ))
+        assertEquals(state.options.size, state.options.map { it.value }.distinct().size)
+        assertEquals(RouteSource.CUSTOM, state.selected.source)
+        assertEquals("自定义", state.selected.label)
+    }
+
+    @Test
     fun imageOptionsHaveTheSameShapeAndKeepTheFixedOrder() {
         assertEquals(4, imageRouteState(AppSettings.DEFAULT).options.size)
         val state = imageRouteState(AppSettings(customImageHost = "images.example.com"))
@@ -140,6 +151,71 @@ class RoutingRepositoryTest {
             repository.selectImageRoute(ImageServer.Split3)
             assertEquals(ImageServer.Split3, repository.imageRoutes.first().selected.value)
             assertEquals("https://images.example.com", repository.imageRoutes.first().customHost)
+        } finally {
+            provider.close()
+        }
+    }
+
+    @Test
+    fun fastestRouteExcludesFailuresAndUnmeasuredOptionsAndRetainsOrderForTies() {
+        val options = apiRouteState(AppSettings.DEFAULT).options
+        val latencies = mapOf(options[0].value to null, options[1].value to 850L, options[2].value to 700L)
+        assertEquals(options[2], fastestReachableRoute(options, latencies))
+        assertEquals(options[1], fastestReachableRoute(options, latencies + (options[1].value to 700L)))
+        assertNull(fastestReachableRoute(options, mapOf(options[0].value to null)))
+    }
+
+    @Test
+    fun failedApiSelectionFallsBackToFastestReachableWithoutChangingRememberedCustomRoute() = runTest {
+        val settings = SettingsRepository(RouteMemoryStore())
+        val provider = NetworkConfigProvider(settings.settings, backgroundScope)
+        val repository = RoutingRepository(settings, provider)
+        try {
+            repository.setCustomApiRoute("203.0.113.8")
+            val fastest = ApiRoute.Address(defaultApiAddresses[1])
+            val result = repository.fallbackApiRoute(mapOf(
+                ApiRoute.Address("203.0.113.8") to null,
+                ApiRoute.None to 900L,
+                ApiRoute.Address(defaultApiAddresses[0]) to 850L,
+                fastest to 700L,
+            ))
+            assertEquals(fastest, result?.value)
+            assertEquals(fastest, repository.apiRoutes.first().selected.value)
+            assertEquals("203.0.113.8", repository.apiRoutes.first().customIp)
+        } finally {
+            provider.close()
+        }
+    }
+
+    @Test
+    fun healthyUnmeasuredAndAllFailedSelectionsAreNotSilentlyChanged() = runTest {
+        val settings = SettingsRepository(RouteMemoryStore())
+        val provider = NetworkConfigProvider(settings.settings, backgroundScope)
+        val repository = RoutingRepository(settings, provider)
+        try {
+            val original = repository.apiRoutes.first().selected.value
+            assertNull(repository.fallbackApiRoute(mapOf(original to 900L, ApiRoute.None to 500L)))
+            assertNull(repository.fallbackApiRoute(mapOf(ApiRoute.None to 500L)))
+            assertNull(repository.fallbackApiRoute(mapOf(original to null, ApiRoute.None to null)))
+            assertEquals(original, repository.apiRoutes.first().selected.value)
+        } finally {
+            provider.close()
+        }
+    }
+
+    @Test
+    fun failedImageSelectionFallsBackIndependentlyOfApiSelection() = runTest {
+        val settings = SettingsRepository(RouteMemoryStore())
+        val provider = NetworkConfigProvider(settings.settings, backgroundScope)
+        val repository = RoutingRepository(settings, provider)
+        try {
+            val originalApi = repository.apiRoutes.first().selected.value
+            val result = repository.fallbackImageRoute(mapOf(
+                ImageServer.Original to null, ImageServer.Split1 to 700L, ImageServer.Split2 to 500L,
+            ))
+            assertEquals(ImageServer.Split2, result?.value)
+            assertEquals(ImageServer.Split2, repository.imageRoutes.first().selected.value)
+            assertEquals(originalApi, repository.apiRoutes.first().selected.value)
         } finally {
             provider.close()
         }

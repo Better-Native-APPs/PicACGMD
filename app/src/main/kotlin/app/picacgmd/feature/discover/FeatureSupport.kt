@@ -10,7 +10,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.toShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -23,13 +26,14 @@ import app.picacgmd.R
 import app.picacgmd.core.designsystem.component.ComicListItem
 import app.picacgmd.core.designsystem.component.ComicReadMark
 import app.picacgmd.core.designsystem.component.ErrorState
-import app.picacgmd.core.designsystem.component.OfflineState
 import app.picacgmd.core.domain.di.AppContainer
 import app.picacgmd.core.network.ComicSimple
 import app.picacgmd.core.network.PicaImage
 import app.picacgmd.core.network.PicaTransportException
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.comics.readMarkText
+import app.picacgmd.feature.routing.RouteKind
+import app.picacgmd.feature.routing.RoutePickerDialog
 import java.io.IOException
 import java.util.Locale
 import kotlin.coroutines.cancellation.CancellationException
@@ -86,13 +90,22 @@ internal fun formatCount(value: Int): String = when {
 /** Offline or error pane for a failed first load. */
 @Composable
 internal fun LoadFailure(failure: LoadState.Failed, onRetry: () -> Unit, modifier: Modifier = Modifier) {
+    var showRoutes by remember { mutableStateOf(false) }
     if (failure.offline) {
-        OfflineState(onRetry = onRetry, modifier = modifier)
+        ErrorState(
+            onRetry = onRetry,
+            modifier = modifier,
+            title = "连接失败",
+            description = "当前网络或分流无法连接，请重试或切换分流。",
+            secondaryActionLabel = "切换分流",
+            onSecondaryAction = { showRoutes = true },
+        )
     } else if (failure.message.isNullOrBlank()) {
         ErrorState(onRetry = onRetry, modifier = modifier)
     } else {
         ErrorState(onRetry = onRetry, modifier = modifier, description = failure.message)
     }
+    if (showRoutes) RoutePickerDialog(RouteKind.Api) { showRoutes = false }
 }
 
 /**

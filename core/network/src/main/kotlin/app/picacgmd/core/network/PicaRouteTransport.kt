@@ -14,6 +14,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import okhttp3.Call
 import okhttp3.Callback
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -36,7 +37,10 @@ object PicaInitAddresses {
 
 const val ROUTE_PROBE_TIMEOUT_MILLIS = 5_000L
 
-class PicaRouteTransport(private val initUrl: String = "http://68.183.234.72/init") {
+class PicaRouteTransport(
+    private val initUrl: String = "http://68.183.234.72/init",
+    private val apiBaseUrl: String = PicaProtocol.BASE_URL,
+) {
     /** Main-safe: requests and socket cleanup run on [Dispatchers.IO]. */
     suspend fun fetchApiAddresses(proxyUrl: String?): List<String> = withContext(Dispatchers.IO) {
         val client = PicaClientFactory.apiClient(PicaNetworkConfig(proxyUrl = proxyUrl)).newBuilder()
@@ -56,10 +60,19 @@ class PicaRouteTransport(private val initUrl: String = "http://68.183.234.72/ini
         }
     }
 
+    /** A 401 still proves the route works. Probing must not depend on login or JSON decoding. */
+    suspend fun measureApiRoute(route: ApiRoute): Long {
+        val url = apiBaseUrl.toHttpUrl().newBuilder().addPathSegment("keywords").build()
+        val request = Request.Builder().url(url).headers(PicaHeaderBuilder().build(url, "GET")).build()
+        return measureHeaders(PicaClientFactory.apiClient(PicaNetworkConfig(apiRoute = route)), request)
+    }
+
     /** Headers are enough: every HTTP status counts, redirects and response bodies are not followed. */
-    suspend fun measureImageHost(host: String): Long = withContext(Dispatchers.IO) {
-        val startedAt = System.nanoTime()
-        val client = PicaClientFactory.imageClient().newBuilder()
+    suspend fun measureImageHost(host: String): Long =
+        measureHeaders(PicaClientFactory.imageClient(), Request.Builder().url(host).build())
+
+    private suspend fun measureHeaders(transport: OkHttpClient, request: Request): Long = withContext(Dispatchers.IO) {
+        val client = transport.newBuilder()
             .proxy(Proxy.NO_PROXY)
             .followRedirects(false)
             .followSslRedirects(false)
@@ -69,7 +82,8 @@ class PicaRouteTransport(private val initUrl: String = "http://68.183.234.72/ini
             .writeTimeout(ROUTE_PROBE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
             .build()
         try {
-            client.newCall(Request.Builder().url(host).build()).consumeResponse {
+            val startedAt = System.nanoTime()
+            client.newCall(request).consumeResponse {
                 TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt)
             }
         } finally {
