@@ -33,6 +33,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -42,6 +45,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import app.picacgmd.R
+import app.picacgmd.core.data.settings.AppSettings
+import app.picacgmd.core.data.settings.FailedReloadAction
+import app.picacgmd.core.designsystem.component.StatusPane
+import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.core.designsystem.component.CategoryChannelButton
 import app.picacgmd.core.designsystem.component.CategoryTile
 import app.picacgmd.core.designsystem.component.HomeChannel
@@ -82,6 +89,10 @@ fun DiscoverScreen(
     avatarInitial: String? = null,
     currentRouteName: String? = null,
 ) {
+    val preferences = if (LocalInspectionMode.current) AppSettings.DEFAULT else {
+        val current by LocalAppContainer.current.settingsRepository.settings.collectAsStateWithLifecycle(null)
+        current
+    }
     Column(
         modifier
             .fillMaxSize()
@@ -127,11 +138,7 @@ fun DiscoverScreen(
             modifier = Modifier.weight(1f).fillMaxWidth(),
         ) {
             BoxWithConstraints(Modifier.fillMaxSize()) {
-                val columns = when {
-                    maxWidth < 600.dp -> 3
-                    maxWidth < 840.dp -> 4
-                    else -> 6
-                }
+                val columns = categoryColumns(preferences?.categoryColumnCount ?: 0, maxWidth.value)
                 LazyColumn(Modifier.fillMaxSize()) {
                     // Fixed channels need no data, so they stay usable while loading or offline.
                     item(key = "channels", contentType = "channels") {
@@ -165,7 +172,9 @@ fun DiscoverScreen(
                     when {
                         content != null -> Unit
                         failure != null -> item(key = "failure", contentType = "status") {
-                            LoadFailure(failure = failure, onRetry = onRetry)
+                            if (preferences?.failedReloadAction == FailedReloadAction.PULL_DOWN) {
+                                StatusPane(title = "加载失败", description = "下拉重试")
+                            } else LoadFailure(failure = failure, onRetry = onRetry)
                         }
                         else -> item(key = "skeleton", contentType = "status") {
                             DiscoverSkeleton(columns = columns)
@@ -178,6 +187,13 @@ fun DiscoverScreen(
             }
         }
     }
+}
+
+internal fun categoryColumns(preferred: Int, widthDp: Float): Int = when {
+    preferred in 2..7 -> preferred
+    widthDp < 600 -> 3
+    widthDp < 840 -> 4
+    else -> 6
 }
 
 @Composable

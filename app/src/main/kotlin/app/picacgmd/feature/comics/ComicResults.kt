@@ -37,6 +37,8 @@ import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
@@ -58,14 +60,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.picacgmd.R
 import app.picacgmd.core.data.settings.ListLayout
+import app.picacgmd.core.data.settings.FailedReloadAction
 import app.picacgmd.core.data.settings.PaginationMode
 import app.picacgmd.core.designsystem.component.ComicCoverCard
 import app.picacgmd.core.designsystem.component.ComicListItem
 import app.picacgmd.core.designsystem.component.EmptyState
 import app.picacgmd.core.designsystem.component.ErrorState
 import app.picacgmd.core.designsystem.component.SkeletonBlock
+import app.picacgmd.core.designsystem.component.StatusPane
 import app.picacgmd.core.network.ComicSimple
 import app.picacgmd.core.network.ComicSort
 import app.picacgmd.core.network.PicaImage
@@ -113,7 +118,7 @@ fun foundLabel(total: Int, hidden: Int): String =
  * hidden-comic slots, infinite scroll or button paging, long-press multi-select, and the live 「已读」
  * mark on every comic with view history.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ComicResults(
     state: ComicPageState,
@@ -134,6 +139,8 @@ fun ComicResults(
     emptyDescription: String? = null,
     header: (@Composable () -> Unit)? = null,
 ) {
+    val preferences by LocalAppContainer.current.settingsRepository.settings.collectAsStateWithLifecycle(null)
+    val pullToRetry = preferences?.failedReloadAction == FailedReloadAction.PULL_DOWN
     var jumpDialog by rememberSaveable { mutableStateOf(false) }
     val comicIds = remember(state.entries) { state.entries.mapNotNull { (it as? ComicEntry.Comic)?.comic?.id } }
     val readMarks = rememberReadMarks(comicIds)
@@ -153,7 +160,12 @@ fun ComicResults(
         if (paginationMode == PaginationMode.BUTTONS) gridState.scrollToItem(0)
     }
 
-    BoxWithConstraints(modifier.fillMaxSize()) {
+    PullToRefreshBox(
+        isRefreshing = state.loading && state.entries.isNotEmpty(),
+        onRefresh = { if (state.appendError != null) onRetryAppend() else onRetry() },
+        modifier = modifier.fillMaxSize(),
+    ) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
         val cells = when {
             columnCount > 0 && layout != ListLayout.DETAILS -> GridCells.Fixed(columnCount)
             layout == ListLayout.DETAILS -> if (maxWidth < 600.dp) GridCells.Fixed(1) else GridCells.Adaptive(380.dp)
@@ -179,7 +191,8 @@ fun ComicResults(
             when {
                 state.loading && state.entries.isEmpty() -> skeleton(layout)
                 state.error != null && state.entries.isEmpty() -> item(key = "error", span = { GridItemSpan(maxLineSpan) }) {
-                    ErrorState(onRetry = onRetry, description = state.error)
+                    if (pullToRetry) StatusPane(title = "加载失败", description = "${state.error}\n下拉重试")
+                    else ErrorState(onRetry = onRetry, description = state.error, modifier = Modifier.clickable(onClick = onRetry))
                 }
                 state.isEmpty -> item(key = "empty", span = { GridItemSpan(maxLineSpan) }) {
                     EmptyState(
@@ -210,7 +223,7 @@ fun ComicResults(
                     }
                     if (paginationMode == PaginationMode.INFINITE) {
                         item(key = "footer", span = { GridItemSpan(maxLineSpan) }, contentType = "footer") {
-                            AppendFooter(state, onRetryAppend)
+                            AppendFooter(state, onRetryAppend, pullToRetry)
                         }
                     }
                 }
@@ -229,6 +242,7 @@ fun ComicResults(
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = contentPadding.calculateBottomPadding() + 16.dp),
             )
         }
+    }
     }
     if (jumpDialog) {
         JumpToPageDialog(
@@ -349,11 +363,12 @@ private fun HiddenSlot(count: Int) {
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun AppendFooter(state: ComicPageState, onRetry: () -> Unit) {
+private fun AppendFooter(state: ComicPageState, onRetry: () -> Unit, pullToRetry: Boolean) {
     Box(Modifier.fillMaxWidth().padding(vertical = 20.dp), contentAlignment = Alignment.Center) {
         when {
             state.appending -> LoadingIndicator()
-            state.appendError != null -> TextButton(onClick = onRetry) { Text(stringResource(R.string.comics_load_more_failed)) }
+            state.appendError != null -> if (pullToRetry) Text("加载失败，下拉重试")
+                else TextButton(onClick = onRetry) { Text(stringResource(R.string.comics_load_more_failed)) }
             !state.hasNextPage && state.page > 0 -> Text(
                 stringResource(R.string.comics_end_of_list),
                 style = MaterialTheme.typography.labelMedium,

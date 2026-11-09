@@ -3,6 +3,7 @@ package app.picacgmd.feature.settings
 import android.content.Intent
 import android.hardware.display.DisplayManager
 import android.view.Display
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
@@ -74,8 +75,11 @@ internal fun AppearanceSettingsPage(onBack: () -> Unit, modifier: Modifier = Mod
         if (uri != null) {
             runCatching {
                 context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }.onSuccess {
+                writer.update { setStartupImageUri(uri.toString()) }
+            }.onFailure {
+                Toast.makeText(context, "无法保留图片访问权限，请重新选择", Toast.LENGTH_LONG).show()
             }
-            writer.update { setStartupImageUri(uri.toString()) }
         }
     }
     val displayModes = remember(context) {
@@ -169,7 +173,7 @@ internal fun AppearanceSettingsPage(onBack: () -> Unit, modifier: Modifier = Mod
                     SettingsSwitchRow(
                         shapes = shapes,
                         title = "连按两次返回退出",
-                        summary = "仅在首页生效",
+                        summary = "仅在一级导航页面生效",
                         checked = settings.doubleBackToExit,
                         onCheckedChange = { writer.update { setDoubleBackToExit(it) } },
                     )
@@ -348,4 +352,3 @@ private fun PaletteCard(
         }
     }
 }
-

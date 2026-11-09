@@ -3,6 +3,7 @@ package app.picacgmd
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.pm.ActivityInfo
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
@@ -29,14 +30,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import coil3.compose.AsyncImage
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.data.settings.AppTheme
+import app.picacgmd.core.data.settings.AppOrientation
+import app.picacgmd.core.data.settings.FailedReloadAction
+import app.picacgmd.core.designsystem.component.ImageFailureReloadAction
+import app.picacgmd.core.designsystem.component.LocalImageFailureReloadAction
 import app.picacgmd.core.designsystem.component.StatusPane
 import app.picacgmd.core.designsystem.theme.DarkMode
 import app.picacgmd.core.designsystem.theme.PikapikaTheme
@@ -52,6 +60,9 @@ import app.picacgmd.lock.AppLockState
 import app.picacgmd.navigation.ExternalNavigation
 import app.picacgmd.navigation.externalNavigation
 import app.picacgmd.ui.PikapikaApp
+import app.picacgmd.reader.toSystemBarsMode
+import app.picacgmd.feature.reader.ui.ReaderSystemBars
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -105,6 +116,16 @@ class MainActivity : ComponentActivity() {
                 SettingsDarkMode.DARK -> DarkMode.Dark
             }
             val dark = darkMode.isDark()
+            ReaderSystemBars(preferences.fullScreenDisplay.toSystemBarsMode(), lightBackground = !dark)
+            var startupImagePending by rememberSaveable { mutableStateOf(savedInstanceState == null) }
+            var startupImageLoaded by remember { mutableStateOf(false) }
+            val showStartupImage = startupImagePending && settings != null && !locked && preferences.startupImageUri != null
+            LaunchedEffect(settings != null, locked, showStartupImage, startupImageLoaded) {
+                if (settings != null && !locked) {
+                    if (showStartupImage) delay(if (startupImageLoaded) 800 else 2_000)
+                    startupImagePending = false
+                }
+            }
             DisposableEffect(dark) {
                 enableEdgeToEdge(
                     statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark },
@@ -134,6 +155,9 @@ class MainActivity : ComponentActivity() {
             CompositionLocalProvider(
                 LocalAppContainer provides container,
                 LocalSecureWindows provides (settings?.preventScreenshots ?: true),
+                LocalImageFailureReloadAction provides if (preferences.failedReloadAction == FailedReloadAction.TAP) {
+                    ImageFailureReloadAction.Tap
+                } else ImageFailureReloadAction.PullDown,
             ) {
                 PikapikaTheme(themeChoice, darkMode, preferences.pureBlack) {
                     Surface(Modifier.fillMaxSize()) {
@@ -147,6 +171,14 @@ class MainActivity : ComponentActivity() {
                                 Modifier.fillMaxSize(), contentAlignment = Alignment.Center,
                             ) { LoadingIndicator() }
                             locked -> AppLockScreen(authenticationError, ::unlock, ::finish)
+                            showStartupImage -> AsyncImage(
+                                model = preferences.startupImageUri,
+                                contentDescription = "启动图片",
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier.fillMaxSize(),
+                                onSuccess = { startupImageLoaded = true },
+                                onError = { startupImagePending = false },
+                            )
                             session == SessionState.Initializing -> Box(
                                 Modifier.fillMaxSize(), contentAlignment = Alignment.Center,
                             ) { LoadingIndicator() }
@@ -235,6 +267,7 @@ class MainActivity : ComponentActivity() {
             try {
                 pikaApplication.appContainer.settingsRepository.settings.collect { snapshot ->
                     settings = snapshot
+                    applyDisplayPreferences(snapshot)
                     lockState.configure(snapshot.appLockEnabled, authenticator.isDeviceSecure)
                     updateLockWindow()
                 }
@@ -243,6 +276,22 @@ class MainActivity : ComponentActivity() {
             } catch (exception: Exception) {
                 settingsError = exception.localizedMessage ?: "读取本机设置失败"
             }
+        }
+    }
+
+    @android.annotation.SuppressLint("SourceLockedOrientationActivity")
+    private fun applyDisplayPreferences(snapshot: AppSettings) {
+        // The reader has no separate orientation lock: the application preference wins everywhere.
+        val orientation = when (snapshot.appOrientation) {
+            AppOrientation.SYSTEM -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            AppOrientation.LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            AppOrientation.PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+        }
+        if (requestedOrientation != orientation) requestedOrientation = orientation
+        val modes = window.decorView.display?.supportedModes.orEmpty()
+        val mode = snapshot.displayModeId?.takeIf { id -> modes.any { it.modeId == id } } ?: 0
+        if (window.attributes.preferredDisplayModeId != mode) {
+            window.attributes = window.attributes.apply { preferredDisplayModeId = mode }
         }
     }
 }

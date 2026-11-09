@@ -368,7 +368,7 @@ fun ReaderScreen(
     }
 
     ReaderSystemBars(
-        hidden = settings.fullscreen && !controlsShown,
+        mode = settings.systemBars,
         lightBackground = palette.background.luminance() > 0.5f,
     )
     ReaderKeepScreenOn(settings.keepScreenOn)
@@ -514,7 +514,7 @@ fun ReaderScreen(
                     onOpenSettings = { openSheet = OpenSheet.Settings },
                     onFullscreen = {
                         controlsVisible = false
-                        if (!settings.fullscreen) onConfigChange(settings.copy(fullscreen = true))
+                        if (settings.systemBars == SystemBarsMode.Visible) onConfigChange(settings.copy(systemBars = SystemBarsMode.HiddenAll))
                     },
                     onPreviousChapter = session::openPrevious,
                     onNextChapter = session::openNext,

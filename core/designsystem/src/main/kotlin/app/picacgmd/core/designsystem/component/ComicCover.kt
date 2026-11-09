@@ -5,6 +5,8 @@ import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,6 +34,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,6 +69,27 @@ import app.picacgmd.core.designsystem.theme.withTabularFigures
 
 /** Width : height of every comic cover (1 : 1.4). */
 const val ComicCoverAspectRatio: Float = 1f / 1.4f
+
+enum class ImageFailureReloadAction { Tap, PullDown }
+
+/** Supplied by the app; shared image components do not depend on stored preferences. */
+val LocalImageFailureReloadAction = staticCompositionLocalOf { ImageFailureReloadAction.Tap }
+
+@Composable
+fun Modifier.reloadFailedImage(onReload: () -> Unit): Modifier = when (LocalImageFailureReloadAction.current) {
+    ImageFailureReloadAction.Tap -> clickable(onClickLabel = "重试", onClick = onReload)
+    ImageFailureReloadAction.PullDown -> semantics {
+        customActions = listOf(CustomAccessibilityAction("重试") { onReload(); true })
+    }.pointerInput(onReload) {
+        var distance = 0f
+        detectVerticalDragGestures(
+            onDragStart = { distance = 0f },
+            onVerticalDrag = { change, delta -> change.consume(); distance += delta },
+            onDragEnd = { if (distance >= 48.dp.toPx()) onReload() },
+            onDragCancel = { distance = 0f },
+        )
+    }
+}
 
 /** Scrim behind the white marks drawn on top of covers. */
 private val CoverMarkScrim = Color.Black.copy(alpha = 0.62f)
@@ -94,11 +123,13 @@ fun ComicCover(
     progressDetailShort: String? = null,
 ) {
     var failed by remember(coverUrl) { mutableStateOf(false) }
+    var attempt by remember(coverUrl) { mutableStateOf(0) }
     val composedAt = remember { System.nanoTime() }
     Box(
         modifier = modifier
             .aspectRatio(ComicCoverAspectRatio)
             .clip(shape)
+            .then(if (failed) Modifier.reloadFailedImage { failed = false; attempt++ } else Modifier)
             .background(MaterialTheme.colorScheme.surfaceContainerHigh),
     ) {
         if (coverUrl.isNullOrEmpty() || failed) {
@@ -112,6 +143,7 @@ fun ComicCover(
             )
         }
         if (!coverUrl.isNullOrEmpty()) {
+            key(attempt) {
             AsyncImage(
                 model = coverUrl,
                 contentDescription = contentDescription,
@@ -120,6 +152,7 @@ fun ComicCover(
                 onError = { failed = true },
                 modifier = Modifier.fillMaxSize(),
             )
+            }
         }
         if (progressLabel != null) {
             // The history lookup for a fresh page lands a beat after its cards; those marks stay still,

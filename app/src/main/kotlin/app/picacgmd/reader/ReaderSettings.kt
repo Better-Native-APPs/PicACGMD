@@ -15,6 +15,7 @@ import app.picacgmd.feature.reader.ReaderFilter
 import app.picacgmd.feature.reader.ReaderMode
 import app.picacgmd.feature.reader.SliderPosition
 import app.picacgmd.feature.reader.StripPaging
+import app.picacgmd.feature.reader.SystemBarsMode
 import app.picacgmd.feature.reader.TapMode
 import app.picacgmd.feature.reader.TwoPageArrangement
 import app.picacgmd.core.data.settings.ImageQuality as StoredImageQuality
@@ -85,7 +86,7 @@ internal fun AppSettings.toReaderConfig(base: ReaderConfig = ReaderConfig()): Re
     lockDragBounds = lockDragBounds,
     volumeKeyPaging = volumeKeyPaging,
     volumeKeyChapterJump = volumeKeyChapterPaging,
-    fullscreen = fullScreenDisplay != FullScreenDisplay.OFF,
+    systemBars = fullScreenDisplay.toSystemBarsMode(),
     autoFullscreen = readerFullScreen,
     autoFullscreenOnForward = fullScreenOnForward,
     keepScreenOn = keepScreenOn,
@@ -179,8 +180,12 @@ internal suspend fun SettingsRepository.saveReaderConfig(previous: ReaderConfig,
     if (previous.lockDragBounds != next.lockDragBounds) setLockDragBounds(next.lockDragBounds)
     if (previous.volumeKeyPaging != next.volumeKeyPaging) setVolumeKeyPaging(next.volumeKeyPaging)
     if (previous.volumeKeyChapterJump != next.volumeKeyChapterJump) setVolumeKeyChapterPaging(next.volumeKeyChapterJump)
-    if (previous.fullscreen != next.fullscreen) {
-        setFullScreenDisplay(if (next.fullscreen) FullScreenDisplay.HIDE_SYSTEM_BARS else FullScreenDisplay.OFF)
+    if (previous.systemBars != next.systemBars) {
+        setFullScreenDisplay(when (next.systemBars) {
+            SystemBarsMode.Visible -> FullScreenDisplay.OFF
+            SystemBarsMode.HiddenNavigation -> FullScreenDisplay.HIDE_NAVIGATION
+            SystemBarsMode.HiddenAll -> FullScreenDisplay.HIDE_SYSTEM_BARS
+        })
     }
     if (previous.autoFullscreen != next.autoFullscreen) setReaderFullScreen(next.autoFullscreen)
     if (previous.autoFullscreenOnForward != next.autoFullscreenOnForward) setFullScreenOnForward(next.autoFullscreenOnForward)
@@ -191,4 +196,10 @@ internal suspend fun SettingsRepository.saveReaderConfig(previous: ReaderConfig,
         setReaderZoom(next.minZoom, next.maxZoom, next.doubleTapZoom)
     }
     if (previous.gestureSpeed != next.gestureSpeed) setGestureSpeed(next.gestureSpeed)
+}
+
+internal fun FullScreenDisplay.toSystemBarsMode(): SystemBarsMode = when (this) {
+    FullScreenDisplay.OFF -> SystemBarsMode.Visible
+    FullScreenDisplay.HIDE_NAVIGATION -> SystemBarsMode.HiddenNavigation
+    FullScreenDisplay.HIDE_SYSTEM_BARS -> SystemBarsMode.HiddenAll
 }
