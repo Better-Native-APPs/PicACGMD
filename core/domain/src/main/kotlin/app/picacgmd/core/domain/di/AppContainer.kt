@@ -1,11 +1,15 @@
 package app.picacgmd.core.domain.di
 
 import android.content.Context
+import android.util.Log
 import coil3.ImageLoader
 import app.picacgmd.core.data.db.PikapikaDatabase
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.data.settings.SettingsRepository
 import app.picacgmd.core.domain.image.createImageLoader
+import app.picacgmd.core.domain.cache.CacheMaintenance
+import app.picacgmd.core.domain.favourite.FavouriteDownloadActions
+import app.picacgmd.core.domain.download.DownloadManagerOwner
 import app.picacgmd.core.domain.isLowRamDevice
 import app.picacgmd.core.domain.repository.AnnouncementRepository
 import app.picacgmd.core.domain.repository.ComicRepository
@@ -27,6 +31,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
 
 /** Retain one container on the Application; no Activity context or DI framework is needed. */
 class AppContainer(context: Context) : AutoCloseable {
@@ -62,10 +68,21 @@ class AppContainer(context: Context) : AutoCloseable {
     val tagFavouriteRepository: TagFavouriteRepository = TagFavouriteRepository(database.tagFavouriteDao())
     val localFavouriteRepository: LocalFavouriteRepository = LocalFavouriteRepository(database.localFavouriteDao())
     val imageLoader: ImageLoader = createImageLoader(applicationContext, networkConfigProvider, lowRamDevice = lowRamDevice)
+    val cacheMaintenance = CacheMaintenance(applicationContext, imageLoader, database.apiCacheDao())
+    val favouriteDownloads by lazy {
+        FavouriteDownloadActions(applicationContext, settingsRepository, (applicationContext as DownloadManagerOwner).downloadManager)
+    }
 
     // Download wiring belongs to its parallel lane; these shared dependencies are ready for it.
 
     suspend fun onAppOpen(): SubscriptionCheckReport {
+        try {
+            cacheMaintenance.cleanIfDue(settingsRepository.settings.first().autoCleanCacheInterval)
+        } catch (cancel: CancellationException) {
+            throw cancel
+        } catch (exception: Exception) {
+            Log.w("CacheMaintenance", "Automatic cache cleanup failed", exception)
+        }
         networkConfigProvider.awaitReady()
         sessionManager.onAppOpen()
         return subscriptionRepository.checkOnAppOpen()

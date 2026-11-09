@@ -167,11 +167,7 @@ internal fun DataSettingsPage(onBack: () -> Unit, onOpenDownloads: () -> Unit, m
                 scope.launch {
                     val message = try {
                         withContext(Dispatchers.IO) {
-                            if (images) {
-                                container.imageLoader.memoryCache?.clear()
-                                container.imageLoader.diskCache?.clear()
-                            }
-                            if (api) container.database.apiCacheDao().clear()
+                            container.cacheMaintenance.clear(images, api)
                             if (history) container.historyRepository.clear()
                         }
                         "已清理"

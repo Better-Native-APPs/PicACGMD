@@ -73,6 +73,8 @@ class ComicDetailViewModel(private val container: AppContainer, val comicId: Str
     val state: StateFlow<DetailState> = mutableState.asStateFlow()
     private val mutableMessages = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val messages: SharedFlow<String> = mutableMessages.asSharedFlow()
+    private val mutableNotices = MutableSharedFlow<String>(extraBufferCapacity = 4)
+    val notices: SharedFlow<String> = mutableNotices.asSharedFlow()
 
     val localFolders: StateFlow<List<LocalFavouriteFolder>?> = container.localFavouriteRepository.folders
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -247,7 +249,19 @@ class ComicDetailViewModel(private val container: AppContainer, val comicId: Str
         mutableState.update { it.copy(favouriting = true, comic = comic.copy(isFavourite = !comic.isFavourite)) }
         viewModelScope.launch {
             runCatching { comics.toggleFavourite(comicId) }
-                .onSuccess { fav -> mutableState.update { s -> s.copy(favouriting = false, comic = s.comic?.copy(isFavourite = fav)) } }
+                .onSuccess { fav ->
+                    mutableState.update { s -> s.copy(favouriting = false, comic = s.comic?.copy(isFavourite = fav)) }
+                    if (fav) {
+                        try {
+                            container.favouriteDownloads.onAdded(comic)?.let { mutableNotices.emit(it) }
+                        } catch (cancel: CancellationException) {
+                            throw cancel
+                        } catch (exception: Exception) {
+                            // The server favourite succeeded; a failed download must not roll it back.
+                            mutableNotices.emit("已收藏，自动下载失败：${exception.readable()}")
+                        }
+                    }
+                }
                 .onFailure { error ->
                     mutableState.update { it.copy(favouriting = false, comic = comic) }
                     mutableMessages.tryEmit(error.readable())
