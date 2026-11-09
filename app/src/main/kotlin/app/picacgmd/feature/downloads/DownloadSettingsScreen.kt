@@ -53,12 +53,11 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.math.roundToInt
 
-private const val DefaultThreads = 4
 private const val ThrottleHint = 8
 private val QuickThreads = listOf(1, 4, 8, 16)
 
 /**
- * Board 18 下载设置: 1–16 threads (default 4, applies to running work immediately), automation and
+ * Board 18 下载设置: 1–16 threads (device-dependent default, applies to running work immediately), automation and
  * network rules. Reached from the downloads top bar and from 设置 › 下载.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -77,6 +76,7 @@ fun DownloadSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         item {
             ThreadCountCard(
                 threads = settings.downloadThreads,
+                defaultThreads = container.defaultDownloadConcurrency,
                 onCommit = { value -> writer.update { setDownloadThreads(value) } },
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
@@ -142,7 +142,7 @@ internal suspend fun downloadFolderSize(context: Context): Long = withContext(Di
 
 /** Big number + 1–16 slider with ticks + quick presets; the warning appears only above 8. */
 @Composable
-private fun ThreadCountCard(threads: Int, onCommit: (Int) -> Unit, modifier: Modifier = Modifier) {
+private fun ThreadCountCard(threads: Int, defaultThreads: Int, onCommit: (Int) -> Unit, modifier: Modifier = Modifier) {
     var dragging by remember { mutableStateOf(false) }
     var local by remember { mutableFloatStateOf(threads.toFloat()) }
     val shown = if (dragging) local.roundToInt() else threads
@@ -157,7 +157,7 @@ private fun ThreadCountCard(threads: Int, onCommit: (Int) -> Unit, modifier: Mod
                     Column(Modifier.weight(1f)) {
                         Text("同时下载线程数", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "1–16，默认 $DefaultThreads",
+                            "1–16，默认 $defaultThreads",
                             style = MaterialTheme.typography.bodySmall,
                             color = colors.onSurfaceVariant,
                         )
@@ -189,10 +189,10 @@ private fun ThreadCountCard(threads: Int, onCommit: (Int) -> Unit, modifier: Mod
                         },
                 )
                 Box(Modifier.fillMaxWidth().padding(horizontal = 10.dp)) {
-                    listOf(1, 4, 8, 12, 16).forEach { tick ->
+                    listOf(1, defaultThreads, 8, 12, 16).forEach { tick ->
                         val fraction = (tick - 1) / 15f
                         Text(
-                            if (tick == DefaultThreads) "4 · 默认" else "$tick",
+                            if (tick == defaultThreads) "$tick · 默认" else "$tick",
                             style = MaterialTheme.typography.labelSmall,
                             color = if (tick == shown) colors.primary else colors.onSurfaceVariant,
                             modifier = Modifier.align(BiasAlignment(fraction * 2 - 1)),
