@@ -26,6 +26,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +48,8 @@ import app.picacgmd.navigation.externalNavigation
 import app.picacgmd.ui.PikapikaApp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import app.picacgmd.core.data.settings.DarkMode as SettingsDarkMode
 
@@ -88,10 +91,14 @@ class MainActivity : ComponentActivity() {
                 onDispose {}
             }
             val session by container.sessionManager.state.collectAsStateWithLifecycle()
-            val progress by pikaApplication.downloadManager.progress.collectAsStateWithLifecycle()
+            // Only whether anything is downloading matters here; collecting progress itself would
+            // recompose the whole app on every engine tick.
+            val downloadsActive by remember {
+                pikaApplication.downloadManager.progress.map { it.activeComics > 0 }.distinctUntilChanged()
+            }.collectAsStateWithLifecycle(false)
             val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-            LaunchedEffect(progress.activeComics, session) {
-                if (Build.VERSION.SDK_INT >= 33 && session is SessionState.SignedIn && progress.activeComics > 0) {
+            LaunchedEffect(downloadsActive, session) {
+                if (Build.VERSION.SDK_INT >= 33 && session is SessionState.SignedIn && downloadsActive) {
                     val history = getSharedPreferences("system_permissions", MODE_PRIVATE)
                     if (!history.getBoolean("notifications_requested", false)) {
                         history.edit().putBoolean("notifications_requested", true).apply()

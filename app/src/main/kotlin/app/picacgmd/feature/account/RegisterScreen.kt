@@ -26,6 +26,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import app.picacgmd.core.network.RegisterDto
 import app.picacgmd.di.LocalAppContainer
 import java.time.Instant
@@ -61,7 +62,7 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: () -> Unit) {
             Button(onRegistered, Modifier.fillMaxWidth()) { Text("返回登录") }
         } else {
             Text("第 $step 步，共 2 步", style = MaterialTheme.typography.titleMedium)
-            LinearWavyProgressIndicator(progress = { step / 2f }, modifier = Modifier.fillMaxWidth())
+            LinearWavyProgressIndicator(progress = { step / 2f }, modifier = Modifier.fillMaxWidth(), waveSpeed = 0.dp)
             if (step == 1) {
                 OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), label = { Text("账号") }, singleLine = true)
                 PasswordField(password, { password = it })
