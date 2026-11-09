@@ -202,6 +202,37 @@ internal class DownloadEngine(
         removeDeletingComic(comicId)
     }
 
+    suspend fun retryChapter(epId: String): Int = withContext(ioDispatcher) {
+        val ep = dao.getEp(epId) ?: return@withContext 0
+        withComicLock(ep.comicId) {
+            val count = dao.retryEp(epId, nowMillis())
+            manifestTotals.remove(ep.comicId)
+            refreshFailureCount(ep.comicId)
+            count
+        }
+    }
+
+    suspend fun deleteChapter(epId: String) = withContext(ioDispatcher) {
+        val ep = dao.getEp(epId) ?: return@withContext
+        flushActivePictureResults(ep.comicId)
+        withContext(NonCancellable) { withComicLock(ep.comicId) {
+            val current = dao.getEp(epId) ?: return@withComicLock
+            if (dao.getComic(current.comicId)?.status == DownloadStatus.DELETING) return@withComicLock
+            // Invalidate claims before removing files. Late transfers are discarded, never committed.
+            dao.transitionEp(epId, DownloadStatus.DELETING, updatedAt = nowMillis())
+            files.deleteChapter(current.comicId, current.epOrder)
+            dao.deleteEp(epId)
+            dao.refreshProgress(current.comicId, nowMillis())
+            val remaining = dao.observeEps(current.comicId).first()
+            val comic = dao.getComic(current.comicId)
+            if (comic != null && remaining.all { it.status == DownloadStatus.DONE }) {
+                dao.upsertComic(comic.copy(status = DownloadStatus.DONE, error = null, completedAt = nowMillis()))
+            }
+            manifestTotals.remove(current.comicId)
+            refreshFailureCount(current.comicId)
+        } }
+    }
+
     /** Serialized restarts guarantee interrupted claims are recovered only after old workers exit. */
     suspend fun runUntilIdle() = runMutex.withLock {
         withContext(ioDispatcher) {
@@ -329,7 +360,6 @@ internal class DownloadEngine(
                     updateQueueProgress()
                     if (!manifestsOnly) {
                         val coverError = downloadCover(comicId)
-                        prepareFetchedEpisodes(comicId)
                         downloadPendingPictures(comicId)
                         summarize(comicId, coverError)
                     }
@@ -424,15 +454,9 @@ internal class DownloadEngine(
         }
     }
 
-    private suspend fun prepareFetchedEpisodes(comicId: String) = withComicLock(comicId) {
-        if (dao.getComic(comicId)?.status !in activeStatuses) return@withComicLock
-        dao.observeEps(comicId).first().filter { it.picturesFetched && it.status == DownloadStatus.QUEUED }
-            .forEach { dao.transitionEp(it.epId, DownloadStatus.RUNNING, updatedAt = nowMillis()) }
-    }
-
     private suspend fun resolvePictures(ep: DownloadEp) {
         withComicLock(ep.comicId) {
-            if (dao.getComic(ep.comicId)?.status !in activeStatuses) return@withComicLock
+            if (dao.getComic(ep.comicId)?.status !in activeStatuses || dao.getEp(ep.epId)?.status !in activeStatuses) return@withComicLock
             dao.transitionEp(ep.epId, DownloadStatus.RUNNING, updatedAt = nowMillis())
         }
         try {
@@ -454,7 +478,7 @@ internal class DownloadEngine(
                     )
                 }
                 withComicLock(ep.comicId) {
-                    if (dao.getComic(ep.comicId)?.status !in activeStatuses) return@withComicLock
+                    if (dao.getComic(ep.comicId)?.status !in activeStatuses || dao.getEp(ep.epId)?.status !in activeStatuses) return@withComicLock
                     dao.upsertPictures(pictures.map { picture ->
                         dao.getPicture(picture.pictureId)?.also {
                             require(it.epId == ep.epId && it.pictureIndex == picture.pictureIndex)
@@ -466,14 +490,16 @@ internal class DownloadEngine(
             withComicLock(ep.comicId) {
                 if (dao.getComic(ep.comicId)?.status !in activeStatuses) return@withComicLock
                 val current = dao.getEp(ep.epId) ?: return@withComicLock
-                dao.upsertEps(listOf(current.copy(picturesFetched = true, selectedPictureCount = index, updatedAt = nowMillis())))
+                if (current.status !in activeStatuses) return@withComicLock
+                dao.upsertEps(listOf(current.copy(picturesFetched = true, status = DownloadStatus.QUEUED,
+                    selectedPictureCount = index, updatedAt = nowMillis())))
                 dao.refreshProgress(ep.comicId, nowMillis())
             }
         } catch (exception: CancellationException) {
             throw exception
         } catch (exception: Exception) {
             withComicLock(ep.comicId) {
-                if (dao.getComic(ep.comicId)?.status in activeStatuses) {
+                if (dao.getComic(ep.comicId)?.status in activeStatuses && dao.getEp(ep.epId)?.status in activeStatuses) {
                     dao.transitionEp(ep.epId, DownloadStatus.FAILED, downloadError(exception), nowMillis())
                 }
             }
@@ -513,6 +539,11 @@ internal class DownloadEngine(
                     flushed.await()
                 }
                 previousEpId = epId
+                withComicLock(comicId) {
+                    if (dao.getEp(epId)?.status == DownloadStatus.QUEUED) {
+                        dao.transitionEp(epId, DownloadStatus.RUNNING, updatedAt = nowMillis())
+                    }
+                }
                 val batch = pending.takeWhile { it.epId == epId }.map { PictureTask(it, CompletableDeferred()) }
                 batch.forEach { tasks.send(it) }
                 batch.forEach { it.finished.await() }
@@ -683,6 +714,7 @@ internal class DownloadEngine(
                         event.picture
                     }
                     dao.savePictureResults(prepared, nowMillis())
+                    prepared.map { it.epId }.distinct().forEach { finishEpisodeIfReady(it) }
                     committed.forEach { event ->
                         val saved = dao.getPicture(event.picture.pictureId)
                         if (saved?.status != DownloadStatus.DONE || saved.attemptCount != event.picture.attemptCount) {
@@ -699,16 +731,7 @@ internal class DownloadEngine(
 
     private suspend fun summarize(comicId: String, coverError: String?) = withComicLock(comicId) {
         if (dao.getComic(comicId)?.status !in activeStatuses) return@withComicLock
-        dao.observeEps(comicId).first().filter { it.status in activeStatuses && it.picturesFetched }.forEach { ep ->
-            val pictures = dao.observePictures(ep.epId).first()
-            if (pictures.all { it.status == DownloadStatus.DONE || it.status == DownloadStatus.FAILED }) {
-                if (ep.status == DownloadStatus.QUEUED) dao.transitionEp(ep.epId, DownloadStatus.RUNNING, updatedAt = nowMillis())
-                val error = pictures.firstOrNull { it.status == DownloadStatus.FAILED }?.error
-                dao.transitionEp(ep.epId, if (error != null || pictures.any { it.status == DownloadStatus.FAILED }) {
-                    DownloadStatus.FAILED
-                } else DownloadStatus.DONE, error, nowMillis())
-            }
-        }
+        dao.observeEps(comicId).first().forEach { finishEpisodeIfReady(it.epId) }
         val eps = dao.observeEps(comicId).first()
         val counts = dao.getCounts(comicId) ?: return@withComicLock
         if (files.allEpisodesRequest(comicId) != null || eps.any { it.status in activeStatuses } ||
@@ -717,6 +740,17 @@ internal class DownloadEngine(
         val failed = coverError != null || eps.any { it.status == DownloadStatus.FAILED } || counts.failedPictures > 0
         dao.transitionComic(comicId, if (failed) DownloadStatus.FAILED else DownloadStatus.DONE, error, nowMillis())
         dao.refreshProgress(comicId, nowMillis())
+    }
+
+    /** Called under the comic lock, so a completed chapter is readable before its siblings finish. */
+    private suspend fun finishEpisodeIfReady(epId: String) {
+        val ep = dao.getEp(epId) ?: return
+        if (ep.status !in activeStatuses || !ep.picturesFetched) return
+        val pictures = dao.observePictures(epId).first()
+        if (pictures.any { it.status != DownloadStatus.DONE && it.status != DownloadStatus.FAILED }) return
+        if (ep.status == DownloadStatus.QUEUED) dao.transitionEp(epId, DownloadStatus.RUNNING, updatedAt = nowMillis())
+        val failed = pictures.firstOrNull { it.status == DownloadStatus.FAILED }
+        dao.transitionEp(epId, if (failed == null) DownloadStatus.DONE else DownloadStatus.FAILED, failed?.error, nowMillis())
     }
 
     private suspend fun <T> retry(block: suspend () -> T): T {

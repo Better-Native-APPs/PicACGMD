@@ -134,8 +134,8 @@ internal fun rememberDownloadManager(): DownloadManager {
 
 /**
  * Downloads tab (boards 18 / 19): 进行中 / 已完成 / 失败 with an engine card, per-comic progress and
- * actions, plus multi-select deletion of finished comics. Downloaded comics open offline through
- * [onReadDownloaded]; [onOpenSettings] opens [DownloadSettingsScreen]; [onBrowse] is the empty-state
+ * actions, plus multi-select deletion of finished comics. Rows open local detail through
+ * [onOpenDetail]; [onReadDownloaded] is the quick-read menu action. [onOpenSettings] opens [DownloadSettingsScreen]; [onBrowse] is the empty-state
  * exit to 发现.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -310,6 +310,7 @@ fun DownloadsScreen(
                                 onRemove = { comic -> pendingDelete = listOf(comic) },
                                 onPauseAll = { act { pauseAll() } },
                                 onResumeAll = { act { resumeAll() } },
+                                onOpenDetail = onOpenDetail,
                             )
                             DownloadTab.Done -> DoneList(
                                 items = items,
@@ -326,6 +327,7 @@ fun DownloadsScreen(
                                 onRetry = { id -> act { retryFailed(id) } },
                                 onRetryAll = { act { retryFailed() } },
                                 onRemove = { comic -> pendingDelete = listOf(comic) },
+                                onOpenDetail = onOpenDetail,
                             )
                         }
                     }
@@ -386,7 +388,7 @@ private fun DownloadsEmpty(onBrowse: () -> Unit, modifier: Modifier = Modifier) 
 }
 
 @Composable
-private fun rememberCover(comic: DownloadComic): String? {
+internal fun rememberCover(comic: DownloadComic): String? {
     val container = LocalAppContainer.current
     val manager = rememberDownloadManager()
     return remember(comic.comicId, comic.thumbPath, comic.status) {
@@ -516,6 +518,7 @@ private fun ActiveList(
     onRemove: (DownloadComic) -> Unit,
     onPauseAll: () -> Unit,
     onResumeAll: () -> Unit,
+    onOpenDetail: (String) -> Unit,
 ) {
     if (items.isEmpty()) {
         EmptyState(
@@ -577,6 +580,7 @@ private fun ActiveList(
                     }
                 },
                 onLongClick = { onRemove(comic) },
+                onClick = { onOpenDetail(comic.comicId) },
             )
         }
     }
@@ -717,7 +721,7 @@ private fun DoneList(
                     append("${comic.completedEpCount} 话 · ${context.formatBytes(comic.downloadedBytes)}")
                 },
                 selected = comic.comicId in selection,
-                onClick = { if (selecting) onToggle(comic.comicId) else onOpen(comic.comicId) },
+                onClick = { if (selecting) onToggle(comic.comicId) else onOpenDetail(comic.comicId) },
                 onLongClick = { onToggle(comic.comicId) },
                 trailing = if (selecting) null else {
                     {
@@ -745,6 +749,7 @@ private fun FailedList(
     onRetry: (String) -> Unit,
     onRetryAll: () -> Unit,
     onRemove: (DownloadComic) -> Unit,
+    onOpenDetail: (String) -> Unit,
 ) {
     if (items.isEmpty()) {
         EmptyState(
@@ -784,6 +789,7 @@ private fun FailedList(
                 modifier = Modifier.animateItem(),
                 subtitle = listOfNotNull(comic.progressText(), comic.error?.takeIf { it.isNotBlank() }).joinToString(" · "),
                 subtitleColor = colors.error,
+                onClick = { onOpenDetail(comic.comicId) },
                 progressBar = {
                     LinearProgressIndicator(
                         progress = { comic.fraction() },

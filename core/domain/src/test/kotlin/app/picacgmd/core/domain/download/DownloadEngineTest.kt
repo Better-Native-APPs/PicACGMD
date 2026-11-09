@@ -19,6 +19,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -267,6 +268,53 @@ class DownloadEngineTest {
         assertEquals(DownloadStatus.DONE, dao.getPicture("picture-1")?.status)
         assertEquals(2, dao.getPicture("picture-1")?.attemptCount)
         assertEquals(IMAGE, File(root, "$COMIC/1/1").readText())
+    }
+
+    @Test
+    fun retryingOneChapterLeavesOtherFailuresAndFinishedFilesUntouched() = runTest {
+        seed(1)
+        dao.upsertEps(listOf(DownloadEp("ep-2", COMIC, 2, "第二话", picturesFetched = true, status = DownloadStatus.FAILED)))
+        dao.upsertPictures(listOf(DownloadPicture("picture-2", COMIC, "ep-2", 2, 1, "server", "image", status = DownloadStatus.FAILED)))
+        dao.upsertEps(listOf(DownloadEp("ep-3", COMIC, 3, "第三话", picturesFetched = true, status = DownloadStatus.DONE)))
+        dao.upsertPictures(listOf(DownloadPicture("picture-3", COMIC, "ep-3", 3, 1, "server", "image", status = DownloadStatus.DONE)))
+        val finished = File(root, "$COMIC/3/1")
+        finished.parentFile!!.mkdirs()
+        finished.writeText(IMAGE)
+        dao.transitionComic(COMIC, DownloadStatus.RUNNING, updatedAt = 1)
+        dao.transitionEp(EP, DownloadStatus.RUNNING, updatedAt = 1)
+        dao.claimPicture("picture-1", 1)
+        dao.savePictureResults(listOf(checkNotNull(dao.getPicture("picture-1")).copy(status = DownloadStatus.FAILED)), 1)
+        dao.transitionEp(EP, DownloadStatus.FAILED, updatedAt = 1)
+        dao.transitionComic(COMIC, DownloadStatus.FAILED, updatedAt = 1)
+
+        assertEquals(1, engine(this).retryChapter(EP))
+        assertEquals(DownloadStatus.QUEUED, dao.getEp(EP)?.status)
+        assertEquals(DownloadStatus.QUEUED, dao.getPicture("picture-1")?.status)
+        assertEquals(DownloadStatus.FAILED, dao.getEp("ep-2")?.status)
+        assertEquals(DownloadStatus.FAILED, dao.getPicture("picture-2")?.status)
+        assertEquals(DownloadStatus.DONE, dao.getEp("ep-3")?.status)
+        assertEquals(IMAGE, finished.readText())
+    }
+
+    @Test
+    fun deletingTheLastChapterDoesNotRequeueAllChapters() = runTest {
+        seed(1)
+        val chapterFile = File(root, "$COMIC/1/1")
+        chapterFile.parentFile!!.mkdirs()
+        chapterFile.writeText(IMAGE)
+        val cover = File(root, "$COMIC/logo").apply { writeText(IMAGE) }
+        val engine = engine(this)
+
+        engine.deleteChapter(EP)
+
+        assertNull(dao.getEp(EP))
+        assertNull(dao.getPicture("picture-1"))
+        assertFalse(chapterFile.exists())
+        assertTrue(cover.exists())
+        assertEquals(DownloadStatus.DONE, dao.getComic(COMIC)?.status)
+        assertEquals(0, dao.getComic(COMIC)?.selectedEpCount)
+        engine.runUntilIdle()
+        assertEquals(0, apiServer.requestCount)
     }
 
     private fun engine(scope: TestScope) = DownloadEngine(

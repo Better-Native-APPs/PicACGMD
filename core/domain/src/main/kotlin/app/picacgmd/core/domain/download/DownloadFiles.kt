@@ -77,6 +77,12 @@ class DownloadFileStore(private val rootProvider: () -> File) {
         if (directory.exists() && !directory.deleteRecursively()) throw IOException("删除下载文件失败")
     }
 
+    fun deleteChapter(comicId: String, epOrder: Int) {
+        require(epOrder > 0) { "Chapter order must be one-based" }
+        val directory = File(comicDirectory(comicId), epOrder.toString())
+        if (directory.exists() && !directory.deleteRecursively()) throw IOException("删除章节文件失败")
+    }
+
     internal fun createTemporaryFile(destination: File): File {
         destination.parentFile!!.ensureDirectory()
         return File.createTempFile(".${destination.name}.", ".part", destination.parentFile)

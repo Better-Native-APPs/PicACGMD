@@ -30,6 +30,8 @@ import kotlinx.serialization.Serializable
 
 @Serializable data object DownloadSettingsRoute
 
+@Serializable data class DownloadDetailRoute(val comicId: String)
+
 @Serializable data object MyCommentsRoute
 
 /** 公告: official announcement list with in-place detail. */
@@ -60,7 +62,7 @@ data class ReaderRoute(
     val page: Int = 0,
 )
 
-@Serializable data class DownloadedReaderRoute(val comicId: String)
+@Serializable data class DownloadedReaderRoute(val comicId: String, val episodeOrder: Int? = null)
 
 @Serializable data object RankingsRoute
 

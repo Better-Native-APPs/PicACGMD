@@ -86,6 +86,10 @@ class DownloadManager(
 
     suspend fun delete(comicId: String) { engine.delete(comicId) }
 
+    suspend fun deleteChapter(epId: String) { engine.deleteChapter(epId) }
+
+    suspend fun retryChapter(epId: String): Int = engine.retryChapter(epId).also { start() }
+
     suspend fun pauseAll() {
         engine.pauseAll()
         WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
@@ -103,6 +107,10 @@ class DownloadManager(
         dao.observeComics(folder, search)
 
     fun observeCounts(comicId: String): Flow<DownloadCounts?> = dao.observeCounts(comicId)
+
+    fun observeComic(comicId: String): Flow<DownloadComic?> = dao.observeComic(comicId)
+
+    fun observeChapters(comicId: String): Flow<List<DownloadEp>> = dao.observeEps(comicId)
 
     /** Call on application startup as well as after enqueue to recover work after process death. */
     fun start() {
