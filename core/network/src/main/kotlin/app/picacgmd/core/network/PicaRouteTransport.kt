@@ -5,7 +5,9 @@ import java.net.Proxy
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -35,7 +37,8 @@ object PicaInitAddresses {
 const val ROUTE_PROBE_TIMEOUT_MILLIS = 5_000L
 
 class PicaRouteTransport(private val initUrl: String = "http://68.183.234.72/init") {
-    suspend fun fetchApiAddresses(proxyUrl: String?): List<String> {
+    /** Main-safe: requests and socket cleanup run on [Dispatchers.IO]. */
+    suspend fun fetchApiAddresses(proxyUrl: String?): List<String> = withContext(Dispatchers.IO) {
         val client = PicaClientFactory.apiClient(PicaNetworkConfig(proxyUrl = proxyUrl)).newBuilder()
             .callTimeout(10, TimeUnit.SECONDS)
             .connectTimeout(10, TimeUnit.SECONDS)
@@ -47,14 +50,14 @@ class PicaRouteTransport(private val initUrl: String = "http://68.183.234.72/ini
                 if (!response.isSuccessful) throw IOException("获取分流地址失败：HTTP ${response.code}")
                 response.body.string()
             }
-            return PicaInitAddresses.parse(body)
+            PicaInitAddresses.parse(body)
         } finally {
             client.release()
         }
     }
 
     /** Headers are enough: every HTTP status counts, redirects and response bodies are not followed. */
-    suspend fun measureImageHost(host: String): Long {
+    suspend fun measureImageHost(host: String): Long = withContext(Dispatchers.IO) {
         val startedAt = System.nanoTime()
         val client = PicaClientFactory.imageClient().newBuilder()
             .proxy(Proxy.NO_PROXY)
@@ -65,7 +68,7 @@ class PicaRouteTransport(private val initUrl: String = "http://68.183.234.72/ini
             .readTimeout(ROUTE_PROBE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
             .writeTimeout(ROUTE_PROBE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
             .build()
-        return try {
+        try {
             client.newCall(Request.Builder().url(host).build()).consumeResponse {
                 TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt)
             }
@@ -97,8 +100,11 @@ private suspend fun <T> Call.consumeResponse(consume: (Response) -> T): T = susp
     })
 }
 
+/** Closing pooled TLS connections writes to the socket; cleanup never turns a finished request into a failure. */
 private fun OkHttpClient.release() {
-    dispatcher.cancelAll()
-    connectionPool.evictAll()
-    dispatcher.executorService.shutdown()
+    runCatching {
+        dispatcher.cancelAll()
+        connectionPool.evictAll()
+        dispatcher.executorService.shutdown()
+    }
 }
