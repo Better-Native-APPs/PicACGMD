@@ -1,7 +1,6 @@
 package app.picacgmd.ui
 
 import android.annotation.SuppressLint
-import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Badge
@@ -26,8 +25,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
-import androidx.navigation.NavDestination.Companion.hasRoute
-import androidx.navigation.toRoute
 import androidx.navigation.compose.rememberNavController
 import app.picacgmd.R
 import app.picacgmd.feature.bookshelf.rememberBookshelfUnseenCount
@@ -89,8 +86,6 @@ fun PikapikaApp(
     val currentDestination = backStack.lastOrNull()?.destination
     val currentTab = backStack.currentTopLevelDestination()
     var externalComicId by rememberSaveable { mutableStateOf<String?>(null) }
-    val isExternalComic = currentDestination?.hasRoute(ComicDetailRoute::class) == true &&
-        backStack.lastOrNull()?.toRoute<ComicDetailRoute>()?.comicId == externalComicId
 
     val showNavigation = currentDestination == null || when {
         currentDestination.isFullscreen() -> false
@@ -167,5 +162,18 @@ fun PikapikaApp(
             onExternalNavigationConsumed()
         }
     }
-    BackHandler(isExternalComic) { onExternalComicExit() }
+    // Let NavHost own the gesture and its preview. Finish the external-comic activity only after
+    // its entry is actually popped, not when a cancelled gesture merely previews the previous page.
+    LaunchedEffect(navController, externalComicId) {
+        val comicId = externalComicId ?: return@LaunchedEffect
+        var opened = false
+        navController.currentBackStackEntryFlow.collect {
+            val present = runCatching { navController.getBackStackEntry(ComicDetailRoute(comicId)) }.isSuccess
+            if (present) opened = true
+            else if (opened) {
+                externalComicId = null
+                onExternalComicExit()
+            }
+        }
+    }
 }

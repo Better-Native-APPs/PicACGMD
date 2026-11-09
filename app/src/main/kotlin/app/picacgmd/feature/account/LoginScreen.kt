@@ -1,7 +1,6 @@
 package app.picacgmd.feature.account
 
 import android.content.Context
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,7 +17,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
@@ -57,6 +55,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.picacgmd.core.data.settings.AppSettings
+import app.picacgmd.core.designsystem.component.BackButton
+import app.picacgmd.core.designsystem.component.PredictiveBackContent
 import app.picacgmd.core.domain.session.SessionState
 import app.picacgmd.core.domain.session.apiRouteState
 import app.picacgmd.di.LocalAppContainer
@@ -72,24 +72,30 @@ fun LoginScreen(onBack: (() -> Unit)? = null) {
     val onboarding = remember(context) { context.getSharedPreferences("onboarding", Context.MODE_PRIVATE) }
     var page by rememberSaveable { mutableStateOf(if (onboarding.getBoolean("notice_accepted", false)) "login" else "notice") }
     var network by rememberSaveable { mutableStateOf(false) }
-    BackHandler(page !in setOf("login", "notice")) { page = "login" }
-    when (page) {
-        "notice" -> NoticeScreen {
-            onboarding.edit().putBoolean("notice_accepted", true).apply()
-            page = "login"
+    PredictiveBackContent(
+        current = page,
+        previous = "login",
+        onBack = { page = "login" },
+        enabled = page !in setOf("login", "notice"),
+    ) { current, back ->
+        when (current) {
+            "notice" -> NoticeScreen(onBack) {
+                onboarding.edit().putBoolean("notice_accepted", true).apply()
+                page = "login"
+            }
+            "register" -> RegisterScreen(onBack = back, onRegistered = { page = "login" })
+            "forgot" -> ForgotPasswordScreen(onBack = back)
+            else -> LoginForm(onBack, { page = "register" }, { page = "forgot" }, { network = true })
         }
-        "register" -> RegisterScreen(onBack = { page = "login" }, onRegistered = { page = "login" })
-        "forgot" -> ForgotPasswordScreen(onBack = { page = "login" })
-        else -> LoginForm(onBack, { page = "register" }, { page = "forgot" }, { network = true })
     }
     if (network) RoutePickerDialog(RouteKind.Api, onDismiss = { network = false })
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun NoticeScreen(onContinue: () -> Unit) {
+private fun NoticeScreen(onBack: (() -> Unit)?, onContinue: () -> Unit) {
     var adult by rememberSaveable { mutableStateOf(false) }
-    AccountScaffold {
+    AccountScaffold(onBack = onBack) {
         Icon(
             Icons.Outlined.AutoAwesome, null,
             Modifier.size(88.dp).clip(MaterialShapes.Sunny.toShape())
@@ -207,7 +213,7 @@ internal fun AccountScaffold(title: String = "", onBack: (() -> Unit)? = null, c
         if (title.isNotEmpty() || onBack != null) TopAppBar(
             title = { Text(title) },
             navigationIcon = {
-                if (onBack != null) IconButton(onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "返回") }
+                if (onBack != null) BackButton(onBack)
             },
         )
     }) { padding ->

@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -121,7 +120,7 @@ fun GamesScreen(onBack: () -> Unit, onGameClick: (String) -> Unit) {
     Scaffold(topBar = {
         TopAppBar(
             title = { Column { Text("游戏专区"); if (model.total > 0) Text("共 ${model.total} 款", style = MaterialTheme.typography.bodySmall) } },
-            navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "返回") } },
+            navigationIcon = { app.picacgmd.core.designsystem.component.BackButton(onBack) },
             actions = { IconButton({ model.load(1, false) }, enabled = !model.loading) { Icon(Icons.Outlined.Refresh, "刷新") } },
         )
     }) { padding ->

@@ -20,7 +20,6 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonGroupDefaults
@@ -438,9 +437,7 @@ internal fun SettingsPageScaffold(
 
 @Composable
 internal fun BackButton(onBack: () -> Unit) {
-    IconButton(onClick = onBack) {
-        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_back))
-    }
+    app.picacgmd.core.designsystem.component.BackButton(onBack)
 }
 
 /** Vertical gap item for LazyColumns built out of groups. */

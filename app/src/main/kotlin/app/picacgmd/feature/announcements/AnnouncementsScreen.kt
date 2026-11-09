@@ -1,11 +1,5 @@
 package app.picacgmd.feature.announcements
 
-import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -60,6 +54,7 @@ import app.picacgmd.core.network.Announcement
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.bookshelf.safeImageUrl
 import app.picacgmd.feature.settings.BackButton
+import app.picacgmd.core.designsystem.component.PredictiveBackContent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -147,20 +142,17 @@ fun AnnouncementsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     }
 
     val opened = state.items.firstOrNull { it.id == openId }
-    BackHandler(enabled = opened != null) { openId = null }
-
-    AnimatedContent(
-        targetState = opened,
-        transitionSpec = {
-            if (targetState != null) (slideInHorizontally { it / 8 } + fadeIn()) togetherWith fadeOut()
-            else fadeIn() togetherWith fadeOut()
-        },
+    PredictiveBackContent(
+        current = opened?.id ?: "list",
+        previous = "list",
+        onBack = { openId = null },
+        enabled = opened != null,
         modifier = modifier,
-        label = "announcements",
-    ) { detail ->
+    ) { key, back ->
+        val detail = state.items.firstOrNull { it.id == key }
         if (detail != null) {
-            AnnouncementDetail(detail, onBack = { openId = null })
-            return@AnimatedContent
+            AnnouncementDetail(detail, onBack = back)
+            return@PredictiveBackContent
         }
         Scaffold(topBar = { TopAppBar(title = { Text("公告") }, navigationIcon = { BackButton(onBack) }) }) { padding ->
             PullToRefreshBox(

@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -295,7 +294,5 @@ internal fun ScrollableStatus(content: @Composable () -> Unit) {
 
 @Composable
 internal fun BackButton(onBack: () -> Unit) {
-    IconButton(onClick = onBack) {
-        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.discover_state_back))
-    }
+    app.picacgmd.core.designsystem.component.BackButton(onBack)
 }

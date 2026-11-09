@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Close
@@ -170,9 +169,7 @@ private fun ComicListContent(
                     TopAppBar(
                         title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         navigationIcon = {
-                            IconButton(onClick = onBack) {
-                                Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.comics_back))
-                            }
+                            app.picacgmd.core.designsystem.component.BackButton(onBack)
                         },
                         actions = {
                             IconButton(onClick = { state.comics.firstOrNull()?.let { selection = listOf(it.id) } }, enabled = state.comics.isNotEmpty()) {
