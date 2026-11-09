@@ -42,6 +42,7 @@ import app.picacgmd.core.data.db.LocalFavouriteFolder
 import app.picacgmd.core.designsystem.component.ComicListItem
 import app.picacgmd.core.designsystem.component.EmptyState
 import app.picacgmd.core.designsystem.component.LoadingState
+import app.picacgmd.core.designsystem.window.securePopupProperties
 import app.picacgmd.di.LocalAppContainer
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -83,7 +84,7 @@ internal fun LocalFavouritesView(
                     Icon(Icons.AutoMirrored.Outlined.Sort, null)
                     Text(if (newestFirst) "新到旧" else "旧到新", Modifier.padding(start = 6.dp))
                 }
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, properties = securePopupProperties(focusable = true)) {
                     listOf(true to "加入时间：新到旧", false to "加入时间：旧到新").forEach { (value, label) ->
                         DropdownMenuItem(
                             text = { Text(label) },
@@ -122,7 +123,7 @@ internal fun LocalFavouritesView(
                             {
                                 Box {
                                     IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, "更多操作") }
-                                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, properties = securePopupProperties(focusable = true)) {
                                         DropdownMenuItem(
                                             text = { Text("移动到…") },
                                             leadingIcon = { Icon(Icons.AutoMirrored.Outlined.DriveFileMove, null) },

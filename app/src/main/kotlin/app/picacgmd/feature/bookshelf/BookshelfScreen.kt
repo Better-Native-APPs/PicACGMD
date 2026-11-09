@@ -265,7 +265,7 @@ fun BookshelfScreen(
                             if (view == ShelfView.Local) {
                                 Box {
                                     IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, "更多操作") }
-                                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, properties = securePopupProperties(focusable = true)) {
                                         DropdownMenuItem(
                                             text = { Text("管理收藏夹") },
                                             leadingIcon = { Icon(Icons.Outlined.Folder, null) },

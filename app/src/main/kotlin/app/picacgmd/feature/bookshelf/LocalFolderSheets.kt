@@ -42,6 +42,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import app.picacgmd.core.data.db.LocalFavouriteFolder
+import app.picacgmd.core.designsystem.window.secureDialogProperties
+import app.picacgmd.core.designsystem.window.secureModalBottomSheetProperties
+import app.picacgmd.core.designsystem.window.securePopupProperties
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -58,6 +61,7 @@ internal fun LocalFolderNameDialog(
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     AlertDialog(
+        properties = secureDialogProperties(),
         onDismissRequest = { if (!saving) onDismiss() },
         title = { Text(title) },
         text = {
@@ -126,7 +130,7 @@ internal fun LocalFavouritePickerSheet(
         }
     }
 
-    ModalBottomSheet(onDismissRequest = { if (!saving) onDismiss() }) {
+    ModalBottomSheet(onDismissRequest = { if (!saving) onDismiss() }, properties = secureModalBottomSheetProperties()) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, style = MaterialTheme.typography.titleLarge)
             Text("选择收藏夹后立即保存。仅保存在本机，不影响在线收藏。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -178,7 +182,7 @@ internal fun LocalFolderManagerSheet(
     var creating by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf<LocalFavouriteFolder?>(null) }
     var deleting by remember { mutableStateOf<LocalFavouriteFolder?>(null) }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, properties = secureModalBottomSheetProperties()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
             Text("管理收藏夹", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
             IconButton(onClick = { creating = true }) { Icon(Icons.Outlined.Add, "新建收藏夹") }
@@ -192,7 +196,7 @@ internal fun LocalFolderManagerSheet(
                     trailingContent = {
                         Box {
                             IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, "管理${folder.name}") }
-                            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, properties = securePopupProperties(focusable = true)) {
                                 DropdownMenuItem(
                                     text = { Text("重命名") },
                                     leadingIcon = { Icon(Icons.Outlined.DriveFileRenameOutline, null) },
@@ -246,6 +250,7 @@ private fun DeleteLocalFolderDialog(
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     AlertDialog(
+        properties = secureDialogProperties(),
         onDismissRequest = { if (!saving) onDismiss() },
         title = { Text("删除「${folder.name}」？") },
         text = {
