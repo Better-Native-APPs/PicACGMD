@@ -1,5 +1,7 @@
 package app.picacgmd.feature.account
 
+import app.picacgmd.core.designsystem.window.secureDialogProperties
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -141,6 +143,7 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: () -> Unit) {
                 ?: LocalDate.now().minusYears(18)).atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli(),
         )
         DatePickerDialog(
+            properties = secureDialogProperties(usePlatformDefaultWidth = false),
             onDismissRequest = { birthdayPicker = false },
             confirmButton = { TextButton({
                 picker.selectedDateMillis?.let { birthday = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate().toString() }

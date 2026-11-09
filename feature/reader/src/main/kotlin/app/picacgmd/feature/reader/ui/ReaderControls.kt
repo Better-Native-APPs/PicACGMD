@@ -1,5 +1,7 @@
 package app.picacgmd.feature.reader.ui
 
+import app.picacgmd.core.designsystem.window.securePopupProperties
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -261,7 +263,7 @@ private fun MoreMenu(actions: ReaderControlActions, canReload: Boolean) {
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, properties = securePopupProperties(focusable = true)) {
             if (canReload) {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.reader_reload_all)) },

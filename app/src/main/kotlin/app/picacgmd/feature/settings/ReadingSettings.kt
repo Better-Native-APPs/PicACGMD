@@ -1,5 +1,7 @@
 package app.picacgmd.feature.settings
 
+import app.picacgmd.core.designsystem.window.secureDialogProperties
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -261,6 +263,7 @@ private fun ZoomDialog(
     var double by remember { mutableFloatStateOf(doubleTap) }
     val valid = min <= double && double <= max
     AlertDialog(
+        properties = secureDialogProperties(),
         onDismissRequest = onDismiss,
         title = { Text("缩放范围") },
         text = {
@@ -352,4 +355,3 @@ private fun TwoPagePlacement.label() = when (this) {
     TwoPagePlacement.PULL_APART -> "分开"
     TwoPagePlacement.EACH_CENTERED -> "各自居中"
 }
-

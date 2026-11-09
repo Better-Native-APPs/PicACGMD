@@ -1,5 +1,7 @@
 package app.picacgmd.feature.settings
 
+import app.picacgmd.core.designsystem.window.secureDialogProperties
+
 import android.app.KeyguardManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -217,6 +219,7 @@ internal fun TextInputDialog(
     var value by remember { mutableStateOf(initial) }
     var error by remember { mutableStateOf<String?>(null) }
     AlertDialog(
+        properties = secureDialogProperties(),
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
@@ -271,6 +274,7 @@ private fun ProxyDialog(initial: String, onSave: (String) -> Unit, onDismiss: ()
     var port by remember { mutableStateOf(parsed?.port?.takeIf { it > 0 }?.toString().orEmpty()) }
     var error by remember { mutableStateOf<String?>(null) }
     AlertDialog(
+        properties = secureDialogProperties(),
         onDismissRequest = onDismiss,
         title = { Text("代理服务器") },
         text = {
@@ -364,7 +368,7 @@ internal fun PrivacySettingsPage(onBack: () -> Unit, modifier: Modifier = Modifi
                     Column {
                         Text(if (on) "应用锁已开启" else "应用锁未开启", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            if (on) "离开${lockTimeoutLabel(settings.appLockTimeoutSeconds).let { if (it == "立即") "后立即" else " $it 后" }}返回需验证" else "启用后返回应用需验证",
+                            if (on) "打开应用时验证，离开${lockTimeoutLabel(settings.appLockTimeoutSeconds).let { if (it == "立即") "后立即" else " $it 后" }}返回需验证" else "启用后打开应用及返回时需验证",
                             style = MaterialTheme.typography.bodyMedium,
                         )
                     }

@@ -23,9 +23,11 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.Dispatcher
@@ -189,6 +191,65 @@ class DownloadEngineTest {
             assertEquals(IMAGE, File(root, it).readText(), "Bytes must be preserved without decoding: $it")
         }
         assertTrue(root.walkTopDown().none { it.name.endsWith(".part") || it.name == ".all-episodes" })
+    }
+
+    @Test
+    fun allChapterAndComicManifestsPrecedePageProgressWithAStableDenominator() = runTest {
+        val engine = engine(this)
+        engine.enqueue(listOf(
+            DownloadRequest(DownloadComic(COMIC, "测试漫画"), listOf(
+                DownloadEp(EP, COMIC, 1, "第一话"),
+                DownloadEp("ep-2", COMIC, 2, "第二话"),
+            )),
+            DownloadRequest(DownloadComic("comic-2", "另一部漫画"), listOf(
+                DownloadEp("ep-3", "comic-2", 1, "第一话"),
+            )),
+        ))
+        enqueuePictures("picture-1", page = 1, pages = 2)
+        enqueuePictures("picture-2", page = 2, pages = 2)
+        enqueuePictures("picture-3", page = 1, pages = 1)
+        enqueuePictures("picture-4", page = 1, pages = 2)
+        enqueuePictures("picture-5", page = 2, pages = 2)
+        val manifestRequestsAtFirstImage = AtomicInteger(-1)
+        imageServer.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                manifestRequestsAtFirstImage.compareAndSet(-1, apiServer.requestCount)
+                return imageResponse()
+            }
+        }
+        val snapshots = mutableListOf<DownloadProgress>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            engine.progress.collect { snapshots.add(it) }
+        }
+        engine.runUntilIdle()
+
+        assertEquals(5, manifestRequestsAtFirstImage.get(), "All queued manifests must be fetched before transferring pages")
+        assertEquals(5, imageServer.requestCount)
+        val pageProgress = snapshots.filter { it.pictureTotalsKnown }
+        assertTrue(pageProgress.isNotEmpty())
+        assertTrue(pageProgress.all { it.totalPictures == 5 })
+        assertTrue(pageProgress.zipWithNext().all { (before, after) -> after.completedPictures >= before.completedPictures })
+        assertEquals(5, pageProgress.last().completedPictures)
+        assertEquals(2, engine.progress.value.completedComics)
+    }
+
+    @Test
+    fun failedChapterManifestNeverAdvertisesAPartialPageTotalAsComplete() = runTest {
+        val engine = engine(this)
+        engine.enqueue(listOf(DownloadRequest(DownloadComic(COMIC, "测试漫画"), listOf(
+            DownloadEp(EP, COMIC, 1, "第一话"),
+            DownloadEp("ep-2", COMIC, 2, "第二话"),
+        ))))
+        enqueuePictures("picture-1", page = 1, pages = 1)
+        apiServer.enqueue(MockResponse.Builder().code(404).body("""{"code":404,"message":"missing"}""").build())
+        imageServer.enqueue(imageResponse())
+        engine.runUntilIdle()
+
+        assertEquals(2, apiServer.requestCount)
+        assertEquals(1, imageServer.requestCount)
+        assertEquals(1, engine.progress.value.completedPictures)
+        assertFalse(engine.progress.value.pictureTotalsKnown)
+        assertEquals(DownloadStatus.FAILED, dao.getComic(COMIC)?.status)
     }
 
     @Test

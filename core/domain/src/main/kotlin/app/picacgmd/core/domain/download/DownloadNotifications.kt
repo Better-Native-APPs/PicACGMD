@@ -24,14 +24,16 @@ internal class DownloadNotifications(private val context: Context, private val s
         ensureChannel()
         val speed = String.format(Locale.SIMPLIFIED_CHINESE, "%.1f MB/s", progress.bytesPerSecond / 1_000_000.0)
         val title = context.getString(R.string.download_notification_running, progress.activeComics, speed)
-        val text = if (progress.waitingForWifi) context.getString(R.string.download_notification_waiting_wifi) else {
-            context.getString(R.string.download_notification_progress,
+        val text = when {
+            progress.waitingForWifi -> context.getString(R.string.download_notification_waiting_wifi)
+            !progress.pictureTotalsKnown -> context.getString(R.string.download_notification_preparing)
+            else -> context.getString(R.string.download_notification_progress,
                 progress.currentEpTitle ?: context.getString(R.string.download_notification_preparing), progress.remainingPictures)
         }
         return builder(title, text)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setProgress(progress.totalPictures, progress.completedPictures, progress.totalPictures == 0)
+            .setProgress(progress.totalPictures, progress.completedPictures, !progress.pictureTotalsKnown || progress.totalPictures == 0)
             .addAction(Notification.Action.Builder(null, context.getString(R.string.download_notification_pause_all),
                 controlIntent(DownloadActionReceiver.ACTION_PAUSE)).build())
             .apply { openIntent()?.let { addAction(Notification.Action.Builder(null,

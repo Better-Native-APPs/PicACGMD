@@ -1,5 +1,8 @@
 package app.picacgmd.feature.bookshelf
 
+import app.picacgmd.core.designsystem.window.secureDialogProperties
+import app.picacgmd.core.designsystem.window.securePopupProperties
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -273,7 +276,7 @@ fun BookshelfScreen(
                             if (view == ShelfView.History) {
                                 Box {
                                     IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "更多操作") }
-                                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, properties = securePopupProperties(focusable = true)) {
                                         DropdownMenuItem(
                                             text = { Text("清空浏览记录") },
                                             leadingIcon = { Icon(Icons.Outlined.DeleteSweep, null) },
@@ -405,6 +408,7 @@ fun BookshelfScreen(
 
     when (val active = dialog) {
         is ShelfDialog.ConfirmUnfavourite -> AlertDialog(
+            properties = secureDialogProperties(),
             onDismissRequest = { dialog = null },
             title = { Text("取消收藏 ${active.ids.size} 本？") },
             text = {
@@ -429,6 +433,7 @@ fun BookshelfScreen(
             dismissButton = { TextButton(onClick = { dialog = null }) { Text("保留") } },
         )
         ShelfDialog.ClearHistory -> AlertDialog(
+            properties = secureDialogProperties(),
             onDismissRequest = { dialog = null },
             title = { Text("清空浏览记录？") },
             text = { Text("阅读进度会一并删除，无法撤销") },

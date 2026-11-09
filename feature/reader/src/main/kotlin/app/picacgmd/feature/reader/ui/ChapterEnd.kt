@@ -71,7 +71,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import app.picacgmd.core.designsystem.window.secureDialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import coil3.compose.LocalPlatformContext
 import coil3.compose.rememberAsyncImagePainter
@@ -331,7 +331,7 @@ internal fun AllReadDialog(
     onComments: (() -> Unit)?,
     onRelated: (() -> Unit)?,
 ) {
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = onDismiss, properties = secureDialogProperties(usePlatformDefaultWidth = false)) {
         val dialogView = LocalView.current
         SideEffect { (dialogView.parent as? DialogWindowProvider)?.window?.setDimAmount(0.6f) }
         Surface(

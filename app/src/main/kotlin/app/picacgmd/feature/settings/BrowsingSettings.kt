@@ -1,5 +1,7 @@
 package app.picacgmd.feature.settings
 
+import app.picacgmd.core.designsystem.window.secureDialogProperties
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -256,6 +258,7 @@ private fun CopyTemplateDialog(initial: String, onSave: (String) -> Unit, onDism
     var value by remember { mutableStateOf(TextFieldValue(initial, TextRange(initial.length))) }
     val preview = value.text.replace("{title}", "星屑列车").replace("{author}", "白川凪").replace("{id}", "5821…")
     AlertDialog(
+        properties = secureDialogProperties(),
         onDismissRequest = onDismiss,
         title = { Text("复制名称模板") },
         text = {
@@ -523,6 +526,7 @@ private fun PresetDialog(
     val missing = preset.missingFrom(keywords)
     val removing = missing.isEmpty()
     AlertDialog(
+        properties = secureDialogProperties(),
         onDismissRequest = onDismiss,
         title = { Text(if (removing) "移除「${preset.name}」？" else "添加「${preset.name}」？") },
         text = {

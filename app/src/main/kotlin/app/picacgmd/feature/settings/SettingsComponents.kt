@@ -1,5 +1,7 @@
 package app.picacgmd.feature.settings
 
+import app.picacgmd.core.designsystem.window.secureDialogProperties
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -352,6 +354,7 @@ internal fun <T> ChoiceDialog(
     detail: ((T) -> String?)? = null,
 ) {
     AlertDialog(
+        properties = secureDialogProperties(),
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {

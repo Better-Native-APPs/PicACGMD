@@ -1,5 +1,8 @@
 package app.picacgmd.feature.games
 
+import app.picacgmd.core.designsystem.window.secureDialogProperties
+import app.picacgmd.core.designsystem.window.secureModalBottomSheetProperties
+
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -46,7 +49,7 @@ internal fun GameLinksSheet(links: List<String>, onDismiss: () -> Unit) {
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var opening by remember { mutableStateOf<String?>(null) }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, properties = secureModalBottomSheetProperties()) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("下载链接", style = MaterialTheme.typography.headlineSmall)
             Text("复制链接不联网", style = MaterialTheme.typography.bodyMedium)
@@ -70,6 +73,7 @@ internal fun GameLinksSheet(links: List<String>, onDismiss: () -> Unit) {
     }
     opening?.let { url ->
         AlertDialog(
+            properties = secureDialogProperties(),
             onDismissRequest = { opening = null },
             title = { Text("用浏览器打开？") },
             text = {

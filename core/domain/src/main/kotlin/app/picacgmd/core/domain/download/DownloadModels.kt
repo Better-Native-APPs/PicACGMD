@@ -27,6 +27,8 @@ data class DownloadProgress(
     val waitingForWifi: Boolean = false,
     val configuredThreads: Int = 4,
     val effectiveThreads: Int = 4,
+    /** False while any selected chapter's page manifest is still unknown (including failed fetches). */
+    val pictureTotalsKnown: Boolean = false,
 ) {
     val remainingPictures: Int get() = (totalPictures - completedPictures).coerceAtLeast(0)
 }

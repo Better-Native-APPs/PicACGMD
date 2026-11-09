@@ -1,5 +1,8 @@
 package app.picacgmd.feature.comments
 
+import app.picacgmd.core.designsystem.window.secureDialogProperties
+import app.picacgmd.core.designsystem.window.securePopupProperties
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -89,7 +92,7 @@ internal fun CommentMenu(onReport: () -> Unit) {
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }, properties = securePopupProperties(focusable = true)) {
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.comments_report)) },
                 leadingIcon = { Icon(Icons.Outlined.Flag, null) },
@@ -106,6 +109,7 @@ internal fun CommentMenu(onReport: () -> Unit) {
 @Composable
 internal fun ReportCommentDialog(comment: Comment, onDismiss: () -> Unit, onConfirm: () -> Unit) {
     AlertDialog(
+        properties = secureDialogProperties(),
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.comments_report_title)) },
         text = {

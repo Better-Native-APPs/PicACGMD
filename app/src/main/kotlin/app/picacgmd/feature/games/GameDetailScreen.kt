@@ -53,7 +53,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import app.picacgmd.core.designsystem.window.secureDialogProperties
 import app.picacgmd.R
 import app.picacgmd.core.designsystem.component.SoftBackdrop
 import app.picacgmd.core.network.GameInfo
@@ -182,7 +182,7 @@ fun GameDetailScreen(gameId: String, onBack: () -> Unit, onComments: (String) ->
     }
     game?.takeIf { links }?.let { GameLinksSheet(it.androidLinks, onDismiss = { links = false }) }
     screenshot?.let { image ->
-        Dialog(onDismissRequest = { screenshot = null }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        Dialog(onDismissRequest = { screenshot = null }, properties = secureDialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
             Box(Modifier.fillMaxSize().background(Color.Black)) {
                 GameImage(image, "游戏截图", Modifier.fillMaxSize(), ContentScale.Fit)
                 IconButton({ screenshot = null }, Modifier.align(Alignment.TopEnd).padding(24.dp)) { Icon(Icons.Outlined.Close, "关闭", tint = Color.White) }

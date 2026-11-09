@@ -1,5 +1,7 @@
 package app.picacgmd.feature.games
 
+import app.picacgmd.core.designsystem.window.secureDialogProperties
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -207,6 +209,7 @@ internal fun GamePagination(page: Int, pages: Int, loading: Boolean, onPage: (In
         TextButton({ onPage(page + 1) }, enabled = !loading && page < pages) { Text("下一页") }
     }
     if (jump) AlertDialog(
+        properties = secureDialogProperties(),
         onDismissRequest = { jump = false }, title = { Text("跳转页码") },
         text = { OutlinedTextField(target, { target = it.filter(Char::isDigit) }, label = { Text("1–$pages") }, singleLine = true) },
         confirmButton = { TextButton({ target.toIntOrNull()?.takeIf { it in 1..pages }?.let(onPage); jump = false }, enabled = target.toIntOrNull()?.let { it in 1..pages } == true) { Text("跳转") } },
