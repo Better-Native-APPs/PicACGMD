@@ -213,7 +213,7 @@ class SessionManager(
     private suspend fun expire(exception: UnauthorizedException) {
         currentToken = null
         sessionVersion++
-        mutableState.value = SessionState.Expired(exception.message ?: "登录已失效，请重新登录")
+        mutableState.value = SessionState.Expired(exception.message ?: "登录已过期")
         preferences.setAuthToken(null, now())
     }
 

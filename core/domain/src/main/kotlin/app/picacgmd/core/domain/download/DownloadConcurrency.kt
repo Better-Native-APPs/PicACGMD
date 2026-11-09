@@ -154,7 +154,7 @@ class AdaptiveDownloadLimiter(
 class DownloadHttpException(
     val status: Int,
     val retryAfterMillis: Long? = null,
-) : IOException("图片服务器返回 HTTP $status")
+) : IOException("图片下载失败：HTTP $status")
 
 /** Five total attempts by default; backoff is outside the transfer permit. */
 class DownloadRetryPolicy(

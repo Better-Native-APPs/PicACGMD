@@ -43,14 +43,14 @@ class KeystoreCredentialStore(context: Context) : CredentialStore {
         mutex.withLock {
             if (!file.baseFile.exists()) return@withLock null
             val (iv, encrypted) = DataInputStream(ByteArrayInputStream(file.readFully())).use { input ->
-                if (input.readInt() != FILE_VERSION) throw IOException("登录凭据文件版本不受支持")
+                if (input.readInt() != FILE_VERSION) throw IOException("读取凭据失败：版本不支持")
                 val ivSize = input.readInt()
-                if (ivSize != IV_BYTES) throw IOException("登录凭据文件格式错误")
+                if (ivSize != IV_BYTES) throw IOException("读取凭据失败：格式错误")
                 val iv = ByteArray(ivSize).also(input::readFully)
                 iv to input.readBytes()
             }
             val key = keyStore().getKey(KEY_ALIAS, null) as? SecretKey
-                ?: throw IOException("保存的登录凭据密钥不可用")
+                ?: throw IOException("读取凭据失败：密钥不可用")
             val cipher = Cipher.getInstance(TRANSFORMATION)
             cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(TAG_BITS, iv))
             Json.decodeFromString<Credentials>(cipher.doFinal(encrypted).toString(Charsets.UTF_8))

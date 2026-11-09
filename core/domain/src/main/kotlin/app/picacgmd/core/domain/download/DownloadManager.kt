@@ -39,7 +39,7 @@ class DownloadManager(
 ) {
     private val context = context.applicationContext
     val files = DownloadFileStore {
-        val external = this.context.getExternalFilesDir(null) ?: throw IOException("下载存储空间不可用")
+        val external = this.context.getExternalFilesDir(null) ?: throw IOException("下载失败：存储空间不可用")
         File(external, "downloads")
     }
     private val engine = DownloadEngine(

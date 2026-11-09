@@ -58,9 +58,9 @@ class RoutingRepository(
         } catch (exception: CancellationException) {
             throw exception
         } catch (exception: Exception) {
-            throw IllegalStateException("分流同步失败：${exception.localizedMessage ?: "请检查网络后重试"}", exception)
+            throw IllegalStateException(exception.localizedMessage?.let { "分流同步失败：$it" } ?: "分流同步失败", exception)
         }
-        require(addresses.isNotEmpty()) { "服务器未返回有效的分流地址，请稍后重试" }
+        require(addresses.isNotEmpty()) { "未获取到分流地址" }
         settingsRepository.setSyncedApiAddresses(addresses, nowMillis())
     }
 

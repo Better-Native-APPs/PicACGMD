@@ -34,7 +34,7 @@ open class PicaException(
 ) : IOException(message, cause)
 
 class UnauthorizedException(
-    message: String = "登录已失效，请重新登录",
+    message: String = "登录已过期",
     httpStatus: Int? = null,
     error: String? = null,
     detail: JsonElement? = null,
@@ -42,7 +42,7 @@ class UnauthorizedException(
 
 class PicaTransportException(cause: IOException) : PicaException("网络请求失败", cause = cause)
 
-class PicaDecodingException(cause: Throwable) : PicaException("服务器响应格式错误", cause = cause)
+class PicaDecodingException(cause: Throwable) : PicaException("解析响应失败：格式错误", cause = cause)
 
 @Serializable
 data class PicaEnvelope(
@@ -62,7 +62,7 @@ class PicaEnvelopeParser(private val json: Json = PicaJson) {
             return when {
                 httpStatus == 401 -> PicaResult.Failure(UnauthorizedException(httpStatus = httpStatus))
                 httpStatus !in 200..299 -> PicaResult.Failure(
-                    PicaException("HTTP $httpStatus", httpStatus = httpStatus),
+                    PicaException("请求失败：HTTP $httpStatus", httpStatus = httpStatus),
                 )
                 else -> PicaResult.Failure(PicaDecodingException(exception))
             }
@@ -70,7 +70,7 @@ class PicaEnvelopeParser(private val json: Json = PicaJson) {
         if (httpStatus == 401 || envelope.code == 401) {
             return PicaResult.Failure(
                 UnauthorizedException(
-                    envelope.message.ifBlank { "登录已失效，请重新登录" },
+                    envelope.message.ifBlank { "登录已过期" },
                     httpStatus, envelope.error, envelope.detail,
                 ),
             )
@@ -78,7 +78,7 @@ class PicaEnvelopeParser(private val json: Json = PicaJson) {
         if (httpStatus !in 200..299 || envelope.code != 200) {
             return PicaResult.Failure(
                 PicaException(
-                    envelope.message.ifBlank { "请求失败（${envelope.code ?: httpStatus}）" },
+                    envelope.message.ifBlank { "请求失败：${envelope.code ?: httpStatus}" },
                     envelope.code, httpStatus, envelope.error, envelope.detail,
                 ),
             )

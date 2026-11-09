@@ -343,9 +343,9 @@ internal class DownloadEngine(
             eps.addAll(result.docs)
             page++
         } while (page <= maxOf(1, result.pages))
-        require(eps.all { it.id.isNotBlank() && it.order > 0 }) { "章节清单格式错误" }
+        require(eps.all { it.id.isNotBlank() && it.order > 0 }) { "获取章节失败：清单格式错误" }
         val unique = eps.distinctBy { it.id }
-        require(unique.map { it.order }.distinct().size == unique.size) { "章节序号重复" }
+        require(unique.map { it.order }.distinct().size == unique.size) { "获取章节失败：序号重复" }
         withComicLock(comicId) {
             if (dao.getComic(comicId)?.status !in activeStatuses) return@withComicLock
             val existing = dao.observeEps(comicId).first().associateBy { it.epId }
@@ -424,7 +424,7 @@ internal class DownloadEngine(
                     ).getOrThrow()
                 }.pages
                 val pictures = result.docs.map { picture ->
-                    require(picture.id.isNotBlank()) { "图片清单格式错误" }
+                    require(picture.id.isNotBlank()) { "获取图片失败：清单格式错误" }
                     index++
                     DownloadPicture(
                         pictureId = picture.id, comicId = ep.comicId, epId = ep.epId,
@@ -829,10 +829,10 @@ internal class DownloadEngine(
 }
 
 private fun downloadError(exception: Exception): String = when {
-    exception is SocketTimeoutException -> "连接超时，请重试"
+    exception is SocketTimeoutException -> "下载失败：连接超时"
     exception.message?.contains("ENOSPC") == true || exception.message?.contains("No space left on device") == true ->
-        "存储空间不足"
+        "下载失败：存储空间不足"
     exception is PicaException || exception is DownloadHttpException -> exception.message ?: "网络请求失败"
     exception.message?.any { it in '\u4e00'..'\u9fff' } == true -> exception.message!!
-    else -> "下载失败，请检查网络或存储空间后重试"
+    else -> "下载失败"
 }

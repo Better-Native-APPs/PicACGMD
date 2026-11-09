@@ -109,7 +109,7 @@ private class ReaderViewModel(
 
     private suspend fun loadDownloaded(downloads: DownloadManager): ReaderStart {
         val dao = container.database.downloadDao()
-        val comic = dao.getComic(comicId) ?: throw IOException("找不到已下载的漫画")
+        val comic = dao.getComic(comicId) ?: throw IOException("未找到已下载漫画")
         val source = DownloadedReaderSource(
             comic = comic,
             downloadDao = dao,

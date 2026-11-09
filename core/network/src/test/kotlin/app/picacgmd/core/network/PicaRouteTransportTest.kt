@@ -25,7 +25,7 @@ class PicaRouteTransportTest {
     fun initRejectsEmptyMissingInvalidAndMalformedListsWithChineseMessage() {
         listOf("{}", "{\"addresses\":[]}", "{\"addresses\":[\"host.example\"]}", "not json").forEach { body ->
             val exception = assertFailsWith<IllegalArgumentException> { PicaInitAddresses.parse(body) }
-            assertTrue(exception.message!!.contains("服务器未返回有效的分流地址"))
+            assertTrue(exception.message!!.contains("未获取到分流地址"))
         }
     }
 
