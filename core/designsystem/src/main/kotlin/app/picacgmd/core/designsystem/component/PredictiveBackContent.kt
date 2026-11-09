@@ -5,7 +5,8 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.SeekableTransitionState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.rememberTransition
@@ -37,22 +38,35 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
-/** Linear timelines let Navigation seek the scale, offset and corners together with the finger. */
-fun predictiveBackExit() = scaleOut(tween(280, easing = LinearEasing), targetScale = 0.9f) +
-    slideOutHorizontally(tween(280, easing = LinearEasing)) { it / 32 }
+/**
+ * Navigation seeks these timelines with the gesture progress. The system reports progress slowly
+ * (a long swipe is still well below 1), so a decelerating curve makes the page visibly shrink,
+ * shift and round its corners as soon as the finger starts moving, like the system back preview.
+ */
+private val BackPreviewEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
+private const val BACK_PREVIEW_MILLIS = 300
+private val LateFadeEasing = Easing { if (it < 0.9f) 0f else (it - 0.9f) / 0.1f }
+
+fun predictiveBackExit() = scaleOut(tween(BACK_PREVIEW_MILLIS, easing = BackPreviewEasing), targetScale = 0.85f) +
+    slideOutHorizontally(tween(BACK_PREVIEW_MILLIS, easing = BackPreviewEasing)) { it / 12 } +
+    // Stays opaque while the finger drags; only the committed pop fades the small page away.
+    fadeOut(tween(BACK_PREVIEW_MILLIS, easing = LateFadeEasing))
 
 /** Clip the page itself, not the whole host: the previous page stays full-size underneath. */
 @Composable
 fun AnimatedVisibilityScope.BackPreviewFrame(roundCorners: Boolean = true, content: @Composable () -> Unit) {
     val rounding by transition.animateFloat(
-        transitionSpec = { tween(280, easing = LinearEasing) },
+        transitionSpec = { tween(BACK_PREVIEW_MILLIS, easing = BackPreviewEasing) },
         label = "backCorners",
     ) { if (it == EnterExitState.PostExit) 1f else 0f }
     Box(
         Modifier.fillMaxSize()
             .graphicsLayer {
-                shape = if (roundCorners) RoundedCornerShape(28.dp * rounding.coerceIn(0f, 1f)) else RectangleShape
+                val amount = rounding.coerceIn(0f, 1f)
+                shape = if (roundCorners) RoundedCornerShape(32.dp * amount) else RectangleShape
                 clip = true
+                // Lift the shrinking card off the page underneath so its edge reads clearly.
+                shadowElevation = 12.dp.toPx() * amount
             }
             .background(MaterialTheme.colorScheme.surface),
     ) { content() }
