@@ -17,6 +17,7 @@ import app.picacgmd.core.network.ROUTE_PROBE_TIMEOUT_MILLIS
 import java.net.Proxy
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,6 +26,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 
 data class NetworkConfiguration(
@@ -62,7 +64,7 @@ data class NetworkClients(
 /** Only network preferences rebuild transports. New requests use the latest persisted configuration. */
 class NetworkConfigProvider(
     private val settings: Flow<AppSettings>,
-    scope: CoroutineScope,
+    private val scope: CoroutineScope,
     private val tokenProvider: () -> String? = { null },
 ) {
     private val lock = Any()
@@ -102,10 +104,11 @@ class NetworkConfigProvider(
      * One independently measured signed keyword request with a five-second ceiling.
      * Probes connect directly (not through a proxy, which would bypass route DNS) and never update
      * the selected route, session, or retained transports. Values are milliseconds; failures are null.
+     * Main-safe: the probe and its socket cleanup run on [Dispatchers.IO].
      */
-    suspend fun measureApiRoute(route: ApiRoute): Long? = measureRouteLatency {
+    suspend fun measureApiRoute(route: ApiRoute): Long? = withContext(Dispatchers.IO) {
         val timeOffsetHours = settings.first().timeOffsetHours
-        probeApiRoute(route, timeOffsetHours)
+        measureRouteLatency { probeApiRoute(route, timeOffsetHours) }
     }
 
     fun imageUrl(image: PicaImage): String = PicaImageUrls.build(image, current.configuration.imageServer)
@@ -116,8 +119,11 @@ class NetworkConfigProvider(
         if (mutableClients.value.configuration != configuration) {
             val previous = mutableClients.value
             mutableClients.value = build(configuration)
-            previous.apiClient.connectionPool.evictAll()
-            previous.imageClient.connectionPool.evictAll()
+            // Closing pooled TLS connections writes to the socket, and update() can run on the main thread.
+            scope.launch(Dispatchers.IO) {
+                previous.apiClient.connectionPool.evictAll()
+                previous.imageClient.connectionPool.evictAll()
+            }
         }
         mutableError.value = null
         mutableClients.value
@@ -169,9 +175,16 @@ class NetworkConfigProvider(
             )
             return api.hotKeywords() is PicaResult.Success
         } finally {
-            client.dispatcher.cancelAll()
-            client.connectionPool.evictAll()
-            client.dispatcher.executorService.shutdown()
+            client.releaseQuietly()
+        }
+    }
+
+    /** Cleanup never turns a finished probe into a failure. */
+    private fun OkHttpClient.releaseQuietly() {
+        runCatching {
+            dispatcher.cancelAll()
+            connectionPool.evictAll()
+            dispatcher.executorService.shutdown()
         }
     }
 
