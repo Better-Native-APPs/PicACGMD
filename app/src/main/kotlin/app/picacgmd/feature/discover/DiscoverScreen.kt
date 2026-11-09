@@ -4,6 +4,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -14,19 +15,30 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import app.picacgmd.R
@@ -44,7 +56,7 @@ import app.picacgmd.core.designsystem.theme.PikapikaTheme
 import app.picacgmd.core.designsystem.theme.ThemeChoice
 
 /**
- * 发现 (board 04 with the §0 changes): search bar with the 「我的」 avatar, the three fixed channels
+ * 发现 (board 04 with the §0 changes): search bar, 「我的」 avatar and one-tap route picker; fixed channels
  * 排行榜 / 随机 / 游戏专区 followed by pinned categories and the category grid, starting with 全分类.
  *
  * @param showProfileEntry false on large screens, where 「我的」 is a rail item instead (board 31).
@@ -60,6 +72,7 @@ fun DiscoverScreen(
     onCategoryClick: (String) -> Unit,
     onAllComicsClick: () -> Unit,
     onManageCategoriesClick: () -> Unit,
+    onRouteClick: () -> Unit,
     modifier: Modifier = Modifier,
     failure: LoadState.Failed? = null,
     isRefreshing: Boolean = false,
@@ -67,29 +80,37 @@ fun DiscoverScreen(
     onRetry: () -> Unit = {},
     avatarUrl: String? = null,
     avatarInitial: String? = null,
+    currentRouteName: String? = null,
 ) {
     Column(
         modifier
             .fillMaxSize()
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)),
     ) {
-        SearchEntryBar(
-            placeholder = stringResource(R.string.discover_search_placeholder),
-            onClick = onSearchClick,
+        Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            trailingContent = if (showProfileEntry) {
-                {
-                    ShapedAvatar(
-                        imageUrl = avatarUrl,
-                        initial = avatarInitial,
-                        contentDescription = stringResource(R.string.discover_profile),
-                        onClick = onProfileClick,
-                    )
-                }
-            } else {
-                null
-            },
-        )
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SearchEntryBar(
+                placeholder = stringResource(R.string.discover_search_placeholder),
+                onClick = onSearchClick,
+                modifier = Modifier.weight(1f),
+                trailingContent = if (showProfileEntry) {
+                    {
+                        ShapedAvatar(
+                            imageUrl = avatarUrl,
+                            initial = avatarInitial,
+                            contentDescription = stringResource(R.string.discover_profile),
+                            onClick = onProfileClick,
+                        )
+                    }
+                } else {
+                    null
+                },
+            )
+            HomeRouteButton(currentRouteName, onRouteClick)
+        }
         OfflineBanner(
             visible = content != null && failure != null,
             message = if (failure?.offline == false) {
@@ -154,6 +175,29 @@ fun DiscoverScreen(
                         Spacer(Modifier.padding(bottom = 8.dp).windowInsetsBottomHeight(WindowInsets.safeDrawing))
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeRouteButton(currentRouteName: String?, onClick: () -> Unit) {
+    val description = if (currentRouteName == null) {
+        stringResource(R.string.discover_route_switch)
+    } else {
+        stringResource(R.string.discover_route_current, currentRouteName)
+    }
+    FilledTonalButton(
+        onClick = onClick,
+        modifier = Modifier.height(56.dp).widthIn(max = 140.dp).semantics { contentDescription = description },
+        contentPadding = PaddingValues(horizontal = 12.dp),
+    ) {
+        Icon(Icons.Outlined.Route, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(6.dp))
+        Column {
+            Text(stringResource(R.string.discover_route), style = MaterialTheme.typography.labelSmall)
+            if (currentRouteName != null) {
+                Text(currentRouteName, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -265,6 +309,8 @@ private fun DiscoverScreenPreview() {
             onCategoryClick = {},
             onAllComicsClick = {},
             onManageCategoriesClick = {},
+            onRouteClick = {},
+            currentRouteName = "分流1",
         )
     }
 }

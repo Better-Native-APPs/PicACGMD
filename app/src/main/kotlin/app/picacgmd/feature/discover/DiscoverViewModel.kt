@@ -19,6 +19,9 @@ import app.picacgmd.core.domain.repository.RepositoryState
 import app.picacgmd.core.network.Category
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.bookshelf.safeImageUrl
+import app.picacgmd.feature.routing.RouteKind
+import app.picacgmd.feature.routing.RoutePickerDialog
+import app.picacgmd.feature.routing.rememberRouteSummary
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -101,6 +104,8 @@ fun DiscoverScreen(
     val container = LocalAppContainer.current
     val model = viewModel.model
     val content = remember(model, container) { model?.toContent(container) }
+    val routes = rememberRouteSummary()
+    var routePickerOpen by remember { mutableStateOf(false) }
     // The avatar entry shows the signed-in user's real picture; the profile is fetched once if
     // nothing (e.g. 我的) has loaded it yet.
     val profile by container.userRepository.currentProfile.collectAsStateWithLifecycle()
@@ -125,6 +130,7 @@ fun DiscoverScreen(
         onCategoryClick = onOpenCategory,
         onAllComicsClick = onOpenAllComics,
         onManageCategoriesClick = onOpenCategories,
+        onRouteClick = { routePickerOpen = true },
         modifier = modifier,
         failure = viewModel.failure,
         isRefreshing = viewModel.isRefreshing,
@@ -132,7 +138,11 @@ fun DiscoverScreen(
         onRetry = viewModel::retry,
         avatarUrl = avatarUrl,
         avatarInitial = profile?.name?.take(1)?.takeIf { it.isNotBlank() },
+        currentRouteName = routes?.apiLabel,
     )
+    if (routePickerOpen) {
+        RoutePickerDialog(kind = RouteKind.Api, onDismiss = { routePickerOpen = false })
+    }
 }
 
 private fun HomeModel.toContent(container: AppContainer) = DiscoverContent(
