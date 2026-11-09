@@ -32,7 +32,7 @@
     <string name="discover_channel_games">游戏专区</string>
     <string name="discover_section_categories">分类</string>
     <string name="discover_action_all">全部</string>
-    <string name="discover_action_all_categories">全分类</string>
+    <string name="discover_action_manage_categories">分类管理</string>
 
     <!-- Discover preview content. -->
     <string-array name="discover_sample_pinned">

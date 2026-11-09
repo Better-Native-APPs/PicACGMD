@@ -45,7 +45,7 @@ import app.picacgmd.core.designsystem.theme.ThemeChoice
 
 /**
  * 发现 (board 04 with the §0 changes): search bar with the 「我的」 avatar, the three fixed channels
- * 排行榜 / 随机 / 游戏专区 followed by pinned categories and the category grid.
+ * 排行榜 / 随机 / 游戏专区 followed by pinned categories and the category grid, starting with 全分类.
  *
  * @param showProfileEntry false on large screens, where 「我的」 is a rail item instead (board 31).
  */
@@ -58,7 +58,8 @@ fun DiscoverScreen(
     onProfileClick: () -> Unit,
     onChannelClick: (HomeChannel) -> Unit,
     onCategoryClick: (String) -> Unit,
-    onAllCategoriesClick: () -> Unit,
+    onAllComicsClick: () -> Unit,
+    onManageCategoriesClick: () -> Unit,
     modifier: Modifier = Modifier,
     failure: LoadState.Failed? = null,
     isRefreshing: Boolean = false,
@@ -117,29 +118,31 @@ fun DiscoverScreen(
                             pinned = content?.pinnedCategories.orEmpty(),
                             onChannelClick = onChannelClick,
                             onPinnedClick = onCategoryClick,
+                            onAllComicsClick = onAllComicsClick,
+                        )
+                    }
+                    item(key = "category-header", contentType = "header") {
+                        SectionHeader(
+                            title = stringResource(R.string.discover_section_categories),
+                            actionLabel = stringResource(R.string.discover_action_manage_categories),
+                            onActionClick = onManageCategoriesClick,
+                        )
+                    }
+                    // 全分类 is local, so it remains available before categories load or after a failure.
+                    itemsIndexed(
+                        items = (content?.categories ?: listOf(AllComicsHomeCategory)).chunked(columns),
+                        key = { index, _ -> "category-row-$columns-$index" },
+                        contentType = { _, _ -> "category-row" },
+                    ) { _, row ->
+                        CategoryRow(
+                            row = row,
+                            columns = columns,
+                            onCategoryClick = onCategoryClick,
+                            onAllComicsClick = onAllComicsClick,
                         )
                     }
                     when {
-                        content != null -> {
-                            item(key = "category-header", contentType = "header") {
-                                SectionHeader(
-                                    title = stringResource(R.string.discover_section_categories),
-                                    actionLabel = stringResource(R.string.discover_action_all_categories),
-                                    onActionClick = onAllCategoriesClick,
-                                )
-                            }
-                            itemsIndexed(
-                                items = content.categories.chunked(columns),
-                                key = { index, _ -> "category-row-$columns-$index" },
-                                contentType = { _, _ -> "category-row" },
-                            ) { _, row ->
-                                CategoryRow(
-                                    row = row,
-                                    columns = columns,
-                                    onCategoryClick = onCategoryClick,
-                                )
-                            }
-                        }
+                        content != null -> Unit
                         failure != null -> item(key = "failure", contentType = "status") {
                             LoadFailure(failure = failure, onRetry = onRetry)
                         }
@@ -160,9 +163,6 @@ fun DiscoverScreen(
 @Composable
 private fun DiscoverSkeleton(columns: Int) {
     Column(Modifier.fillMaxWidth()) {
-        SkeletonBlock(
-            Modifier.padding(horizontal = 16.dp, vertical = 16.dp).fillMaxWidth(0.25f).height(20.dp),
-        )
         repeat(3) {
             Row(
                 Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
@@ -185,6 +185,7 @@ private fun ChannelRow(
     pinned: List<HomeCategory>,
     onChannelClick: (HomeChannel) -> Unit,
     onPinnedClick: (String) -> Unit,
+    onAllComicsClick: () -> Unit,
 ) {
     val channels = listOf(
         HomeChannel.Rankings to R.string.discover_channel_rankings,
@@ -220,7 +221,7 @@ private fun ChannelRow(
                 CategoryChannelButton(
                     label = category.name,
                     imageUrl = category.thumbUrl,
-                    onClick = { onPinnedClick(category.name) },
+                    onClick = if (category.isAllComics) onAllComicsClick else ({ onPinnedClick(category.name) }),
                 )
             }
         }
@@ -232,6 +233,7 @@ private fun CategoryRow(
     row: List<HomeCategory>,
     columns: Int,
     onCategoryClick: (String) -> Unit,
+    onAllComicsClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
@@ -241,7 +243,7 @@ private fun CategoryRow(
             CategoryTile(
                 name = category.name,
                 imageUrl = category.thumbUrl,
-                onClick = { onCategoryClick(category.name) },
+                onClick = if (category.isAllComics) onAllComicsClick else ({ onCategoryClick(category.name) }),
                 modifier = Modifier.weight(1f),
             )
         }
@@ -261,7 +263,8 @@ private fun DiscoverScreenPreview() {
             onProfileClick = {},
             onChannelClick = {},
             onCategoryClick = {},
-            onAllCategoriesClick = {},
+            onAllComicsClick = {},
+            onManageCategoriesClick = {},
         )
     }
 }

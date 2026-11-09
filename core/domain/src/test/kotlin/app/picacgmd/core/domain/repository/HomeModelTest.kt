@@ -12,6 +12,7 @@ class HomeModelTest {
         val model = buildHomeModel(emptyList(), AppSettings())
         assertEquals(listOf("排行榜", "随机", "游戏专区"), model.channels.map { it.title })
         assertEquals(listOf(HomeChannelKind.RANKINGS, HomeChannelKind.RANDOM, HomeChannelKind.GAMES), model.channels.map { it.kind })
+        assertEquals(listOf(ALL_COMICS_CATEGORY), model.categories)
     }
 
     @Test
@@ -40,7 +41,7 @@ class HomeModelTest {
             AppSettings(pinnedHomeCategories = listOf("不存在", "广告", "大湿推荐", "大濕推薦")),
         )
         assertEquals(listOf("排行榜", "随机", "游戏专区", "大濕推薦"), model.channels.map { it.title })
-        assertEquals(listOf("大濕推薦"), model.categories.map { it.title })
+        assertEquals(listOf("全分类", "大濕推薦"), model.categories.map { it.title })
     }
 
     @Test
@@ -49,7 +50,27 @@ class HomeModelTest {
             listOf(Category(title = "甲"), Category(title = "乙"), Category(title = "丙"), Category(title = "广告", isWeb = true)),
             AppSettings(categoryOrder = listOf("丙", "甲"), hiddenCategories = listOf("乙"), pinnedHomeCategories = listOf("乙")),
         )
-        assertEquals(listOf("丙", "甲"), model.categories.map { it.title })
+        assertEquals(listOf("全分类", "丙", "甲"), model.categories.map { it.title })
         assertEquals("乙", model.channels.last().title)
+    }
+
+    @Test
+    fun allComicsStaysFirstEvenIfOldPreferencesHideOrReorderIt() {
+        val model = buildHomeModel(
+            listOf(Category(title = "乙"), Category(title = "甲")),
+            AppSettings(categoryOrder = listOf("甲", "全分类", "乙"), hiddenCategories = listOf("全分类")),
+        )
+        assertEquals(listOf("全分类", "甲", "乙"), model.categories.map { it.title })
+        assertSame(ALL_COMICS_CATEGORY, model.categories.first())
+    }
+
+    @Test
+    fun allComicsCanBePinnedAndReorderedAlongsideServerCategories() {
+        val model = buildHomeModel(
+            listOf(Category(title = "甲"), Category(title = "乙")),
+            AppSettings(pinnedHomeCategories = listOf("乙", "全分类", "甲", "全分类")),
+        )
+        assertEquals(listOf("乙", "全分类", "甲"), model.channels.drop(3).map { it.title })
+        assertSame(ALL_COMICS_CATEGORY, model.channels[4].category)
     }
 }

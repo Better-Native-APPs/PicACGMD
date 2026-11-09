@@ -12,9 +12,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.picacgmd.core.designsystem.component.HomeChannel
 import app.picacgmd.core.domain.di.AppContainer
+import app.picacgmd.core.domain.repository.ALL_COMICS_CATEGORY
 import app.picacgmd.core.domain.repository.HomeChannelKind
 import app.picacgmd.core.domain.repository.HomeModel
 import app.picacgmd.core.domain.repository.RepositoryState
+import app.picacgmd.core.network.Category
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.bookshelf.safeImageUrl
 import kotlinx.coroutines.Job
@@ -91,6 +93,7 @@ fun DiscoverScreen(
     onProfileClick: () -> Unit,
     onChannelClick: (HomeChannel) -> Unit,
     onOpenCategory: (String) -> Unit,
+    onOpenAllComics: () -> Unit,
     onOpenCategories: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -120,7 +123,8 @@ fun DiscoverScreen(
         onProfileClick = onProfileClick,
         onChannelClick = onChannelClick,
         onCategoryClick = onOpenCategory,
-        onAllCategoriesClick = onOpenCategories,
+        onAllComicsClick = onOpenAllComics,
+        onManageCategoriesClick = onOpenCategories,
         modifier = modifier,
         failure = viewModel.failure,
         isRefreshing = viewModel.isRefreshing,
@@ -134,6 +138,9 @@ fun DiscoverScreen(
 private fun HomeModel.toContent(container: AppContainer) = DiscoverContent(
     pinnedCategories = channels
         .filter { it.kind == HomeChannelKind.CATEGORY }
-        .map { HomeCategory(it.category?.title ?: it.title, container.imageUrl(it.category?.thumb)) },
-    categories = categories.map { HomeCategory(it.title, container.imageUrl(it.thumb)) },
+        .map { it.category?.toHomeCategory(container) ?: HomeCategory(it.title) },
+    categories = categories.map { it.toHomeCategory(container) },
 )
+
+private fun Category.toHomeCategory(container: AppContainer): HomeCategory =
+    if (id == ALL_COMICS_CATEGORY.id) AllComicsHomeCategory else HomeCategory(title, container.imageUrl(thumb))

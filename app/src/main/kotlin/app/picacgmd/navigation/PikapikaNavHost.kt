@@ -159,6 +159,7 @@ private inline fun <reified T : Any> NavGraphBuilder.page(
 private fun NavGraphBuilder.topLevelGraphs(navController: NavHostController, compact: State<Boolean>) {
     navigation<DiscoverGraph>(startDestination = DiscoverRoute) {
         page<DiscoverRoute> {
+            val allComicsTitle = stringResource(R.string.title_categories)
             DiscoverScreen(
                 showProfileEntry = compact.value,
                 onSearchClick = { navController.navigate(SearchRoute()) },
@@ -174,6 +175,7 @@ private fun NavGraphBuilder.topLevelGraphs(navController: NavHostController, com
                     }
                 },
                 onOpenCategory = { navController.navigate(ComicListRoute(category = it)) },
+                onOpenAllComics = { navController.navigate(ComicListRoute(title = allComicsTitle)) },
                 onOpenCategories = { navController.navigate(CategoriesRoute) },
             )
         }
@@ -347,7 +349,11 @@ private fun NavGraphBuilder.sharedDestinations(
         )
     }
     page<CategoriesRoute> {
-        CategoriesScreen(onBack = navController.backAction())
+        val allComicsTitle = stringResource(R.string.title_categories)
+        CategoriesScreen(
+            onBack = navController.backAction(),
+            onOpenAllComics = { navController.navigate(ComicListRoute(title = allComicsTitle)) },
+        )
     }
     page<LoginRoute> {
         LoginScreen(onBack = navController.backAction())

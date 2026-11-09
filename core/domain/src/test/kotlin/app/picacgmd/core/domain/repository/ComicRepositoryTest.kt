@@ -5,6 +5,7 @@ import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.domain.session.MemoryCredentialStore
 import app.picacgmd.core.domain.session.MemorySessionPreferences
 import app.picacgmd.core.domain.session.SessionManager
+import app.picacgmd.core.network.ComicSort
 import app.picacgmd.core.network.PicaApi
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -53,15 +54,32 @@ class ComicRepositoryTest {
     fun homeOnlyFetchesCategoriesAndReappliesPreferencesWithoutAnotherRequest() = runTest {
         val home = HomeRepository(repository(backgroundScope), preferences.settings, backgroundScope)
         enqueue("""{"categories":[{"_id":"1","title":"日常"},{"_id":"2","title":"冒险"}]}""")
-        assertEquals(listOf("日常", "冒险"), home.refresh().categories.map { it.title })
+        assertEquals(listOf("全分类", "日常", "冒险"), home.refresh().categories.map { it.title })
         assertEquals("/categories", server.takeRequest().url.encodedPath)
         preferences.settings.value = preferences.settings.value.copy(
             hiddenCategories = listOf("冒险"), pinnedHomeCategories = listOf("冒险"),
         )
         val updated = home.state.filterIsInstance<RepositoryState.Ready<HomeModel>>()
-            .first { it.data.categories.map { category -> category.title } == listOf("日常") }.data
+            .first { it.data.categories.map { category -> category.title } == listOf("全分类", "日常") }.data
         assertEquals("冒险", updated.channels.last().title)
         assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun allComicsRequestsOmitFiltersAndReuseEverySort() = runTest {
+        val repository = repository(backgroundScope)
+        ComicSort.entries.forEach { sort ->
+            enqueue("""{"comics":{"docs":[{"_id":"comic","title":"漫画"}],"page":3,"pages":5,"total":84,"limit":20}}""")
+            val result = repository.comics(sort = sort, page = 3)
+            val request = server.takeRequest()
+            assertEquals("/comics", request.url.encodedPath)
+            assertEquals(setOf("s", "page"), request.url.queryParameterNames)
+            assertEquals(sort.value, request.url.queryParameter("s"))
+            assertEquals("3", request.url.queryParameter("page"))
+            assertEquals(listOf("comic"), result.items.map { it.id })
+            assertEquals(84, result.total)
+            assertEquals(3, result.page)
+        }
     }
 
     @Test

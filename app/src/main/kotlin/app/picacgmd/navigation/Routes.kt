@@ -74,7 +74,7 @@ data class ReaderRoute(
 
 @Serializable data class GameRepliesRoute(val gameId: String, val commentId: String)
 
-/** 全分类. */
+/** 分类管理: home category pins, order and visibility. */
 @Serializable data object CategoriesRoute
 
 @Serializable data object LoginRoute

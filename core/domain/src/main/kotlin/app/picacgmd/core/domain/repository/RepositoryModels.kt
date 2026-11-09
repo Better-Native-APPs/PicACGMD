@@ -34,6 +34,12 @@ enum class HomeChannelKind { RANKINGS, RANDOM, GAMES, CATEGORY }
 
 data class HomeChannel(val kind: HomeChannelKind, val title: String, val category: Category? = null)
 
+/** Built-in browse entry, never sent as a PicACG category filter. */
+val ALL_COMICS_CATEGORY = Category(id = "builtin-all-comics", title = "全分类")
+
+fun homeCategoryCatalogue(categories: List<Category>): List<Category> =
+    listOf(ALL_COMICS_CATEGORY) + categories.filterNot { it.isWeb }
+
 data class HomeModel(
     val channels: List<HomeChannel>,
     val categories: List<Category>,
@@ -135,14 +141,15 @@ fun buildHomeModel(
     categories: List<Category>,
     settings: AppSettings,
 ): HomeModel {
-    val serverCategories = categories.filterNot { it.isWeb }
+    val catalogue = homeCategoryCatalogue(categories)
+    val serverCategories = catalogue.drop(1)
     val hidden = settings.hiddenCategories.map(::categoryKey).toSet()
     val order = settings.categoryOrder.map(::categoryKey).withIndex().associate { it.value to it.index }
     val visible = serverCategories.filterNot { categoryKey(it.title) in hidden }
         .sortedBy { order[categoryKey(it.title)] ?: Int.MAX_VALUE }
     val pins = settings.pinnedHomeCategories.mapNotNull { name ->
-        serverCategories.firstOrNull { it.title == name }
-            ?: serverCategories.firstOrNull { categoryKey(it.title) == categoryKey(name) }
+        catalogue.firstOrNull { it.title == name }
+            ?: catalogue.firstOrNull { categoryKey(it.title) == categoryKey(name) }
     }.distinctBy { categoryKey(it.title) }
     // Hidden grid categories and pinned shortcuts are independent preferences (SPEC §0).
     val fixed = listOf(
@@ -152,6 +159,6 @@ fun buildHomeModel(
     )
     return HomeModel(
         channels = fixed + pins.map { HomeChannel(HomeChannelKind.CATEGORY, it.title, it) },
-        categories = visible,
+        categories = listOf(ALL_COMICS_CATEGORY) + visible,
     )
 }

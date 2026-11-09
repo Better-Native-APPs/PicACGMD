@@ -1,6 +1,7 @@
 package app.picacgmd.feature.categories
 
 import app.picacgmd.feature.routing.RouteMenuButton
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,6 +49,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -62,7 +64,10 @@ import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.designsystem.component.LoadingState
 import app.picacgmd.core.designsystem.component.SectionHeader
 import app.picacgmd.core.domain.di.AppContainer
+import app.picacgmd.core.domain.repository.ALL_COMICS_CATEGORY
+import app.picacgmd.core.domain.repository.homeCategoryCatalogue
 import app.picacgmd.core.network.Category
+import app.picacgmd.feature.discover.ALL_COMICS_THUMB_URL
 import app.picacgmd.feature.discover.LoadFailure
 import app.picacgmd.feature.discover.LoadState
 import app.picacgmd.feature.discover.appViewModel
@@ -92,7 +97,7 @@ class CategoriesViewModel(private val container: AppContainer) : ViewModel() {
     fun load() {
         categories = LoadState.Loading
         viewModelScope.launch {
-            categories = loadCatching { container.comicRepository.categories().filterNot { it.isWeb } }
+            categories = loadCatching { homeCategoryCatalogue(container.comicRepository.categories()) }
         }
     }
 
@@ -111,13 +116,14 @@ class CategoriesViewModel(private val container: AppContainer) : ViewModel() {
 }
 
 /**
- * 「排序与隐藏」 (board 04 §0): drag to reorder pinned shortcuts and the home grid, 固定到首页 pins and
+ * 「分类管理」 (board 04 §0): drag to reorder pinned shortcuts and the home grid, 固定到首页 pins and
  * per-category visibility switches. Wire into `CategoriesRoute`.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoriesScreen(
     onBack: () -> Unit,
+    onOpenAllComics: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val viewModel = appViewModel { CategoriesViewModel(it) }
@@ -143,6 +149,7 @@ fun CategoriesScreen(
                     onVisible = viewModel::setVisible,
                     onReorderPinned = viewModel::reorderPinned,
                     onReorderCategories = viewModel::reorderCategories,
+                    onOpenAllComics = onOpenAllComics,
                 )
             }
         }
@@ -159,6 +166,7 @@ private fun ManageContent(
     onVisible: (String, Boolean) -> Unit,
     onReorderPinned: (List<String>) -> Unit,
     onReorderCategories: (List<String>) -> Unit,
+    onOpenAllComics: () -> Unit,
 ) {
     val byKey = remember(categories) { categories.associateBy { categoryKey(it.title) } }
     val pinned = remember(settings.pinnedHomeCategories, byKey) {
@@ -168,7 +176,8 @@ private fun ManageContent(
     val hiddenKeys = settings.hiddenCategories.map(::categoryKey).toSet()
     val ordered = remember(categories, settings.categoryOrder) {
         val order = settings.categoryOrder.map(::categoryKey).withIndex().associate { it.value to it.index }
-        categories.sortedBy { order[categoryKey(it.title)] ?: Int.MAX_VALUE }
+        categories.filterNot { it.id == ALL_COMICS_CATEGORY.id }
+            .sortedBy { order[categoryKey(it.title)] ?: Int.MAX_VALUE }
     }
     val scroll = rememberScrollState()
     Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(bottom = 24.dp)) {
@@ -189,7 +198,11 @@ private fun ManageContent(
                     itemHeight = RowHeight,
                     onMoved = { list -> onReorderPinned(list.map { it.title }) },
                 ) { category, handle ->
-                    CategoryRow(category = category, handle = handle) {
+                    CategoryRow(
+                        category = category,
+                        handle = handle,
+                        onClick = if (category.id == ALL_COMICS_CATEGORY.id) onOpenAllComics else null,
+                    ) {
                         PinToggle(pinned = true, name = category.title, onPin = onPin)
                     }
                 }
@@ -198,6 +211,9 @@ private fun ManageContent(
         SectionHeader(title = stringResource(R.string.categories_all_title))
         Caption(stringResource(R.string.categories_all_hint))
         SectionCard {
+            CategoryRow(category = ALL_COMICS_CATEGORY, handle = null, onClick = onOpenAllComics) {
+                PinToggle(pinned = categoryKey(ALL_COMICS_CATEGORY.title) in pinnedKeys, name = ALL_COMICS_CATEGORY.title, onPin = onPin)
+            }
             ReorderableColumn(
                 items = ordered,
                 keyOf = { categoryKey(it.title) },
@@ -258,27 +274,33 @@ private fun PinToggle(pinned: Boolean, name: String, onPin: (String, Boolean) ->
 @Composable
 private fun CategoryRow(
     category: Category,
-    handle: Modifier,
+    handle: Modifier?,
     dimmed: Boolean = false,
+    onClick: (() -> Unit)? = null,
     trailing: @Composable () -> Unit,
 ) {
     val dragLabel = stringResource(R.string.categories_drag, category.title)
     Row(
-        modifier = Modifier.fillMaxWidth().height(RowHeight).padding(end = 8.dp),
+        modifier = Modifier.fillMaxWidth().height(RowHeight).padding(end = 8.dp)
+            .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier = handle.size(48.dp).semantics { contentDescription = dragLabel },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Icons.Filled.DragHandle, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (handle != null) {
+            Box(
+                modifier = handle.size(48.dp).semantics { contentDescription = dragLabel },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Filled.DragHandle, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else {
+            Spacer(Modifier.width(48.dp))
         }
         Surface(
             modifier = Modifier.size(40.dp),
             shape = MaterialTheme.shapes.medium,
             color = MaterialTheme.colorScheme.secondaryContainer,
         ) {
-            val url = rememberImageUrl(category.thumb)
+            val url = if (category.id == ALL_COMICS_CATEGORY.id) ALL_COMICS_THUMB_URL else rememberImageUrl(category.thumb)
             if (url != null) {
                 AsyncImage(model = url, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             }
