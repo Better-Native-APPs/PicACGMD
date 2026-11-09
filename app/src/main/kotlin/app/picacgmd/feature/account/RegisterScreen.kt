@@ -56,8 +56,8 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: () -> Unit) {
     BackHandler(step == 2 && !busy, back)
     AccountScaffold("注册账号", onBack = if (busy) null else back) {
         if (success) {
-            Text("注册成功", style = MaterialTheme.typography.headlineMedium)
-            Text("请使用新账号登录。安全问题和答案请妥善保存。")
+            Text("已注册", style = MaterialTheme.typography.headlineMedium)
+            Text("请妥善保存安全问题和答案")
             Button(onRegistered, Modifier.fillMaxWidth()) { Text("返回登录") }
         } else {
             Text("第 $step 步，共 2 步", style = MaterialTheme.typography.titleMedium)
@@ -80,16 +80,16 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: () -> Unit) {
                 Button({
                     error = when {
                         email.isBlank() -> "请输入账号"
-                        password.length < 8 || password.none(Char::isUpperCase) || password.none(Char::isLowerCase) || password.none(Char::isDigit) -> "密码需包含大小写字母和数字，且至少 8 位"
+                        password.length < 8 || password.none(Char::isUpperCase) || password.none(Char::isLowerCase) || password.none(Char::isDigit) -> "密码至少 8 位，包含大小写字母和数字"
                         name.trim().length !in 2..50 -> "昵称需为 2–50 字"
                         birthday.isBlank() -> "请选择生日"
-                        LocalDate.parse(birthday).isAfter(LocalDate.now().minusYears(18)) -> "仅限年满 18 岁的用户注册"
+                        LocalDate.parse(birthday).isAfter(LocalDate.now().minusYears(18)) -> "注册须年满 18 岁"
                         else -> null
                     }
                     if (error == null) step = 2
                 }, Modifier.fillMaxWidth()) { Text("下一步") }
             } else {
-                Text("三组安全问题用于找回密码，注册后无法修改，请记好答案。")
+                Text("填写三组安全问题，注册后无法修改")
                 repeat(3) { index ->
                     OutlinedTextField(questions[index], { questions[index] = it }, Modifier.fillMaxWidth(), label = { Text("问题 ${index + 1}") }, enabled = !busy)
                     OutlinedTextField(answers[index], { answers[index] = it }, Modifier.fillMaxWidth(), label = { Text("回答 ${index + 1}") }, enabled = !busy)
@@ -115,7 +115,7 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: () -> Unit) {
                             } catch (exception: CancellationException) {
                                 throw exception
                             } catch (exception: Exception) {
-                                error = exception.localizedMessage ?: "注册失败，请重试"
+                                error = exception.localizedMessage ?: "注册失败"
                             } finally {
                                 busy = false
                             }

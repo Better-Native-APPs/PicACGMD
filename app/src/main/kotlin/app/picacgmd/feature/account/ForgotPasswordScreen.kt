@@ -47,9 +47,9 @@ internal fun ForgotPasswordScreen(onBack: () -> Unit) {
     var busy by remember { mutableStateOf(false) }
     AccountScaffold("找回密码", if (busy) null else onBack) {
         OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), label = { Text("账号") }, singleLine = true, enabled = questions.isEmpty() && !busy)
-        if (questions.isEmpty()) Text("输入账号后，会显示你注册时设置的安全问题。")
+        if (questions.isEmpty()) Text("输入账号查看安全问题")
         if (questions.isNotEmpty() && newPassword == null) {
-            Text("选一个问题回答", style = MaterialTheme.typography.titleMedium)
+            Text("选择一个安全问题", style = MaterialTheme.typography.titleMedium)
             Card {
                 questions.forEachIndexed { index, label ->
                     Row(Modifier.fillMaxWidth().clickable(enabled = !busy) { question = index }.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -65,7 +65,7 @@ internal fun ForgotPasswordScreen(onBack: () -> Unit) {
                 Column(Modifier.padding(20.dp)) {
                     Text("新密码已生成", style = MaterialTheme.typography.titleLarge)
                     Text(password, Modifier.padding(vertical = 16.dp), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.headlineSmall)
-                    Text("已复制到剪贴板。登录后请尽快修改。")
+                    Text("已复制到剪贴板，登录后请修改密码")
                 }
             }
         }
@@ -83,7 +83,7 @@ internal fun ForgotPasswordScreen(onBack: () -> Unit) {
                                 questions = listOf(result.question1, result.question2, result.question3)
                             } else {
                                 val password = api.resetPassword(email.trim(), question + 1, answer.trim()).getOrThrow().password
-                                check(password.isNotEmpty()) { "服务器没有返回新密码，请重试" }
+                                check(password.isNotEmpty()) { "找回密码失败：服务器未返回新密码" }
                                 newPassword = password
                                 answer = ""
                                 val clip = ClipData.newPlainText("新密码", password)
@@ -95,7 +95,7 @@ internal fun ForgotPasswordScreen(onBack: () -> Unit) {
                         } catch (exception: CancellationException) {
                             throw exception
                         } catch (exception: Exception) {
-                            error = exception.localizedMessage ?: "找回密码失败，请重试"
+                            error = exception.localizedMessage ?: "找回密码失败"
                         } finally {
                             busy = false
                         }

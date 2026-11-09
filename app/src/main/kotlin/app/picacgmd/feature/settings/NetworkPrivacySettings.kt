@@ -74,7 +74,7 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
         if (proxyOn) {
             item {
                 NoticeCard(
-                    text = "已设置代理：所有请求都经过代理连接，下面的分流设置暂时不生效。清除代理后恢复。",
+                    text = "已启用代理，分流暂不生效",
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     warning = true,
                 )
@@ -85,7 +85,7 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 row { shapes ->
                     SettingsNavRow(
                         shapes, "分流", { picker = RouteKind.Api },
-                        summary = routes?.apiAddress ?: "直接连接官方服务器",
+                        summary = routes?.apiAddress ?: "直连哔咔服务器",
                         value = routes?.apiLabel,
                         leading = { Icon(Icons.Outlined.Dns, contentDescription = null) },
                     )
@@ -102,14 +102,14 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     SettingsNavRow(
                         shapes, "分流同步", { syncing = true },
                         summary = routes?.lastSyncedAtMillis?.let { "上次同步：${formatSyncTime(it)}" }
-                            ?: "正在使用内置分流列表，可从哔咔服务器获取最新地址",
+                            ?: "使用内置分流列表",
                         leading = { Icon(Icons.Outlined.Sync, contentDescription = null) },
                     )
                 }
                 row { shapes ->
                     SettingsSwitchRow(
                         shapes, "用 API 加载图片", settings.useApiClientForImages, { writer.update { setUseApiClientForImages(it) } },
-                        summary = "图片分流不通时打开，速度较慢",
+                        summary = "图片分流不可用时启用",
                     )
                 }
             }
@@ -119,7 +119,7 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 row { shapes ->
                     SettingsNavRow(
                         shapes, "代理地址", { dialog = NetworkDialog.Proxy },
-                        summary = settings.proxyUrl.ifBlank { "例如 socks5://127.0.0.1:1080" },
+                        summary = settings.proxyUrl.ifBlank { "HTTP / SOCKS5" },
                         value = if (proxyOn) "已设置" else "未设置",
                     )
                 }
@@ -128,18 +128,18 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
         item {
             SettingsGroup("看图") {
                 row { shapes ->
-                    SettingsNavRow(shapes, "图片质量", { dialog = NetworkDialog.Quality }, summary = "在线看图时的清晰度；下载总是原图", value = settings.imageQuality.label())
+                    SettingsNavRow(shapes, "图片质量", { dialog = NetworkDialog.Quality }, summary = "仅影响在线图片，下载为原图", value = settings.imageQuality.label())
                 }
             }
         }
         item {
             SettingsGroup("连接") {
                 row { shapes -> SettingsNavRow(shapes, "连接超时", { dialog = NetworkDialog.ConnectTimeout }, value = "${settings.connectTimeoutSeconds} 秒") }
-                row { shapes -> SettingsNavRow(shapes, "读取超时", { dialog = NetworkDialog.ReadTimeout }, summary = "图片很大时可以调长", value = "${settings.readTimeoutSeconds} 秒") }
+                row { shapes -> SettingsNavRow(shapes, "读取超时", { dialog = NetworkDialog.ReadTimeout }, summary = null, value = "${settings.readTimeoutSeconds} 秒") }
                 row { shapes ->
                     SettingsNavRow(
                         shapes, "时区", { dialog = NetworkDialog.TimeOffset },
-                        summary = "服务器校验时间失败时再调整",
+                        summary = "时间校验失败时调整",
                         value = if (settings.timeOffsetHours == 0) "跟随系统" else offsetLabel(settings.timeOffsetHours),
                     )
                 }
@@ -147,7 +147,7 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
         }
         item {
             NoticeCard(
-                text = "只会连接哔咔服务器、图片服务器，以及你自己设置的代理服务器。分流地址内置在应用里，也可以在「分流同步」里从哔咔自己的服务器获取最新的地址。",
+                text = "仅连接哔咔服务器、图片服务器和已设置的代理",
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
             )
         }
@@ -167,7 +167,7 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
             "时区", (-12..12).toList(), settings?.timeOffsetHours,
             { if (it == 0) "跟随系统" else offsetLabel(it) },
             { writer.update { setTimeOffsetHours(it) } }, dismiss,
-            description = "把请求时间按小时偏移，只在服务器提示时间不对时使用。",
+            description = "时间校验失败时调整",
         )
         null -> Unit
     }
@@ -275,7 +275,7 @@ private fun ProxyDialog(initial: String, onSave: (String) -> Unit, onDismiss: ()
         title = { Text("代理服务器") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("接口和图片都会走代理。手机开了 VPN 时一般不用设置。", style = MaterialTheme.typography.bodyMedium)
+                Text("接口和图片均使用代理", style = MaterialTheme.typography.bodyMedium)
                 ConnectedChoice(ProxyType.entries, type, { type = it; error = null }, { it.label })
                 if (type != ProxyType.None) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
@@ -303,8 +303,8 @@ private fun ProxyDialog(initial: String, onSave: (String) -> Unit, onDismiss: ()
                 }
                 val portNumber = port.toIntOrNull()
                 when {
-                    host.isBlank() -> error = "请填写代理地址"
-                    portNumber == null || portNumber !in 1..65535 -> error = "端口需要在 1–65535 之间"
+                    host.isBlank() -> error = "请输入代理地址"
+                    portNumber == null || portNumber !in 1..65535 -> error = "端口范围为 1–65535"
                     else -> {
                         onSave("${type.scheme}://$host:$portNumber")
                         onDismiss()
@@ -364,7 +364,7 @@ internal fun PrivacySettingsPage(onBack: () -> Unit, modifier: Modifier = Modifi
                     Column {
                         Text(if (on) "应用锁已开启" else "应用锁未开启", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            if (on) "离开${lockTimeoutLabel(settings.appLockTimeoutSeconds).let { if (it == "立即") "后立即" else " $it 后" }}回来需要验证" else "打开后，回到应用时需要验证身份",
+                            if (on) "离开${lockTimeoutLabel(settings.appLockTimeoutSeconds).let { if (it == "立即") "后立即" else " $it 后" }}返回需验证" else "启用后返回应用需验证",
                             style = MaterialTheme.typography.bodyMedium,
                         )
                     }
@@ -379,7 +379,7 @@ internal fun PrivacySettingsPage(onBack: () -> Unit, modifier: Modifier = Modifi
                         onCheckedChange = { enable ->
                             val keyguard = context.getSystemService(KeyguardManager::class.java)
                             if (enable && keyguard?.isDeviceSecure != true) {
-                                scope.launch { snackbar.showSnackbar("请先在系统设置里设置锁屏密码") }
+                                scope.launch { snackbar.showSnackbar("请先设置系统锁屏密码") }
                             } else {
                                 writer.update { setAppLockEnabled(enable) }
                             }
@@ -390,12 +390,12 @@ internal fun PrivacySettingsPage(onBack: () -> Unit, modifier: Modifier = Modifi
                 row { shapes ->
                     SettingsSwitchRow(
                         shapes, "允许生物识别解锁", settings.biometricUnlockEnabled, { writer.update { setBiometricUnlockEnabled(it) } },
-                        summary = "关闭后只能用锁屏密码", enabled = settings.appLockEnabled,
+                        summary = "关闭后仅用锁屏密码", enabled = settings.appLockEnabled,
                     )
                 }
                 row { shapes ->
                     SettingsNavRow(
-                        shapes, "离开多久后重新验证", { timeoutDialog = true },
+                        shapes, "离开后重新验证", { timeoutDialog = true },
                         value = lockTimeoutLabel(settings.appLockTimeoutSeconds), enabled = settings.appLockEnabled,
                     )
                 }
@@ -406,7 +406,7 @@ internal fun PrivacySettingsPage(onBack: () -> Unit, modifier: Modifier = Modifi
                 row { shapes ->
                     SettingsSwitchRow(
                         shapes, "防止截屏", settings.preventScreenshots, { writer.update { setPreventScreenshots(it) } },
-                        summary = "同时在最近任务里隐藏画面",
+                        summary = "同时隐藏最近任务画面",
                     )
                 }
             }
@@ -415,21 +415,21 @@ internal fun PrivacySettingsPage(onBack: () -> Unit, modifier: Modifier = Modifi
             SettingsGroup("记录") {
                 row { shapes ->
                     SettingsSwitchRow(
-                        shapes, "记录浏览记录", settings.historyEnabled, { writer.update { setHistoryEnabled(it) } },
-                        summary = "关闭后不再记录新的阅读进度，已有记录保留",
+                        shapes, "保存浏览记录", settings.historyEnabled, { writer.update { setHistoryEnabled(it) } },
+                        summary = "关闭后停止记录，保留已有记录",
                     )
                 }
                 row { shapes ->
                     SettingsSwitchRow(
-                        shapes, "打开详情也算浏览", settings.recordDetailViews, { writer.update { setRecordDetailViews(it) } },
-                        summary = "不看正文，只打开详情页也写入记录", enabled = settings.historyEnabled,
+                        shapes, "记录详情页浏览", settings.recordDetailViews, { writer.update { setRecordDetailViews(it) } },
+                        summary = null, enabled = settings.historyEnabled,
                     )
                 }
             }
         }
         item {
             NoticeCard(
-                "应用不收集任何使用数据。浏览记录、收藏和下载只保存在这台设备上。",
+                "不收集使用数据，浏览记录、收藏和下载仅保存在本机",
                 Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
             )
         }
@@ -437,7 +437,7 @@ internal fun PrivacySettingsPage(onBack: () -> Unit, modifier: Modifier = Modifi
 
     if (timeoutDialog) {
         ChoiceDialog(
-            "离开多久后重新验证", LockTimeouts, settings?.appLockTimeoutSeconds, ::lockTimeoutLabel,
+            "离开后重新验证", LockTimeouts, settings?.appLockTimeoutSeconds, ::lockTimeoutLabel,
             { writer.update { setAppLockTimeoutSeconds(it) } }, { timeoutDialog = false },
             detail = { if (it == 0) "每次切回应用都验证" else null },
         )

@@ -141,9 +141,9 @@ fun RoutePickerDialog(kind: RouteKind, onDismiss: () -> Unit) {
                 measure = routing::measureApiRoute,
                 select = routing::selectApiRoute,
                 onDismiss = onDismiss,
-                customSummary = current.customIp.ifBlank { "填入 IP 地址" },
+                customSummary = current.customIp.ifBlank { "输入 IP 地址" },
                 onCustom = { custom = true },
-                syncSummary = current.lastSyncedAtMillis?.let { "上次同步：${formatSyncTime(it)}" } ?: "正在使用内置分流列表",
+                syncSummary = current.lastSyncedAtMillis?.let { "上次同步：${formatSyncTime(it)}" } ?: "使用内置分流列表",
                 onSync = { sync = true },
             )
             if (custom) CustomRouteDialog(kind, current.customIp, onDismiss = { custom = false }, onSaved = onDismiss)
@@ -161,7 +161,7 @@ fun RoutePickerDialog(kind: RouteKind, onDismiss: () -> Unit) {
                 measure = routing::measureImageRoute,
                 select = routing::selectImageRoute,
                 onDismiss = onDismiss,
-                customSummary = current.customHost.ifBlank { "填入图片服务器地址" },
+                customSummary = current.customHost.ifBlank { "输入图片服务器地址" },
                 onCustom = { custom = true },
             )
             if (custom) CustomRouteDialog(kind, current.customHost, onDismiss = { custom = false }, onSaved = onDismiss)
@@ -204,7 +204,7 @@ private fun <T> RoutePickerContent(
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {
-                error = exception.message ?: "切换失败，请重试"
+                error = exception.message ?: "切换失败"
                 busy = false
             }
         }
@@ -220,7 +220,7 @@ private fun <T> RoutePickerContent(
                     Column(Modifier.weight(1f)) {
                         Text(title, style = MaterialTheme.typography.headlineSmall)
                         Text(
-                            if (proxyOn) "已设置代理，分流暂不生效；测速直接连接各条线路" else "打开即测速，点一下就切换",
+                            if (proxyOn) "已启用代理，分流暂不生效" else "点按切换",
                             style = MaterialTheme.typography.bodyMedium,
                             color = if (proxyOn) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -297,7 +297,7 @@ private fun <T> RouteRow(
                     sourceHint(option.source, synced)?.let { (text, warn) -> SourceHint(text, warn) }
                 }
                 Text(
-                    option.address?.removePrefix("https://") ?: "直接连接官方服务器",
+                    option.address?.removePrefix("https://") ?: "直连哔咔服务器",
                     style = MaterialTheme.typography.bodySmall,
                     color = if (selected) colors.onSecondaryContainer.copy(alpha = 0.78f) else colors.onSurfaceVariant,
                     maxLines = 1,
@@ -391,7 +391,7 @@ fun CustomRouteDialog(kind: RouteKind, initial: String, onDismiss: () -> Unit, o
     val api = kind == RouteKind.Api
     val save = {
         if (value.isBlank()) {
-            error = if (api) "请填写 IP 地址" else "请填写图片服务器地址"
+            error = if (api) "请输入 IP 地址" else "请输入图片服务器地址"
         } else if (!busy) {
             busy = true
             scope.launch {
@@ -402,7 +402,7 @@ fun CustomRouteDialog(kind: RouteKind, initial: String, onDismiss: () -> Unit, o
                 } catch (exception: CancellationException) {
                     throw exception
                 } catch (exception: Exception) {
-                    error = exception.message ?: "保存失败，请重试"
+                    error = exception.message ?: "保存失败"
                     busy = false
                 }
             }
@@ -413,8 +413,8 @@ fun CustomRouteDialog(kind: RouteKind, initial: String, onDismiss: () -> Unit, o
         title = { Text(if (api) "自定义分流" else "自定义图片分流") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    if (api) "填入 IP 地址，保存后立即切换到这条分流；证书仍按官方域名校验。" else "填入图片服务器地址，例如 https://example.com，保存后立即切换。",
+                if (api) Text(
+                    "证书按哔咔域名校验",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 OutlinedTextField(
@@ -470,7 +470,7 @@ fun RouteSyncDialog(onDismiss: () -> Unit) {
                 } catch (exception: CancellationException) {
                     throw exception
                 } catch (exception: Exception) {
-                    (exception.message ?: "操作失败，请重试") to true
+                    (exception.message ?: "操作失败") to true
                 } finally {
                     work = null
                 }
@@ -485,11 +485,11 @@ fun RouteSyncDialog(onDismiss: () -> Unit) {
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    "分流地址由哔咔官方服务器提供。获取到的地址排在列表前面，正在使用的分流不会变。",
+                    "同步不切换当前分流",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
-                    syncedAt?.let { "上次同步：${formatSyncTime(it)}" } ?: "正在使用内置分流列表",
+                    syncedAt?.let { "上次同步：${formatSyncTime(it)}" } ?: "使用内置分流列表",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -499,7 +499,7 @@ fun RouteSyncDialog(onDismiss: () -> Unit) {
                         else Icon(Icons.Outlined.Sync, contentDescription = null, Modifier.size(18.dp))
                     }
                     Spacer(Modifier.width(8.dp))
-                    Text(if (work == SyncWork.Sync) "正在获取…" else "从服务器获取最新的分流地址")
+                    Text(if (work == SyncWork.Sync) "正在获取…" else "获取分流地址")
                 }
                 OutlinedButton(
                     onClick = { run(SyncWork.Reset) },
@@ -508,7 +508,7 @@ fun RouteSyncDialog(onDismiss: () -> Unit) {
                 ) {
                     Icon(Icons.Outlined.Restore, contentDescription = null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("恢复默认分流")
+                    Text("恢复内置分流")
                 }
                 message?.let { (text, failed) ->
                     Text(
