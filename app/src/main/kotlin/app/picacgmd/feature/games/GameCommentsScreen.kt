@@ -139,7 +139,7 @@ private class GameCommentsViewModel(
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {
-                error = exception.localizedMessage ?: "发送失败，内容已保留"
+                error = exception.localizedMessage ?: "发送失败"
             } finally {
                 sending = false
             }
@@ -161,7 +161,7 @@ private class GameCommentsViewModel(
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {
-                error = exception.localizedMessage ?: "点赞失败，请重试"
+                error = exception.localizedMessage ?: "点赞失败"
             } finally {
                 liking -= comment.id
             }
@@ -180,7 +180,7 @@ private class GameCommentsViewModel(
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {
-                mutableMessages.tryEmit(exception.localizedMessage ?: "举报失败，请重试")
+                mutableMessages.tryEmit(exception.localizedMessage ?: "举报失败")
             }
         }
     }
@@ -242,7 +242,7 @@ fun GameCommentsScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     OutlinedTextField(
-                        draft, { draft = it.take(COMMENT_DRAFT_CAP) }, Modifier.weight(1f), placeholder = { Text(if (parentCommentId == null) "我有话要讲" else "写下回复") },
+                        draft, { draft = it.take(COMMENT_DRAFT_CAP) }, Modifier.weight(1f), placeholder = { Text(if (parentCommentId == null) "输入评论" else "输入回复") },
                         maxLines = 4, enabled = !model.sending, isError = length > COMMENT_MAX_LENGTH,
                     )
                     // The same 500-character limit and counter as the comic comments.
@@ -257,7 +257,7 @@ fun GameCommentsScreen(
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        if (model.comments.isEmpty()) GameLoadState(model.loading, model.error, "还没有评论，来聊聊吧", Modifier.padding(padding)) { model.load(1, false) }
+        if (model.comments.isEmpty()) GameLoadState(model.loading, model.error, "还没有评论", Modifier.padding(padding)) { model.load(1, false) }
         else LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding), state = list,
             contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -278,7 +278,7 @@ fun GameCommentsScreen(
                                 }
                                 CommentMenu(onReport = { reportTarget = comment })
                             }
-                            Text(if (comment.hide) "这条评论已被隐藏" else comment.content)
+                            Text(if (comment.hide) "评论已隐藏" else comment.content)
                             Text(comment.createdAt.orEmpty().replace('T', ' ').take(16), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 if (onReplies != null) TextButton({ onReplies(comment.id) }) { Text(if (comment.commentsCount > 0) "${comment.commentsCount} 条回复" else "回复") }

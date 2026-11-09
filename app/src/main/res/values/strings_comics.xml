@@ -3,13 +3,13 @@
     <!-- Shared -->
     <string name="comics_back">返回</string>
     <string name="comics_retry">重试</string>
-    <string name="comics_load_more_failed">加载失败，点按重试</string>
-    <string name="comics_end_of_list">已经到底了</string>
+    <string name="comics_load_more_failed">加载失败，重试</string>
+    <string name="comics_end_of_list">没有更多</string>
     <string name="comics_found_count">找到 %1$d 本</string>
     <string name="comics_found_hidden_count">找到 %1$d 本 · 已隐藏 %2$d 本</string>
-    <string name="comics_page_hidden">本页有 %1$d 本被屏蔽规则隐藏</string>
-    <string name="comics_empty_title">这里还没有漫画</string>
-    <string name="comics_empty_hidden">本页的漫画都被屏蔽规则隐藏了</string>
+    <string name="comics_page_hidden">本页已隐藏 %1$d 本</string>
+    <string name="comics_empty_title">还没有漫画</string>
+    <string name="comics_empty_hidden">本页漫画均已隐藏</string>
     <string name="comics_pages_eps">%1$dP · %2$d 话</string>
     <string name="comics_finished">完结</string>
     <string name="comics_all">全部漫画</string>
@@ -31,7 +31,7 @@
     <!-- Paging -->
     <string name="comics_page_indicator">%1$d / %2$d 页</string>
     <string name="comics_jump_to_page">跳页</string>
-    <string name="comics_jump_title">跳到第几页</string>
+    <string name="comics_jump_title">跳转页码</string>
     <string name="comics_jump_hint">1 – %1$d</string>
     <string name="comics_jump_confirm">跳转</string>
     <string name="comics_cancel">取消</string>
@@ -57,8 +57,8 @@
     <string name="search_filter_categories_hint">不选则搜索全部分类</string>
     <string name="search_filter_apply">应用</string>
     <string name="search_filter_reset">重置</string>
-    <string name="search_no_result">没有找到相关漫画</string>
-    <string name="search_no_result_hint">换个关键词，或放宽筛选条件试试</string>
+    <string name="search_no_result">未找到相关漫画</string>
+    <string name="search_no_result_hint">更换关键词或放宽筛选</string>
     <string name="search_clear">清除</string>
     <string name="search_submit">搜索</string>
 
@@ -89,22 +89,22 @@
     <string name="detail_chapter_progress">看到 %1$d/%2$d</string>
     <string name="detail_chapter_progress_page">看到第 %1$d 页</string>
     <string name="detail_chapter_downloaded">已下载</string>
-    <string name="detail_recommend">看了这本的人也在看</string>
+    <string name="detail_recommend">相关推荐</string>
     <string name="detail_comments">评论 · %1$d</string>
     <string name="detail_comments_all">全部评论</string>
-    <string name="detail_comments_empty">还没有评论，来抢沙发吧</string>
-    <string name="detail_hidden_by_rule">这本漫画命中了你的屏蔽规则</string>
+    <string name="detail_comments_empty">还没有评论</string>
+    <string name="detail_hidden_by_rule">漫画符合屏蔽规则</string>
     <string name="detail_block_mode">屏蔽模式</string>
-    <string name="detail_block_mode_hint">点一下分类或标签，加入屏蔽词；再点一下移出</string>
+    <string name="detail_block_mode_hint">点按分类或标签切换屏蔽</string>
     <string name="detail_keyword_blocked">已屏蔽</string>
     <string name="detail_keyword_not_blocked">未屏蔽</string>
     <string name="detail_keyword_blocked_message">已屏蔽「%1$s」</string>
     <string name="detail_keyword_unblocked_message">已取消屏蔽「%1$s」</string>
-    <string name="detail_download_not_allowed">这本漫画不允许下载</string>
+    <string name="detail_download_not_allowed">漫画不允许下载</string>
     <string name="detail_action_failed">操作失败：%1$s</string>
     <string name="detail_copy_title">复制标题</string>
     <string name="detail_copied">已复制</string>
-    <string name="detail_download_title">选择要下载的章节</string>
+    <string name="detail_download_title">选择下载章节</string>
     <string name="detail_download_confirm">下载 %1$d 话</string>
     <string name="detail_views">%1$s 指名</string>
 
@@ -115,7 +115,7 @@
     <string name="comments_replies">%1$d 条回复</string>
     <string name="comments_reply">回复</string>
     <string name="comments_replies_title">回复</string>
-    <string name="comments_input_hint">说点什么…</string>
+    <string name="comments_input_hint">输入评论</string>
     <string name="comments_reply_hint">回复 %1$s</string>
     <string name="comments_send">发送</string>
     <string name="comments_sent">已发送</string>
@@ -124,11 +124,11 @@
     <string name="comments_anonymous">匿名用户</string>
     <string name="comments_level">Lv.%1$d</string>
     <string name="comments_like">点赞</string>
-    <string name="comments_hidden">这条评论已被隐藏</string>
-    <string name="comments_message_board">嗶咔留言板</string>
+    <string name="comments_hidden">评论已隐藏</string>
+    <string name="comments_message_board">哔咔留言板</string>
     <string name="comments_more_actions">更多操作</string>
     <string name="comments_report">举报</string>
-    <string name="comments_report_title">举报这条评论？</string>
+    <string name="comments_report_title">举报评论？</string>
     <string name="comments_report_quote">%1$s：%2$s</string>
     <string name="comments_reported">已提交举报</string>
     <string name="comments_length_description">已输入 %1$d 字，最多 %2$d 字</string>

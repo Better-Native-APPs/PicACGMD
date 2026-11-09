@@ -150,8 +150,8 @@ fun GameDetailScreen(gameId: String, onBack: () -> Unit, onComments: (String) ->
                     Button({ links = true }, Modifier.fillMaxWidth(), enabled = info.androidLinks.isNotEmpty()) {
                         Text(if (info.androidLinks.isEmpty()) "暂无安卓版" else "获取下载链接")
                     }
-                    Text(
-                        if (info.androidLinks.isEmpty()) "这款游戏没有提供安卓下载" else "链接来自第三方网站，打开前会先问你",
+                    if (info.androidLinks.isNotEmpty()) Text(
+                        "第三方下载链接",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }

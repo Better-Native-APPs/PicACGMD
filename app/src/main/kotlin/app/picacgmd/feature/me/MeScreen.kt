@@ -136,7 +136,7 @@ fun MeScreen(
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {
-                loadError = exception.message ?: "资料加载失败"
+                loadError = exception.message?.let { "资料加载失败：$it" } ?: "资料加载失败"
             } finally {
                 loading = false
             }
@@ -471,7 +471,7 @@ private fun ProfileError(message: String, onRetry: () -> Unit, modifier: Modifie
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer),
     ) {
         Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("资料加载失败：$message", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            Text(message, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
             TextButton(onClick = onRetry) { Text("重试") }
         }
     }
