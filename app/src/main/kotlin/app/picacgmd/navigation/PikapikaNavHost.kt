@@ -74,6 +74,7 @@ fun PikapikaNavHost(
     modifier: Modifier = Modifier,
     externalComicId: String? = null,
     onExternalComicExit: () -> Unit = {},
+    rootBackHandler: @Composable () -> Unit = {},
 ) {
     val motion = MaterialTheme.motionScheme
     val slideSpec = motion.defaultSpatialSpec<IntOffset>()
@@ -83,6 +84,7 @@ fun PikapikaNavHost(
     val compact = rememberUpdatedState(compactNavigation)
     val externalId = rememberUpdatedState(externalComicId)
     val externalExit = rememberUpdatedState(onExternalComicExit)
+    val rootBack = rememberUpdatedState(rootBackHandler)
     val applicationContext = LocalContext.current.applicationContext
     val downloadManager = remember(applicationContext) {
         (applicationContext as DownloadManagerOwner).downloadManager
@@ -127,7 +129,7 @@ fun PikapikaNavHost(
             },
             sizeTransform = null,
         ) {
-            topLevelGraphs(navController, compact)
+            topLevelGraphs(navController, compact, rootBack)
             sharedDestinations(navController, externalId, externalExit, downloads, onReaderMessage)
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
@@ -155,9 +157,14 @@ private inline fun <reified T : Any> NavGraphBuilder.page(
     }
 }
 
-private fun NavGraphBuilder.topLevelGraphs(navController: NavHostController, compact: State<Boolean>) {
+private fun NavGraphBuilder.topLevelGraphs(
+    navController: NavHostController,
+    compact: State<Boolean>,
+    rootBack: State<@Composable () -> Unit>,
+) {
     navigation<DiscoverGraph>(startDestination = DiscoverRoute) {
         page<DiscoverRoute> {
+            rootBack.value()
             val allComicsTitle = stringResource(R.string.title_categories)
             DiscoverScreen(
                 showProfileEntry = compact.value,
@@ -181,6 +188,7 @@ private fun NavGraphBuilder.topLevelGraphs(navController: NavHostController, com
     }
     navigation<BookshelfGraph>(startDestination = BookshelfRoute) {
         page<BookshelfRoute> {
+            rootBack.value()
             BookshelfScreen(
                 onOpenComic = { navController.navigate(ComicDetailRoute(it)) },
                 onContinueReading = { id, ep, page -> navController.navigate(ReaderRoute(id, ep, page)) },
@@ -189,6 +197,7 @@ private fun NavGraphBuilder.topLevelGraphs(navController: NavHostController, com
     }
     navigation<DownloadsGraph>(startDestination = DownloadsRoute) {
         page<DownloadsRoute> {
+            rootBack.value()
             DownloadsScreen(
                 onReadDownloaded = { navController.navigate(DownloadedReaderRoute(it)) },
                 onOpenSettings = { navController.navigate(DownloadSettingsRoute) },
@@ -199,6 +208,7 @@ private fun NavGraphBuilder.topLevelGraphs(navController: NavHostController, com
     }
     navigation<MeGraph>(startDestination = MeRoute) {
         page<MeRoute> {
+            rootBack.value()
             val messageBoardTitle = stringResource(R.string.comments_message_board)
             MeScreen(
                 onOpenSettings = { navController.navigate(SettingsRoute) },

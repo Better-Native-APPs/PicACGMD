@@ -5,10 +5,12 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ActivityInfo
 import android.graphics.Color
+import android.hardware.display.DisplayManager
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import android.view.WindowManager
+import android.view.Display
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -288,7 +290,10 @@ class MainActivity : ComponentActivity() {
             AppOrientation.PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
         }
         if (requestedOrientation != orientation) requestedOrientation = orientation
-        val modes = window.decorView.display?.supportedModes.orEmpty()
+        // The first settings emission can precede attachment of the decor view.
+        val display = window.decorView.display
+            ?: getSystemService(DisplayManager::class.java)?.getDisplay(Display.DEFAULT_DISPLAY)
+        val modes = display?.supportedModes.orEmpty()
         val mode = snapshot.displayModeId?.takeIf { id -> modes.any { it.modeId == id } } ?: 0
         if (window.attributes.preferredDisplayModeId != mode) {
             window.attributes = window.attributes.apply { preferredDisplayModeId = mode }

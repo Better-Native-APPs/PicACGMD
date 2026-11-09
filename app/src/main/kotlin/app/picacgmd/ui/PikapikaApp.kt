@@ -97,11 +97,6 @@ fun PikapikaApp(
     val context = LocalContext.current
     val atRoot = currentDestination?.isTopLevelStart() == true
     val doubleBack = remember(atRoot, currentTab, preferences?.doubleBackToExit) { DoubleBackExit() }
-    // Only roots opt out of the system's predictive gesture; nested pages retain NavHost's preview.
-    BackHandler(enabled = atRoot && preferences?.doubleBackToExit == true) {
-        if (doubleBack.shouldExit(SystemClock.elapsedRealtime())) (context as? Activity)?.finish()
-        else Toast.makeText(context, "再按一次退出", Toast.LENGTH_SHORT).show()
-    }
 
     val showNavigation = currentDestination == null || when {
         currentDestination.isFullscreen() -> false
@@ -166,6 +161,16 @@ fun PikapikaApp(
         PikapikaNavHost(
             navController = navController, compactNavigation = !usesRail,
             externalComicId = externalComicId, onExternalComicExit = onExternalComicExit,
+            rootBackHandler = {
+                // Root callbacks sit after NavHost but before screen-local selection/search handlers.
+                // With the preference off there is no extra callback at all.
+                if (preferences?.doubleBackToExit == true) {
+                    BackHandler(enabled = atRoot) {
+                        if (doubleBack.shouldExit(SystemClock.elapsedRealtime())) (context as? Activity)?.finish()
+                        else Toast.makeText(context, "再按一次退出", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            },
         )
     }
     LaunchedEffect(externalNavigation) {
