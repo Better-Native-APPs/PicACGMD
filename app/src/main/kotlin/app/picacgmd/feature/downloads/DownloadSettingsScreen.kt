@@ -132,7 +132,10 @@ fun DownloadSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     if (flags != (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)) {
                         throw IOException("请选择允许读写的下载目录")
                     }
-                    withContext(Dispatchers.IO) { context.contentResolver.takePersistableUriPermission(tree, flags) }
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.takePersistableUriPermission(tree,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                    }
                     manager.setDownloadLocation(tree.toString())
                     snackbar.showSnackbar("下载位置已更改，已有下载保持原位置")
                 } catch (exception: CancellationException) {
