@@ -170,6 +170,8 @@ fun ComicDetailScreen(
     val hiddenKeywords by viewModel.hiddenKeywords.collectAsStateWithLifecycle()
     val localFolders by viewModel.localFolders.collectAsStateWithLifecycle()
     val localFolderIds by viewModel.localFolderIds.collectAsStateWithLifecycle()
+    val showTagFavourites by viewModel.showTagFavourites.collectAsStateWithLifecycle()
+    val favouriteTags by viewModel.favouriteTags.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val failedTemplate = stringResource(R.string.detail_action_failed, "%s")
     val blockedTemplate = stringResource(R.string.detail_keyword_blocked_message, "%s")
@@ -181,6 +183,11 @@ fun ComicDetailScreen(
         // The newest change replaces the one on screen, so a run of taps doesn't queue up a run of snackbars.
         viewModel.keywordChanges.collectLatest { change ->
             snackbar.showSnackbar((if (change.blocked) blockedTemplate else unblockedTemplate).replace("%s", change.keyword))
+        }
+    }
+    LaunchedEffect(viewModel) {
+        viewModel.tagFavouriteChanges.collectLatest { change ->
+            snackbar.showSnackbar(if (change.added) "已收藏标签「${change.tag}」" else "已移出标签收藏「${change.tag}」")
         }
     }
     var downloadPicker by rememberSaveable { mutableStateOf(false) }
@@ -223,6 +230,9 @@ fun ComicDetailScreen(
                 onRetryEps = viewModel::retryEps,
                 hiddenKeywords = hiddenKeywords,
                 onToggleKeyword = viewModel::toggleHiddenKeyword,
+                showTagFavourites = showTagFavourites,
+                favouriteTags = favouriteTags,
+                onToggleTagFavourite = viewModel::toggleTagFavourite,
             )
         }
     }
@@ -286,6 +296,9 @@ private fun DetailBody(
     onRetryEps: () -> Unit,
     hiddenKeywords: List<String>,
     onToggleKeyword: (String) -> Unit,
+    showTagFavourites: Boolean,
+    favouriteTags: Set<String>,
+    onToggleTagFavourite: (String) -> Unit,
 ) {
     val listState = rememberLazyListState()
     val collapsed by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
@@ -337,6 +350,9 @@ private fun DetailBody(
                     onAuthorClick = onAuthorClick,
                     onTeamClick = onTeamClick,
                     onCreatorClick = onCreatorClick,
+                    showTagFavourites = showTagFavourites,
+                    favouriteTags = favouriteTags,
+                    onToggleTagFavourite = onToggleTagFavourite,
                 )
             }
             if (comic.description.isNotBlank()) item(key = "desc") { Description(comic.description) }
@@ -591,8 +607,13 @@ private fun MetaChips(
     onAuthorClick: (String) -> Unit,
     onTeamClick: (String) -> Unit,
     onCreatorClick: (String, String) -> Unit,
+    showTagFavourites: Boolean,
+    favouriteTags: Set<String>,
+    onToggleTagFavourite: (String) -> Unit,
 ) {
     val motion = MaterialTheme.motionScheme
+    var favouriteMode by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(showTagFavourites) { if (!showTagFavourites) favouriteMode = false }
     val groups = listOfNotNull(
         ChipGroup(R.string.detail_categories, comic.categories, onCategoryClick).takeIf { comic.categories.isNotEmpty() },
         ChipGroup(R.string.detail_tags, comic.tags, onTagClick).takeIf { comic.tags.isNotEmpty() },
@@ -616,10 +637,27 @@ private fun MetaChips(
         }
         groups.forEachIndexed { index, group ->
             val first = index == 0
+            val isTagGroup = group.label == R.string.detail_tags
             ChipGroupLabel(
                 stringResource(group.label),
-                trailing = if (first) {
-                    { BlockModeToggle(blockMode, onBlockModeChange) }
+                trailing = if (first || (isTagGroup && showTagFavourites)) {
+                    {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (first) BlockModeToggle(blockMode) { on ->
+                                if (on) favouriteMode = false
+                                onBlockModeChange(on)
+                            }
+                            if (isTagGroup && showTagFavourites) FilterChip(
+                                selected = favouriteMode,
+                                onClick = {
+                                    favouriteMode = !favouriteMode
+                                    if (favouriteMode) onBlockModeChange(false)
+                                },
+                                label = { Text("收藏标签") },
+                                leadingIcon = { Icon(Icons.Outlined.BookmarkBorder, null, Modifier.size(FilterChipDefaults.IconSize)) },
+                            )
+                        }
+                    }
                 } else {
                     null
                 },
@@ -637,14 +675,29 @@ private fun MetaChips(
                     )
                 }
             }
+            if (isTagGroup && favouriteMode && showTagFavourites) {
+                Text("点标签加入或移出收藏，关闭「收藏标签」后可搜索", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+            }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 group.names.forEach { name ->
-                    KeywordChip(
-                        text = name,
-                        blocked = hiddenKeywords.containsKeyword(name),
-                        blockMode = blockMode,
-                        onClick = { if (blockMode) onToggleKeyword(name) else group.onOpen(name) },
-                    )
+                    if (isTagGroup && favouriteMode && showTagFavourites) {
+                        val saved = name.trim() in favouriteTags
+                        val description = if (saved) "已收藏标签" else "未收藏标签"
+                        FilterChip(
+                            selected = saved,
+                            onClick = { onToggleTagFavourite(name) },
+                            label = { Text(name) },
+                            leadingIcon = { Icon(if (saved) Icons.Filled.Bookmark else Icons.Outlined.Add, null, Modifier.size(FilterChipDefaults.IconSize)) },
+                            modifier = Modifier.semantics { stateDescription = description },
+                        )
+                    } else {
+                        KeywordChip(
+                            text = name,
+                            blocked = hiddenKeywords.containsKeyword(name),
+                            blockMode = blockMode,
+                            onClick = { if (blockMode) onToggleKeyword(name) else group.onOpen(name) },
+                        )
+                    }
                 }
             }
         }

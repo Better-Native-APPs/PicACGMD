@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import app.picacgmd.core.data.db.LocalFavouriteEntry
 import app.picacgmd.core.data.db.LocalFavouriteFolder
 import app.picacgmd.core.data.db.Subscription
+import app.picacgmd.core.data.db.TagFavourite
 import app.picacgmd.core.data.db.ViewHistory
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.domain.di.AppContainer
@@ -43,6 +44,8 @@ class BookshelfViewModel(private val container: AppContainer) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val localFolders: StateFlow<List<LocalFavouriteFolder>?> = container.localFavouriteRepository.folders
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val favouriteTags: StateFlow<List<TagFavourite>?> = container.tagFavouriteRepository.favourites
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     private val localEntries: StateFlow<List<LocalFavouriteEntry>?> = container.localFavouriteRepository.entries
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -103,6 +106,7 @@ class BookshelfViewModel(private val container: AppContainer) : ViewModel() {
 
     fun selectLocalFolder(folderId: String?) { mutableLocalFolder.value = folderId }
     fun setLocalNewestFirst(newestFirst: Boolean) { mutableLocalNewestFirst.value = newestFirst }
+    suspend fun removeFavouriteTag(tag: String) { container.tagFavouriteRepository.remove(listOf(tag)) }
     suspend fun createLocalFolder(name: String): String = container.localFavouriteRepository.createFolder(name).folderId
     suspend fun renameLocalFolder(folderId: String, name: String) = container.localFavouriteRepository.renameFolder(folderId, name)
     suspend fun deleteLocalFolder(folderId: String, targetFolderId: String) {

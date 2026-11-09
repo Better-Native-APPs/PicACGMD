@@ -24,6 +24,7 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.NotificationsOff
 import androidx.compose.material.icons.outlined.SelectAll
@@ -72,6 +73,7 @@ import app.picacgmd.core.domain.repository.toSimple
 import app.picacgmd.core.network.ComicSimple
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.downloads.rememberDownloadManager
+import app.picacgmd.feature.comics.ComicListScreen
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -113,6 +115,7 @@ fun BookshelfScreen(
     val localComics by viewModel.localComics.collectAsStateWithLifecycle()
     val localFolder by viewModel.localFolder.collectAsStateWithLifecycle()
     val localNewestFirst by viewModel.localNewestFirst.collectAsStateWithLifecycle()
+    val favouriteTags by viewModel.favouriteTags.collectAsStateWithLifecycle()
 
     var viewName by rememberSaveable { mutableStateOf<String?>(null) }
     var selectionList by rememberSaveable { mutableStateOf(emptyList<String>()) }
@@ -121,11 +124,20 @@ fun BookshelfScreen(
     var menu by remember { mutableStateOf(false) }
     var newLocalFolder by rememberSaveable { mutableStateOf(false) }
     var manageLocalFolders by rememberSaveable { mutableStateOf(false) }
+    var tagFavouritesOpen by rememberSaveable { mutableStateOf(false) }
+    var tagSearch by rememberSaveable { mutableStateOf<String?>(null) }
 
     val current = settings ?: return
     val views = current.visibleShelfViews()
     val view = views.firstOrNull { it.name == viewName } ?: views.first()
     val selecting = selection.isNotEmpty()
+
+    LaunchedEffect(current.showTagFavourites) {
+        if (!current.showTagFavourites) {
+            tagFavouritesOpen = false
+            tagSearch = null
+        }
+    }
 
     LaunchedEffect(view) {
         menu = false
@@ -196,6 +208,25 @@ fun BookshelfScreen(
         }
     }
 
+    // This secondary tag list reuses the existing comic-list screen without changing app routing.
+    val openedTag = tagSearch
+    if (openedTag != null && current.showTagFavourites) {
+        fun closeTagSearch() { tagSearch = null; tagFavouritesOpen = true }
+        BackHandler(onBack = ::closeTagSearch)
+        Box(modifier.fillMaxSize()) {
+            ComicListScreen(
+                category = null,
+                tag = openedTag,
+                author = null,
+                onBack = ::closeTagSearch,
+                onComicClick = onOpenComic,
+                onBatchDownload = ::enqueueDownloads,
+            )
+            SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(16.dp))
+        }
+        return
+    }
+
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -223,6 +254,9 @@ fun BookshelfScreen(
                         title = { Text("书架") },
                         scrollBehavior = scrollBehavior,
                         actions = {
+                            if (current.showTagFavourites) {
+                                IconButton(onClick = { tagFavouritesOpen = true }) { Icon(Icons.Outlined.Label, "标签收藏") }
+                            }
                             if (view == ShelfView.Local) {
                                 Box {
                                     IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, "更多操作") }
@@ -425,6 +459,12 @@ fun BookshelfScreen(
         onCreateFolder = viewModel::createLocalFolder,
         onRenameFolder = viewModel::renameLocalFolder,
         onDeleteFolder = viewModel::deleteLocalFolder,
+    )
+    if (tagFavouritesOpen && current.showTagFavourites) TagFavouritesSheet(
+        tags = favouriteTags,
+        onDismiss = { tagFavouritesOpen = false },
+        onOpenTag = { tag -> tagFavouritesOpen = false; tagSearch = tag },
+        onRemoveTag = viewModel::removeFavouriteTag,
     )
 }
 

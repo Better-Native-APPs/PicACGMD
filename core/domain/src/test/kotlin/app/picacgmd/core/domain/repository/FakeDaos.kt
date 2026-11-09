@@ -8,6 +8,8 @@ import app.picacgmd.core.data.db.LocalFavouriteFolder
 import app.picacgmd.core.data.db.ReadChapter
 import app.picacgmd.core.data.db.SearchHistory
 import app.picacgmd.core.data.db.SearchHistoryDao
+import app.picacgmd.core.data.db.TagFavourite
+import app.picacgmd.core.data.db.TagFavouriteDao
 import app.picacgmd.core.data.db.ViewHistory
 import app.picacgmd.core.data.db.ViewHistoryDao
 import kotlinx.coroutines.flow.Flow
@@ -132,4 +134,19 @@ internal class FakeLocalFavouriteDao : LocalFavouriteDao() {
         entries.value = entries.value.filterValues { it.folderId != folderId }
         return 1
     }
+}
+
+internal class FakeTagFavouriteDao : TagFavouriteDao {
+    private val entries = MutableStateFlow<List<TagFavourite>>(emptyList())
+    override fun observeAll(): Flow<List<TagFavourite>> = entries
+    override suspend fun upsert(favourite: TagFavourite) {
+        entries.value = (entries.value.filterNot { it.tag == favourite.tag } + favourite)
+            .sortedWith(compareBy<TagFavourite> { it.sortOrder }.thenBy { it.createdAt }.thenBy { it.tag })
+    }
+    override suspend fun delete(tags: List<String>): Int {
+        val previous = entries.value
+        entries.value = previous.filterNot { it.tag in tags }
+        return previous.size - entries.value.size
+    }
+    override suspend fun clear() { entries.value = emptyList() }
 }
