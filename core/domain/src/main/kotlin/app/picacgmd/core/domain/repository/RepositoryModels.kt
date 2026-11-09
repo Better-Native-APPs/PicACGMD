@@ -6,6 +6,7 @@ import app.picacgmd.core.network.Category
 import app.picacgmd.core.network.ComicInfo
 import app.picacgmd.core.network.ComicSimple
 import app.picacgmd.core.network.Page
+import app.picacgmd.core.network.UserProfile
 
 sealed interface RepositoryState<out T> {
     data object Idle : RepositoryState<Nothing>
@@ -137,6 +138,12 @@ fun ComicInfo.toSimple(): ComicSimple = ComicSimple(
     id = id, title = title, author = author, pagesCount = pagesCount, epsCount = epsCount,
     finished = finished, categories = categories, thumb = thumb, likesCount = likesCount, tags = tags,
 )
+
+/**
+ * The uploader ([ComicInfo.creator], `_creator`) as the detail page shows it. Null when the server sent
+ * none, or one without an id or a name: their comics are listed by the id, and the row shows the name.
+ */
+fun ComicInfo.uploader(): UserProfile? = creator?.takeIf { it.id.isNotBlank() && it.name.isNotBlank() }
 
 fun buildHomeModel(
     categories: List<Category>,
