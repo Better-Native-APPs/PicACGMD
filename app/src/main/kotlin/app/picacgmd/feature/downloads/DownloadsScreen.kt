@@ -215,7 +215,7 @@ fun DownloadsScreen(
                             OutlinedTextField(
                                 value = query,
                                 onValueChange = { query = it },
-                                placeholder = { Text("搜索已下载的漫画") },
+                                placeholder = { Text("搜索已下载漫画") },
                                 singleLine = true,
                                 shape = MaterialTheme.shapes.extraLarge,
                                 modifier = Modifier.fillMaxWidth().padding(end = 8.dp).focusRequester(focus),
@@ -232,7 +232,7 @@ fun DownloadsScreen(
                             IconButton(onClick = { searching = true }) { Icon(Icons.Outlined.Search, contentDescription = "搜索") }
                             IconButton(onClick = onOpenSettings) { Icon(Icons.Outlined.Settings, contentDescription = "下载设置") }
                             Box {
-                                IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "更多") }
+                                IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "更多操作") }
                                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                                     DropdownMenuItem(
                                         text = { Text("全部暂停") },
@@ -247,7 +247,7 @@ fun DownloadsScreen(
                                         onClick = { menu = false; act { resumeAll() } },
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("重试全部失败") },
+                                        text = { Text("全部重试") },
                                         leadingIcon = { Icon(Icons.Outlined.Refresh, null) },
                                         enabled = !byTab[DownloadTab.Failed].isNullOrEmpty(),
                                         onClick = { menu = false; act { retryFailed() } },
@@ -265,8 +265,8 @@ fun DownloadsScreen(
             when {
                 comics == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LoadingIndicator() }
                 all.isEmpty() && query.isNotBlank() -> EmptyState(
-                    title = "没有找到「${query.trim()}」",
-                    description = "只会搜索已加入下载的漫画标题。",
+                    title = "未找到「${query.trim()}」",
+                    description = null,
                     icon = Icons.Outlined.Search,
                     shape = MaterialShapes.Clover8Leaf,
                     modifier = Modifier.fillMaxSize(),
@@ -334,8 +334,8 @@ fun DownloadsScreen(
             title = { Text(if (targets.size == 1) "删除「${targets.first().title}」？" else "删除 ${targets.size} 本漫画？") },
             text = {
                 Text(
-                    if (finished) "已下载的图片会从这台设备上删除，之后需要重新下载。"
-                    else "会移出下载队列，并删除已经下载的部分。",
+                    if (finished) "已下载的文件会一并删除"
+                    else "移出下载队列并删除已下载的文件",
                 )
             },
             confirmButton = {
@@ -363,7 +363,7 @@ private fun DownloadsEmpty(onBrowse: () -> Unit, modifier: Modifier = Modifier) 
     Box(modifier, contentAlignment = Alignment.Center) {
         StatusPane(
             title = "还没有下载",
-            description = "在漫画详情里点「下载」选择章节。下载好的漫画没网也能看。",
+            description = "在详情页点「下载」",
             icon = Icons.Outlined.Download,
             shape = MaterialShapes.Sunny,
             actions = {
@@ -427,18 +427,18 @@ private fun EngineCard(
     val title = when {
         progress.waitingForWifi -> "等待 Wi-Fi"
         throttled -> "服务器限流 · $speed"
-        running -> "正在下载 · $speed"
+        running -> "下载中 · $speed"
         hasPaused -> "已暂停"
         else -> "排队中"
     }
     val subtitle = when {
-        progress.waitingForWifi -> "已设置只在 Wi-Fi 下下载，连上后自动继续"
-        throttled -> "暂时降到 ${progress.effectiveThreads} 个线程，稍后自动恢复到 ${progress.configuredThreads}"
+        progress.waitingForWifi -> "连接 Wi-Fi 后自动继续"
+        throttled -> "当前 ${progress.effectiveThreads} 个线程 · 已设 ${progress.configuredThreads} 个"
         running -> buildString {
             append("${progress.effectiveThreads} 个线程 · 剩余 ${progress.remainingPictures} 张")
             eta(progress)?.let { append(" · 约 $it") }
         }
-        hasPaused -> "点右侧按钮全部继续"
+        hasPaused -> "点按继续全部下载"
         else -> "${progress.configuredThreads} 个线程"
     }
     Card(
@@ -497,8 +497,8 @@ private fun ActiveList(
 ) {
     if (items.isEmpty()) {
         EmptyState(
-            title = "没有正在下载的漫画",
-            description = "下载完成的在「已完成」里。",
+            title = "暂无进行中的下载",
+            description = null,
             icon = Icons.Outlined.Download,
             shape = MaterialShapes.Sunny,
             modifier = Modifier.fillMaxSize(),
@@ -619,8 +619,8 @@ private fun DoneList(
     val context = LocalContext.current
     if (items.isEmpty()) {
         EmptyState(
-            title = "还没有下载完成的漫画",
-            description = "进行中的下载完成后会出现在这里。",
+            title = "暂无已完成的下载",
+            description = null,
             icon = Icons.Outlined.Download,
             shape = MaterialShapes.Sunny,
             modifier = Modifier.fillMaxSize(),
@@ -742,7 +742,7 @@ private fun FailedList(
                 Row(Modifier.padding(start = 16.dp, end = 12.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.ErrorOutline, contentDescription = null)
                     Text(
-                        if (failedPictures > 0) "${items.size} 本漫画有 $failedPictures 张图下载失败" else "${items.size} 本漫画下载失败",
+                        if (failedPictures > 0) "${items.size} 本漫画 · $failedPictures 张下载失败" else "${items.size} 本漫画下载失败",
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
                     )
@@ -769,14 +769,14 @@ private fun FailedList(
                 trailing = {
                     Row {
                         IconButton(onClick = { onRetry(comic.comicId) }) { Icon(Icons.Outlined.Refresh, contentDescription = "重试") }
-                        IconButton(onClick = { onRemove(comic) }) { Icon(Icons.Outlined.Close, contentDescription = "移出") }
+                        IconButton(onClick = { onRemove(comic) }) { Icon(Icons.Outlined.Close, contentDescription = "移出队列") }
                     }
                 },
             )
         }
         item {
             Text(
-                "可以先清理缓存、检查网络或换一条分流，再点重试。",
+                "请检查网络或切换分流",
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),

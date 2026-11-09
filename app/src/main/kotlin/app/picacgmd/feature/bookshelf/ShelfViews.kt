@@ -111,8 +111,8 @@ internal fun OnlineFavouritesView(
             onRetry = viewModel.onlinePager::reload,
             onJumpTo = viewModel.onlinePager::jumpTo,
             contentPadding = ShelfBottomPadding,
-            emptyTitle = "还没有在线收藏",
-            emptyDescription = "在漫画详情里点「收藏」，会同步到你的哔咔账号。",
+            emptyTitle = "还没有收藏",
+            emptyDescription = "收藏会同步到哔咔账号",
             header = {
                 Row(
                     Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp),
@@ -137,7 +137,7 @@ internal fun OnlineFavouritesView(
                                     text = { Text(label) },
                                     onClick = { menu = false; viewModel.setSort(value) },
                                     trailingIcon = if (value == sort) {
-                                        { Icon(Icons.Outlined.Check, contentDescription = "当前") }
+                                        { Icon(Icons.Outlined.Check, contentDescription = "当前排序") }
                                     } else {
                                         null
                                     },
@@ -174,7 +174,7 @@ internal fun FollowView(
                 item {
                     EmptyState(
                         title = "还没有追更",
-                        description = "在漫画详情里点「追更」，有新章节时这里和书架图标会提示。",
+                        description = "在详情页点「追更」",
                         icon = Icons.Outlined.NotificationsActive,
                         shape = MaterialShapes.Cookie9Sided,
                         modifier = Modifier.fillMaxWidth().padding(top = 48.dp),
@@ -227,7 +227,7 @@ private fun FollowHeader(sorted: List<Subscription>, onRefresh: () -> Unit) {
             is SubscriptionCheckState.Done -> {
                 val report = checkState.report
                 buildString {
-                    append("${sorted.count { it.unseen }} 本有更新 · 检查了 ${report.checkedCount} 本")
+                    append("${sorted.count { it.unseen }} 本有更新 · 已检查 ${report.checkedCount} 本")
                     if (report.failures.isNotEmpty()) append(" · ${report.failures.size} 本失败")
                 }
             }
@@ -273,7 +273,7 @@ internal fun HistoryView(
     if (history != null && history.isEmpty()) {
         EmptyState(
             title = "还没有浏览记录",
-            description = "看过的漫画会出现在这里，下次一按就能接着读。",
+            description = null,
             icon = Icons.Outlined.History,
             shape = MaterialShapes.Sunny,
             modifier = Modifier.fillMaxSize(),
@@ -358,7 +358,7 @@ private fun rememberCurrentDay(): LocalDate {
 internal fun ViewHistory.progressText(): String = when {
     lastEpOrder >= 1 && lastPictureIndex >= 1 ->
         "读到 ${lastEpTitle.ifBlank { "第 $lastEpOrder 话" }} · 第 $lastPictureIndex 页"
-    else -> "看过详情，还没开始读"
+    else -> "尚未阅读"
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -468,7 +468,7 @@ private fun HistoryRow(
                                     onClick = { menu = false; onPin() },
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("删除这条记录") },
+                                    text = { Text("删除记录") },
                                     leadingIcon = { Icon(Icons.Outlined.Delete, null) },
                                     onClick = { menu = false; onDelete() },
                                 )

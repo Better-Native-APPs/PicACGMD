@@ -128,7 +128,7 @@ class BookshelfViewModel(private val container: AppContainer) : ViewModel() {
                 }
             }
             mutableBatch.value = null
-            say(if (failed == 0) "已取消收藏 ${ids.size} 本" else "${ids.size - failed} 本已取消，$failed 本失败")
+            say(if (failed == 0) "已取消收藏 ${ids.size} 本" else "已取消收藏 ${ids.size - failed} 本，$failed 本失败")
             onlinePager.reload()
         }
     }

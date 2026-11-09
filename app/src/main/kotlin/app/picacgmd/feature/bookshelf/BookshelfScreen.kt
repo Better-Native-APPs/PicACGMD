@@ -207,7 +207,7 @@ fun BookshelfScreen(
                         actions = {
                             if (view == ShelfView.History) {
                                 Box {
-                                    IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "更多") }
+                                    IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "更多操作") }
                                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                                         DropdownMenuItem(
                                             text = { Text("清空浏览记录") },
@@ -327,8 +327,8 @@ fun BookshelfScreen(
             title = { Text("取消收藏 ${active.ids.size} 本？") },
             text = {
                 Text(
-                    if (current.autoDeleteDownloadOnUnfavourite) "会从哔咔账号的收藏里移除，已下载的内容也会一起删除。"
-                    else "会从哔咔账号的收藏里移除，下载不受影响。",
+                    if (current.autoDeleteDownloadOnUnfavourite) "移出哔咔账号收藏，已下载的文件会一并删除"
+                    else "移出哔咔账号收藏，下载不受影响",
                 )
             },
             confirmButton = {
@@ -349,7 +349,7 @@ fun BookshelfScreen(
         ShelfDialog.ClearHistory -> AlertDialog(
             onDismissRequest = { dialog = null },
             title = { Text("清空浏览记录？") },
-            text = { Text("所有阅读进度都会被删除，不能撤销。收藏和下载不受影响。") },
+            text = { Text("阅读进度会一并删除，无法撤销") },
             confirmButton = {
                 Button(
                     onClick = {
