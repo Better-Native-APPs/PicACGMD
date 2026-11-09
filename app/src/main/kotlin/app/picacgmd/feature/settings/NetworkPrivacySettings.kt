@@ -364,7 +364,7 @@ internal fun PrivacySettingsPage(onBack: () -> Unit, modifier: Modifier = Modifi
                     Column {
                         Text(if (on) "应用锁已开启" else "应用锁未开启", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            if (on) "离开${lockTimeoutLabel(settings.appLockTimeoutSeconds).let { if (it == "立即") "后立即" else " $it 后" }}返回需验证" else "启用后返回应用需验证",
+                            if (on) "打开应用时验证，离开${lockTimeoutLabel(settings.appLockTimeoutSeconds).let { if (it == "立即") "后立即" else " $it 后" }}返回需验证" else "启用后打开应用及返回时需验证",
                             style = MaterialTheme.typography.bodyMedium,
                         )
                     }

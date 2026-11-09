@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -27,6 +28,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,6 +45,9 @@ import app.picacgmd.core.designsystem.theme.isDark
 import app.picacgmd.core.domain.session.SessionState
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.account.LoginScreen
+import app.picacgmd.lock.AppLockAuthenticator
+import app.picacgmd.lock.AppLockScreen
+import app.picacgmd.lock.AppLockState
 import app.picacgmd.navigation.ExternalNavigation
 import app.picacgmd.navigation.externalNavigation
 import app.picacgmd.ui.PikapikaApp
@@ -59,11 +64,26 @@ class MainActivity : ComponentActivity() {
     private var settingsError by mutableStateOf<String?>(null)
     private var pendingNavigation by mutableStateOf<ExternalNavigation?>(null)
     private var settingsJob: Job? = null
+    private val lockState = AppLockState()
+    private var locked by mutableStateOf(true)
+    private var authenticationError by mutableStateOf<String?>(null)
+    private lateinit var authenticator: AppLockAuthenticator
+    private var obscureForRecents = false
 
     @OptIn(ExperimentalMaterial3ExpressiveApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         val splash = installSplashScreen()
         super.onCreate(savedInstanceState)
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        authenticator = AppLockAuthenticator(
+            this,
+            onUnlocked = {
+                lockState.unlock()
+                authenticationError = null
+                updateLockWindow()
+            },
+            onError = { authenticationError = it },
+        )
         splash.setKeepOnScreenCondition { settings == null && settingsError == null }
         enableEdgeToEdge()
         acceptIntent(intent)
@@ -91,14 +111,15 @@ class MainActivity : ComponentActivity() {
                 onDispose {}
             }
             val session by container.sessionManager.state.collectAsStateWithLifecycle()
+            val unlockedContent = rememberSaveableStateHolder()
             // Only whether anything is downloading matters here; collecting progress itself would
             // recompose the whole app on every engine tick.
             val downloadsActive by remember {
                 pikaApplication.downloadManager.progress.map { it.activeComics > 0 }.distinctUntilChanged()
             }.collectAsStateWithLifecycle(false)
             val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-            LaunchedEffect(downloadsActive, session) {
-                if (Build.VERSION.SDK_INT >= 33 && session is SessionState.SignedIn && downloadsActive) {
+            LaunchedEffect(downloadsActive, session, locked) {
+                if (!locked && settings != null && Build.VERSION.SDK_INT >= 33 && session is SessionState.SignedIn && downloadsActive) {
                     val history = getSharedPreferences("system_permissions", MODE_PRIVATE)
                     if (!history.getBoolean("notifications_requested", false)) {
                         history.edit().putBoolean("notifications_requested", true).apply()
@@ -117,19 +138,71 @@ class MainActivity : ComponentActivity() {
                                 description = settingsError,
                                 actions = { Button(onClick = ::observeSettings) { Text("重试") } },
                             )
-                            settings == null || session == SessionState.Initializing -> Box(
+                            settings == null -> Box(
                                 Modifier.fillMaxSize(), contentAlignment = Alignment.Center,
                             ) { LoadingIndicator() }
-                            session is SessionState.SignedIn -> PikapikaApp(
-                                externalNavigation = pendingNavigation,
-                                onExternalNavigationConsumed = { pendingNavigation = null },
-                                onExternalComicExit = ::finish,
-                            )
+                            locked -> AppLockScreen(authenticationError, ::unlock, ::finish)
+                            session == SessionState.Initializing -> Box(
+                                Modifier.fillMaxSize(), contentAlignment = Alignment.Center,
+                            ) { LoadingIndicator() }
+                            session is SessionState.SignedIn -> unlockedContent.SaveableStateProvider("app") {
+                                PikapikaApp(
+                                    externalNavigation = pendingNavigation,
+                                    onExternalNavigationConsumed = { pendingNavigation = null },
+                                    onExternalComicExit = ::finish,
+                                )
+                            }
                             else -> LoginScreen()
                         }
                     }
                 }
             }
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        settings?.let {
+            lockState.configure(it.appLockEnabled, authenticator.isDeviceSecure)
+            lockState.onForeground(SystemClock.elapsedRealtime(), it.appLockTimeoutSeconds)
+            updateLockWindow()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        obscureForRecents = false
+        updateLockWindow()
+    }
+
+    override fun onPause() {
+        // Secure the window before the system captures a background/recents thumbnail.
+        obscureForRecents = true
+        updateLockWindow()
+        super.onPause()
+    }
+
+    override fun onStop() {
+        lockState.onBackground(SystemClock.elapsedRealtime(), authenticator.isAuthenticating)
+        super.onStop()
+    }
+
+    override fun onDestroy() {
+        authenticator.cancel()
+        super.onDestroy()
+    }
+
+    private fun unlock() {
+        authenticationError = null
+        authenticator.authenticate(settings?.biometricUnlockEnabled == true)
+    }
+
+    private fun updateLockWindow() {
+        locked = lockState.isLocked
+        if (settings == null || locked || settings?.preventScreenshots == true || obscureForRecents && lockState.isEnabled) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }
     }
 
@@ -154,9 +227,9 @@ class MainActivity : ComponentActivity() {
         settingsJob = lifecycleScope.launch {
             try {
                 pikaApplication.appContainer.settingsRepository.settings.collect { snapshot ->
-                    if (snapshot.preventScreenshots) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-                    else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
                     settings = snapshot
+                    lockState.configure(snapshot.appLockEnabled, authenticator.isDeviceSecure)
+                    updateLockWindow()
                 }
             } catch (exception: CancellationException) {
                 throw exception
