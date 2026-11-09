@@ -92,6 +92,9 @@ internal fun AppSettings.toReaderConfig(base: ReaderConfig = ReaderConfig()): Re
     keepScreenOn = keepScreenOn,
     noPageAnimation = !readerPageAnimation,
     reduceMotion = eInkReduceAnimations,
+    eInkScrollByScreen = eInkScrollByScreen,
+    eInkScrollAmount = eInkScrollAmount,
+    eInkTriggerDistanceCm = eInkTriggerDistanceCm,
     minZoom = minZoom,
     maxZoom = maxZoom,
     doubleTapZoom = doubleTapZoom,
@@ -192,6 +195,9 @@ internal suspend fun SettingsRepository.saveReaderConfig(previous: ReaderConfig,
     if (previous.keepScreenOn != next.keepScreenOn) setKeepScreenOn(next.keepScreenOn)
     if (previous.noPageAnimation != next.noPageAnimation) setReaderPageAnimation(!next.noPageAnimation)
     if (previous.reduceMotion != next.reduceMotion) setEInkReduceAnimations(next.reduceMotion)
+    if (previous.eInkScrollByScreen != next.eInkScrollByScreen) setEInkScrollByScreen(next.eInkScrollByScreen)
+    if (previous.eInkScrollAmount != next.eInkScrollAmount) setEInkScrollAmount(next.eInkScrollAmount)
+    if (previous.eInkTriggerDistanceCm != next.eInkTriggerDistanceCm) setEInkTriggerDistanceCm(next.eInkTriggerDistanceCm)
     if (previous.minZoom != next.minZoom || previous.maxZoom != next.maxZoom || previous.doubleTapZoom != next.doubleTapZoom) {
         setReaderZoom(next.minZoom, next.maxZoom, next.doubleTapZoom)
     }

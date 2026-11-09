@@ -74,6 +74,7 @@ import app.picacgmd.feature.reader.logic.stripDecodeHeight
 import app.picacgmd.feature.reader.logic.stripItemAt
 import app.picacgmd.feature.reader.logic.stripListHeight
 import app.picacgmd.feature.reader.logic.stripStepDistance
+import app.picacgmd.feature.reader.logic.eInkStepDistance
 import app.picacgmd.feature.reader.logic.tapZoneAt
 import app.picacgmd.feature.reader.logic.visiblePageFraction
 import kotlinx.coroutines.launch
@@ -200,15 +201,17 @@ internal fun StripReader(
         object : PageNavigator {
             override suspend fun step(forward: Boolean, leaveAtEnd: Boolean): Boolean {
                 val settings = latestConfig
-                val instant = settings.noPageAnimation || settings.reduceMotion
-                return when (settings.stripPaging) {
+                val instant = settings.noPageAnimation || settings.reduceMotion || settings.eInkScrollByScreen
+                return when (if (settings.eInkScrollByScreen) StripPaging.ByScreen else settings.stripPaging) {
                     StripPaging.ByScreen -> when {
                         forward && !listState.canScrollForward -> leaveAtEnd.also { leaving -> if (leaving) host.onPastEnd() }
                         !forward && !listState.canScrollBackward -> false
                         else -> {
                             // A share of the screen, whatever the zoom: the list moves less when zoomed in.
                             val screen = zoom.containerHeight.roundToInt()
-                            val distance = stripStepDistance(screen, settings.scrollFraction, zoom.scale)
+                            val distance = if (settings.eInkScrollByScreen) {
+                                eInkStepDistance(screen, settings.eInkScrollAmount, zoom.scale)
+                            } else stripStepDistance(screen, settings.scrollFraction, zoom.scale)
                             val delta = if (forward) distance else -distance
                             if (instant) listState.scrollBy(delta) else listState.animateScrollBy(delta)
                             true
@@ -291,6 +294,12 @@ internal fun StripReader(
             modifier = Modifier
                 .fillMaxSize()
                 .nestedScroll(pull)
+                .eInkSwipe(
+                    enabled = config.eInkScrollByScreen && !zoom.isZoomed,
+                    vertical = true,
+                    triggerCm = config.eInkTriggerDistanceCm,
+                    onStep = { forward -> scope.launch { navigator.step(forward) } },
+                )
                 .pointerInput(zoom) {
                     detectStripZoomGestures(zoom) { velocityY ->
                         zoom.launchUntilNextGesture {
@@ -345,6 +354,7 @@ internal fun StripReader(
         ) {
             LazyColumn(
                 state = listState,
+                userScrollEnabled = !config.eInkScrollByScreen,
                 modifier = Modifier
                     .fillMaxSize()
                     .then(if (free) Modifier.growWhenZoomedOut(zoom) else Modifier)

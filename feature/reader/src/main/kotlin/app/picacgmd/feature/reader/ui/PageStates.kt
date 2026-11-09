@@ -40,6 +40,9 @@ import androidx.compose.ui.unit.dp
 import app.picacgmd.feature.reader.PageImage
 import app.picacgmd.feature.reader.R
 import app.picacgmd.feature.reader.logic.loadPercent
+import app.picacgmd.core.designsystem.component.ImageFailureReloadAction
+import app.picacgmd.core.designsystem.component.LocalImageFailureReloadAction
+import app.picacgmd.core.designsystem.component.reloadFailedImage
 import java.io.IOException
 import java.io.InterruptedIOException
 
@@ -192,8 +195,9 @@ internal fun PageFailureBlock(
     onSwitchServer: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
+    val tapToRetry = LocalImageFailureReloadAction.current == ImageFailureReloadAction.Tap
     MaterialTheme(colorScheme = ReaderDarkScheme) {
-        Box(modifier.background(PageBlockColors.Background), contentAlignment = Alignment.Center) {
+        Box(modifier.background(PageBlockColors.Background).reloadFailedImage(onRetry), contentAlignment = Alignment.Center) {
             Column(
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -247,7 +251,7 @@ internal fun PageFailureBlock(
                             )
                         }
                     }
-                    Button(
+                    if (tapToRetry) Button(
                         onClick = onRetry,
                         modifier = Modifier.heightIn(min = ButtonDefaults.ExtraSmallContainerHeight),
                         contentPadding = ButtonDefaults.ExtraSmallContentPadding,
@@ -257,6 +261,7 @@ internal fun PageFailureBlock(
                             style = ButtonDefaults.textStyleFor(ButtonDefaults.ExtraSmallContainerHeight),
                         )
                     }
+                    else Text("下拉重试", color = PageBlockColors.Body)
                 }
             }
         }

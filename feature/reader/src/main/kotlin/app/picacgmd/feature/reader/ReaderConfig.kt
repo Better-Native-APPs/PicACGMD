@@ -61,6 +61,10 @@ data class ReaderConfig(
     val noPageAnimation: Boolean = false,
     /** 减少动画 (e-ink): also drops loading animations. */
     val reduceMotion: Boolean = false,
+    /** E-ink page commands and swipes jump a fixed screen fraction, without animation. */
+    val eInkScrollByScreen: Boolean = false,
+    val eInkScrollAmount: Float = 0.8f,
+    val eInkTriggerDistanceCm: Float = 0.3f,
     /** 最小缩放, 0.5–2.0. Continuous strips never go below 1.0. */
     val minZoom: Float = 1f,
     /** 最大缩放, 2.0–5.0. */
@@ -78,6 +82,8 @@ data class ReaderConfig(
         val max = maxZoom.coerceIn(MAX_ZOOM_RANGE)
         return copy(
             scrollFraction = scrollFraction.coerceIn(SCROLL_FRACTION_RANGE),
+            eInkScrollAmount = eInkScrollAmount.coerceIn(SCROLL_FRACTION_RANGE),
+            eInkTriggerDistanceCm = eInkTriggerDistanceCm.coerceIn(0.1f..2f),
             autoTurnSeconds = autoTurnSeconds.coerceIn(AUTO_TURN_SECONDS_RANGE),
             autoScrollSpeed = autoScrollSpeed.coerceIn(AUTO_SCROLL_SPEED_RANGE),
             minZoom = min,
