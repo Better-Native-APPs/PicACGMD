@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Home quick route entry -->
+    <string name="discover_route">分流</string>
+    <string name="discover_route_switch">切换分流</string>
+    <string name="discover_route_current">当前分流：%1$s，点按切换</string>
+
     <!-- 发现：状态 -->
     <string name="discover_state_offline_banner">网络不可用，显示上次内容</string>
     <string name="discover_state_refresh_failed">刷新失败，显示上次内容</string>
@@ -23,17 +28,13 @@
     <string name="random_reroll">换一批</string>
     <string name="random_empty">这批漫画均已屏蔽</string>
 
-    <!-- 推荐 -->
-    <string name="collections_title">推荐</string>
-    <string name="collections_empty">暂无推荐合集</string>
-
     <!-- 排序与隐藏 -->
-    <string name="categories_title">排序与隐藏</string>
+    <string name="categories_title">分类管理</string>
     <string name="categories_pinned_title">固定到首页</string>
     <string name="categories_pinned_hint">拖动把手调整顺序</string>
     <string name="categories_pinned_empty">暂无固定分类，点图钉添加</string>
     <string name="categories_all_title">全部分类</string>
-    <string name="categories_all_hint">拖动排序，关闭后不在首页显示</string>
+    <string name="categories_all_hint">全分类固定在首位，其余分类可拖动排序或隐藏</string>
     <string name="categories_show_on_home">在首页显示「%1$s」</string>
     <string name="categories_pin">固定「%1$s」到首页</string>
     <string name="categories_unpin">取消固定「%1$s」</string>

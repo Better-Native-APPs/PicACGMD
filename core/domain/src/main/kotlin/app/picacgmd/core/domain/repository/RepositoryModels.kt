@@ -30,28 +30,20 @@ data class FilteredPage<T>(
     val hasNextPage: Boolean get() = page < pages
 }
 
-data class CollectionGroup(val title: String, val comics: List<ComicSimple>, val hiddenCount: Int = 0)
-
 enum class HomeChannelKind { RANKINGS, RANDOM, GAMES, CATEGORY }
 
 data class HomeChannel(val kind: HomeChannelKind, val title: String, val category: Category? = null)
 
-sealed interface HomeCategoryEntry {
-    data object Recommendations : HomeCategoryEntry
-    data class ServerCategory(val category: Category) : HomeCategoryEntry
-}
+/** Built-in browse entry, never sent as a PicACG category filter. */
+val ALL_COMICS_CATEGORY = Category(id = "builtin-all-comics", title = "全分类")
+
+fun homeCategoryCatalogue(categories: List<Category>): List<Category> =
+    listOf(ALL_COMICS_CATEGORY) + categories.filterNot { it.isWeb }
 
 data class HomeModel(
     val channels: List<HomeChannel>,
     val categories: List<Category>,
-    val collections: List<CollectionGroup>,
-    val carousel: List<ComicSimple>,
-    val carouselHiddenCount: Int,
-) {
-    val showCarousel: Boolean get() = carousel.isNotEmpty()
-    val categoryEntries: List<HomeCategoryEntry> get() =
-        listOf(HomeCategoryEntry.Recommendations) + categories.map(HomeCategoryEntry::ServerCategory)
-}
+)
 
 /** Server spelling is retained in requests; only the approved default's two spellings are aliases. */
 internal fun categoryKey(name: String): String = when (val trimmed = name.trim()) {
@@ -147,17 +139,17 @@ fun ComicInfo.uploader(): UserProfile? = creator?.takeIf { it.id.isNotBlank() &&
 
 fun buildHomeModel(
     categories: List<Category>,
-    collections: List<CollectionGroup>,
     settings: AppSettings,
 ): HomeModel {
-    val serverCategories = categories.filterNot { it.isWeb }
+    val catalogue = homeCategoryCatalogue(categories)
+    val serverCategories = catalogue.drop(1)
     val hidden = settings.hiddenCategories.map(::categoryKey).toSet()
     val order = settings.categoryOrder.map(::categoryKey).withIndex().associate { it.value to it.index }
     val visible = serverCategories.filterNot { categoryKey(it.title) in hidden }
         .sortedBy { order[categoryKey(it.title)] ?: Int.MAX_VALUE }
     val pins = settings.pinnedHomeCategories.mapNotNull { name ->
-        serverCategories.firstOrNull { it.title == name }
-            ?: serverCategories.firstOrNull { categoryKey(it.title) == categoryKey(name) }
+        catalogue.firstOrNull { it.title == name }
+            ?: catalogue.firstOrNull { categoryKey(it.title) == categoryKey(name) }
     }.distinctBy { categoryKey(it.title) }
     // Hidden grid categories and pinned shortcuts are independent preferences (SPEC §0).
     val fixed = listOf(
@@ -167,9 +159,6 @@ fun buildHomeModel(
     )
     return HomeModel(
         channels = fixed + pins.map { HomeChannel(HomeChannelKind.CATEGORY, it.title, it) },
-        categories = visible,
-        collections = collections,
-        carousel = collections.firstOrNull()?.comics.orEmpty(),
-        carouselHiddenCount = collections.firstOrNull()?.hiddenCount ?: 0,
+        categories = listOf(ALL_COMICS_CATEGORY) + visible,
     )
 }

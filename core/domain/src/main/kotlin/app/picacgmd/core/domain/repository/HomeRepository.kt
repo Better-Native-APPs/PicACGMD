@@ -2,11 +2,8 @@ package app.picacgmd.core.domain.repository
 
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.network.Category
-import app.picacgmd.core.network.ComicCollection
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,8 +19,7 @@ class HomeRepository(
     private val settings: Flow<AppSettings>,
     scope: CoroutineScope,
 ) {
-    private data class Catalogue(val categories: List<Category>, val collections: List<ComicCollection>)
-    private val catalogue = MutableStateFlow<RepositoryState<Catalogue>>(RepositoryState.Idle)
+    private val catalogue = MutableStateFlow<RepositoryState<List<Category>>>(RepositoryState.Idle)
     private val refreshMutex = Mutex()
 
     val state: StateFlow<RepositoryState<HomeModel>> = combine(catalogue, settings) { snapshot, preferences ->
@@ -32,9 +28,7 @@ class HomeRepository(
             RepositoryState.Loading -> RepositoryState.Loading
             is RepositoryState.Failed -> snapshot
             is RepositoryState.Ready -> RepositoryState.Ready(
-                buildHomeModel(
-                    snapshot.data.categories, comics.filterCollections(snapshot.data.collections, preferences), preferences,
-                ),
+                buildHomeModel(snapshot.data, preferences),
             )
         }
     }.stateIn(scope, SharingStarted.Eagerly, RepositoryState.Idle)
@@ -43,15 +37,9 @@ class HomeRepository(
         val previous = catalogue.value
         catalogue.value = RepositoryState.Loading
         try {
-            val result = coroutineScope {
-                val categories = async { comics.categories(forceRefresh) }
-                val collections = async { comics.rawCollections(forceRefresh) }
-                Catalogue(categories.await(), collections.await())
-            }
+            val result = comics.categories(forceRefresh)
             val preferences = settings.first()
-            val model = buildHomeModel(
-                result.categories, comics.filterCollections(result.collections, preferences), preferences,
-            )
+            val model = buildHomeModel(result, preferences)
             catalogue.value = RepositoryState.Ready(result)
             model
         } catch (exception: CancellationException) {

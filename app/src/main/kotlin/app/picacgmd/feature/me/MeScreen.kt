@@ -85,7 +85,6 @@ import app.picacgmd.feature.bookshelf.safeImageUrl
 import app.picacgmd.feature.settings.BackButton
 import app.picacgmd.feature.settings.SettingsGroup
 import app.picacgmd.feature.settings.SettingsNavRow
-import app.picacgmd.feature.settings.SettingsSwitchRow
 import app.picacgmd.feature.settings.SettingsWriter
 import app.picacgmd.feature.settings.TextInputDialog
 import app.picacgmd.feature.settings.rememberAppSettings
@@ -104,7 +103,6 @@ private enum class MeDialog { Slogan, Password, Logout }
 @Composable
 fun MeScreen(
     onOpenSettings: () -> Unit,
-    onOpenLogin: () -> Unit,
     onOpenMyComments: () -> Unit,
     modifier: Modifier = Modifier,
     onOpenAnnouncements: () -> Unit = {},
@@ -225,11 +223,6 @@ fun MeScreen(
             ) {
                 item {
                     when {
-                        !signedIn -> SignedOutCard(
-                            expired = (session as? SessionState.Expired)?.message,
-                            onLogin = onOpenLogin,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                        )
                         profile != null -> ProfileCard(
                             profile = profile!!,
                             avatarUrl = container.safeImageUrl(profile!!.avatar),
@@ -313,17 +306,6 @@ fun MeScreen(
                                     summary = (session as? SessionState.SignedIn)?.email,
                                     showChevron = false,
                                     leading = { Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-                                )
-                            }
-                        }
-                    }
-                } else if (settings != null) {
-                    item {
-                        SettingsGroup("打卡") {
-                            row { shapes ->
-                                SettingsSwitchRow(
-                                    shapes, "打开应用时自动打卡", settings.autoPunchIn, { writer.update { setAutoPunchIn(it) } },
-                                    leading = { Icon(Icons.Outlined.CalendarMonth, contentDescription = null) },
                                 )
                             }
                         }
@@ -439,26 +421,6 @@ private fun ProfileCard(
                 color = colors.onPrimaryContainer.copy(alpha = if (profile.slogan.isNullOrBlank()) 0.6f else 1f),
                 modifier = Modifier.padding(top = 16.dp),
             )
-        }
-    }
-}
-
-@Composable
-private fun SignedOutCard(expired: String?, onLogin: () -> Unit, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-    ) {
-        Column(Modifier.padding(20.dp)) {
-            Text(if (expired != null) "登录已过期" else "还没有登录", style = MaterialTheme.typography.titleLarge)
-            Text(
-                expired ?: "阅读漫画、收藏和打卡需登录，浏览记录和下载无需登录",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp, bottom = 16.dp),
-            )
-            Button(onClick = onLogin) { Text(if (expired != null) "重新登录" else "登录") }
         }
     }
 }

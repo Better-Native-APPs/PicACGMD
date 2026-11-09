@@ -2,7 +2,6 @@ package app.picacgmd.core.domain.repository
 
 import app.picacgmd.core.data.db.ApiCache
 import app.picacgmd.core.network.Category
-import app.picacgmd.core.network.ComicCollection
 import java.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -30,16 +29,14 @@ class CatalogueCacheTest {
     }
 
     @Test
-    fun collectionsAndCategoriesHaveSeparatePersistedCaches() = runTest {
+    fun categoriesUseThePersistedCacheAcrossInstances() = runTest {
         val dao = FakeApiCacheDao()
         val cache = CatalogueCache(dao) { 2_000L }
         cache.categories { listOf(Category(title = "分类")) }
-        cache.collections { listOf(ComicCollection(title = "合集")) }
         val restored = CatalogueCache(dao) { 3_000L }
         assertEquals("分类", restored.categories { error("Must use cache") }.single().title)
-        assertEquals("合集", restored.collections { error("Must use cache") }.single().title)
-        assertEquals(setOf(ApiCache.CATEGORIES_KEY, ApiCache.COLLECTIONS_KEY), dao.entries.value.keys)
-        assertEquals(10_802_000L, dao.entries.value.getValue(ApiCache.COLLECTIONS_KEY).expiresAt)
+        assertEquals(setOf(ApiCache.CATEGORIES_KEY), dao.entries.value.keys)
+        assertEquals(10_802_000L, dao.entries.value.getValue(ApiCache.CATEGORIES_KEY).expiresAt)
     }
 
     @Test
@@ -55,9 +52,9 @@ class CatalogueCacheTest {
     fun failedRefreshDoesNotOverwriteTheLastCache() = runTest {
         val dao = FakeApiCacheDao()
         val cache = CatalogueCache(dao) { 1_000L }
-        cache.collections { listOf(ComicCollection(title = "缓存")) }
+        cache.categories { listOf(Category(title = "缓存")) }
         val before = dao.entries.value
-        assertFailsWith<IOException> { cache.collections(forceRefresh = true) { throw IOException("offline") } }
+        assertFailsWith<IOException> { cache.categories(forceRefresh = true) { throw IOException("offline") } }
         assertEquals(before, dao.entries.value)
     }
 

@@ -36,7 +36,6 @@ import app.picacgmd.core.designsystem.component.HomeChannel
 import app.picacgmd.core.designsystem.component.BackPreviewFrame
 import app.picacgmd.core.designsystem.component.predictiveBackExit
 import app.picacgmd.core.domain.download.DownloadManagerOwner
-import app.picacgmd.feature.account.LoginScreen
 import app.picacgmd.feature.bookshelf.BookshelfScreen
 import app.picacgmd.feature.categories.CategoriesScreen
 import app.picacgmd.feature.comments.CommentsScreen
@@ -51,8 +50,6 @@ import app.picacgmd.feature.games.GamesScreen
 import app.picacgmd.feature.announcements.AnnouncementsScreen
 import app.picacgmd.feature.me.MeScreen
 import app.picacgmd.feature.me.MyCommentsScreen
-import app.picacgmd.feature.rankings.CollectionScreen
-import app.picacgmd.feature.rankings.CollectionsScreen
 import app.picacgmd.feature.rankings.RandomScreen
 import app.picacgmd.feature.rankings.RankingsScreen
 import app.picacgmd.feature.search.SearchScreen
@@ -161,6 +158,7 @@ private inline fun <reified T : Any> NavGraphBuilder.page(
 private fun NavGraphBuilder.topLevelGraphs(navController: NavHostController, compact: State<Boolean>) {
     navigation<DiscoverGraph>(startDestination = DiscoverRoute) {
         page<DiscoverRoute> {
+            val allComicsTitle = stringResource(R.string.title_categories)
             DiscoverScreen(
                 showProfileEntry = compact.value,
                 onSearchClick = { navController.navigate(SearchRoute()) },
@@ -176,9 +174,8 @@ private fun NavGraphBuilder.topLevelGraphs(navController: NavHostController, com
                     }
                 },
                 onOpenCategory = { navController.navigate(ComicListRoute(category = it)) },
-                onOpenCollections = { navController.navigate(CollectionsRoute) },
+                onOpenAllComics = { navController.navigate(ComicListRoute(title = allComicsTitle)) },
                 onOpenCategories = { navController.navigate(CategoriesRoute) },
-                onOpenComic = { navController.navigate(ComicDetailRoute(it)) },
             )
         }
     }
@@ -205,7 +202,6 @@ private fun NavGraphBuilder.topLevelGraphs(navController: NavHostController, com
             val messageBoardTitle = stringResource(R.string.comments_message_board)
             MeScreen(
                 onOpenSettings = { navController.navigate(SettingsRoute) },
-                onOpenLogin = { navController.navigate(LoginRoute) },
                 onOpenMyComments = { navController.navigate(MyCommentsRoute) },
                 onOpenAnnouncements = { navController.navigate(AnnouncementsRoute) },
                 onOpenMessageBoard = { navController.navigate(ComicCommentsRoute(MESSAGE_BOARD_COMIC_ID, messageBoardTitle)) },
@@ -350,27 +346,12 @@ private fun NavGraphBuilder.sharedDestinations(
             onBack = navController.backAction(),
         )
     }
-    page<CollectionsRoute> {
-        CollectionsScreen(
-            onBack = navController.backAction(),
-            onOpenComic = { navController.navigate(ComicDetailRoute(it)) },
-            onOpenCollection = { index, title -> navController.navigate(CollectionRoute(index, title)) },
-        )
-    }
-    page<CollectionRoute> { entry ->
-        val route = entry.toRoute<CollectionRoute>()
-        CollectionScreen(
-            index = route.index,
-            title = route.title,
-            onBack = navController.backAction(),
-            onOpenComic = { navController.navigate(ComicDetailRoute(it)) },
-        )
-    }
     page<CategoriesRoute> {
-        CategoriesScreen(onBack = navController.backAction())
-    }
-    page<LoginRoute> {
-        LoginScreen(onBack = navController.backAction())
+        val allComicsTitle = stringResource(R.string.title_categories)
+        CategoriesScreen(
+            onBack = navController.backAction(),
+            onOpenAllComics = { navController.navigate(ComicListRoute(title = allComicsTitle)) },
+        )
     }
 }
 

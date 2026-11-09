@@ -1,15 +1,11 @@
 package app.picacgmd.feature.rankings
 
 import app.picacgmd.feature.routing.RouteMenuButton
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Casino
@@ -34,23 +30,17 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.picacgmd.R
-import app.picacgmd.core.designsystem.component.ComicCoverCard
 import app.picacgmd.core.designsystem.component.EmptyState
 import app.picacgmd.core.designsystem.component.LoadingState
-import app.picacgmd.core.designsystem.component.SectionHeader
 import app.picacgmd.core.domain.di.AppContainer
-import app.picacgmd.core.domain.repository.CollectionGroup
 import app.picacgmd.core.domain.repository.FilteredComics
 import app.picacgmd.core.network.ComicSimple
-import app.picacgmd.feature.comics.ReadMarks
-import app.picacgmd.feature.comics.readMarkText
 import app.picacgmd.feature.comics.rememberReadMarks
 import app.picacgmd.feature.discover.ComicSimpleRow
 import app.picacgmd.feature.discover.LoadFailure
 import app.picacgmd.feature.discover.LoadState
 import app.picacgmd.feature.discover.appViewModel
 import app.picacgmd.feature.discover.loadCatching
-import app.picacgmd.feature.discover.rememberImageUrl
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
@@ -83,11 +73,6 @@ abstract class ReloadableViewModel<T> : ViewModel() {
 class RandomViewModel(private val container: AppContainer) : ReloadableViewModel<FilteredComics>() {
     init { load() }
     override suspend fun fetch(force: Boolean): FilteredComics = container.comicRepository.random()
-}
-
-class CollectionsViewModel(private val container: AppContainer) : ReloadableViewModel<List<CollectionGroup>>() {
-    init { load() }
-    override suspend fun fetch(force: Boolean): List<CollectionGroup> = container.comicRepository.collections(force)
 }
 
 /** 随机 (board 07): pull to refresh, plus the 「换一批」 FAB as the page's single main action. Wire into `RandomRoute`. */
@@ -146,93 +131,6 @@ fun RandomScreen(
                     }
                 }
             }
-        }
-    }
-}
-
-/** 推荐 (board 07): official collections as titled horizontal rows. Wire into `CollectionsRoute`. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CollectionsScreen(
-    onBack: () -> Unit,
-    onOpenComic: (String) -> Unit,
-    onOpenCollection: (index: Int, title: String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val viewModel = appViewModel { CollectionsViewModel(it) }
-    Scaffold(
-        modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.collections_title)) },
-                navigationIcon = { BackButton(onBack) },
-                actions = { RouteMenuButton() },
-            )
-        },
-    ) { padding ->
-        PullToRefreshBox(
-            isRefreshing = viewModel.isPulling,
-            onRefresh = { viewModel.load(force = true, pull = true) },
-            modifier = Modifier.padding(padding).fillMaxSize(),
-        ) {
-            when (val state = viewModel.state) {
-                LoadState.Loading -> LoadingState(Modifier.fillMaxSize())
-                is LoadState.Failed -> ScrollableStatus { LoadFailure(state, onRetry = { viewModel.load(force = true) }) }
-                is LoadState.Ready -> {
-                    val groups = state.data.withIndex().filter { it.value.comics.isNotEmpty() }
-                    val readMarks = rememberReadMarks(remember(state.data) { state.data.flatMap { group -> group.comics.map(ComicSimple::id) } })
-                    if (groups.isEmpty()) {
-                        ScrollableStatus { EmptyState(title = stringResource(R.string.collections_empty)) }
-                    } else {
-                        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-                            groups.forEach { (index, group) ->
-                                item(key = "header-$index", contentType = "header") {
-                                    SectionHeader(
-                                        title = group.title,
-                                        actionLabel = stringResource(R.string.discover_action_all),
-                                        onActionClick = { onOpenCollection(index, group.title) },
-                                    )
-                                }
-                                item(key = "row-$index", contentType = "row") {
-                                    CollectionRow(group, readMarks, onOpenComic)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun CollectionRow(group: CollectionGroup, readMarks: ReadMarks, onOpenComic: (String) -> Unit) {
-    LazyRow(
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        items(group.comics, key = { it.id }) { comic ->
-            val mark = readMarkText(readMarks.chapterOf(comic.id), comic.epsCount)
-            ComicCoverCard(
-                title = comic.title,
-                coverUrl = rememberImageUrl(comic.thumb),
-                onClick = { onOpenComic(comic.id) },
-                author = comic.author.ifBlank { null },
-                progressLabel = mark?.label,
-                progressDetail = mark?.detail,
-                progressDetailShort = mark?.detailShort,
-                modifier = Modifier.width(120.dp),
-            )
-        }
-    }
-    if (group.hiddenCount > 0) {
-        Box(Modifier.padding(top = 4.dp)) {
-            Text(
-                text = stringResource(R.string.rankings_hidden_count, group.hiddenCount),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
         }
     }
 }
