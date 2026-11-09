@@ -98,13 +98,17 @@ private class SkeletonFillNode(
     }
 
     override fun onAttach() {
-        val durationScale = coroutineScope.coroutineContext[MotionDurationScale]?.scaleFactor ?: 1f
-        val still = durationScale == 0f || currentValueOf(LocalInspectionMode)
-        coroutineScope.launch {
-            if (still) {
-                alpha.snapTo(1f)
-            } else {
-                alpha.animateTo(1f, tween(SkeletonFadeInMillis, easing = LinearOutSlowInEasing))
+        // CompositionLocals can only be read safely once this composition has been applied.
+        sideEffect {
+            if (!isAttached) return@sideEffect
+            val durationScale = coroutineScope.coroutineContext[MotionDurationScale]?.scaleFactor ?: 1f
+            val still = durationScale == 0f || currentValueOf(LocalInspectionMode)
+            coroutineScope.launch {
+                if (still) {
+                    alpha.snapTo(1f)
+                } else {
+                    alpha.animateTo(1f, tween(SkeletonFadeInMillis, easing = LinearOutSlowInEasing))
+                }
             }
         }
     }

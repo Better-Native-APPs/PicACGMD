@@ -1,5 +1,6 @@
 package app.picacgmd.feature.downloads
 
+import android.annotation.SuppressLint
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -413,7 +414,9 @@ private fun EngineCard(
     // The engine re-measures speed every 250 ms. One refresh a second still reads as live and stops
     // the card from waking the screen four times a second for the whole queue; the latest value wins.
     val progressUpdates = remember(manager) { manager.progress.transform { emit(it); delay(1_000) } }
-    val progress by progressUpdates.collectAsStateWithLifecycle(manager.progress.value)
+    @SuppressLint("StateFlowValueCalledInComposition") // Only the starting value; the flow delivers every later one.
+    val firstProgress = manager.progress.value
+    val progress by progressUpdates.collectAsStateWithLifecycle(firstProgress)
     val context = LocalContext.current
     val colors = MaterialTheme.colorScheme
     val throttled = running && progress.effectiveThreads < progress.configuredThreads
