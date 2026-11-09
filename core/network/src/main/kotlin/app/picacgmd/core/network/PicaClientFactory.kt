@@ -73,7 +73,7 @@ object PicaClientFactory {
             else -> throw IllegalArgumentException("代理仅支持 http:// 或 socks5://")
         }
         require(!uri.host.isNullOrBlank() && uri.port in 1..65535) { "代理必须包含主机和端口" }
-        require(uri.rawUserInfo == null) { "此代理配置不支持内嵌账号密码" }
+        require(uri.rawUserInfo == null) { "代理不支持内嵌账号密码" }
         require(uri.rawPath.isNullOrEmpty() || uri.rawPath == "/") { "代理地址不能包含路径" }
         require(uri.rawQuery == null && uri.rawFragment == null) { "代理地址不能包含查询或片段" }
         return Proxy(type, InetSocketAddress.createUnresolved(uri.host, uri.port))

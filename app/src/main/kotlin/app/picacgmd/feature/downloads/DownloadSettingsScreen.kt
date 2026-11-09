@@ -85,8 +85,8 @@ fun DownloadSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             SettingsGroup("网络") {
                 row { shapes ->
                     SettingsSwitchRow(
-                        shapes, "只在 Wi-Fi 下下载", settings.downloadWifiOnly, { writer.update { setDownloadWifiOnly(it) } },
-                        summary = "用移动数据时，手动加入的下载也会等连上 Wi-Fi 再开始",
+                        shapes, "仅 Wi-Fi 下载", settings.downloadWifiOnly, { writer.update { setDownloadWifiOnly(it) } },
+                        summary = "手动下载也需连接 Wi-Fi",
                     )
                 }
             }
@@ -96,12 +96,12 @@ fun DownloadSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 row { shapes ->
                     SettingsSwitchRow(
                         shapes, "收藏时自动下载", settings.autoDownloadOnFavourite, { writer.update { setAutoDownloadOnFavourite(it) } },
-                        summary = "收藏一本漫画后，把全部章节加入下载",
+                        summary = "下载全部章节",
                     )
                 }
                 row { shapes ->
                     SettingsSwitchRow(
-                        shapes, "移动网络下不自动下载", settings.autoDownloadWifiOnly, { writer.update { setAutoDownloadWifiOnly(it) } },
+                        shapes, "自动下载仅限 Wi-Fi", settings.autoDownloadWifiOnly, { writer.update { setAutoDownloadWifiOnly(it) } },
                         enabled = settings.autoDownloadOnFavourite,
                     )
                 }
@@ -113,7 +113,7 @@ fun DownloadSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 }
                 row { shapes ->
                     SettingsSwitchRow(
-                        shapes, "在下载详情里显示评论", settings.showCommentsInDownloads,
+                        shapes, "下载详情显示评论", settings.showCommentsInDownloads,
                         { writer.update { setShowCommentsInDownloads(it) } },
                         summary = "需要联网加载",
                     )
@@ -157,7 +157,7 @@ private fun ThreadCountCard(threads: Int, onCommit: (Int) -> Unit, modifier: Mod
                     Column(Modifier.weight(1f)) {
                         Text("同时下载线程数", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "1–16，默认 $DefaultThreads。线程越多越快，也越容易被限流",
+                            "1–16，默认 $DefaultThreads",
                             style = MaterialTheme.typography.bodySmall,
                             color = colors.onSurfaceVariant,
                         )
@@ -228,7 +228,7 @@ private fun ThreadCountCard(threads: Int, onCommit: (Int) -> Unit, modifier: Mod
                 Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Icon(Icons.Outlined.Speed, contentDescription = null)
                     Text(
-                        "超过 $ThrottleHint 个线程时，分流更容易被服务器限流。遇到限流会自动放慢并临时减少线程，之后再恢复到 $shown。修改立即生效。",
+                        "超过 $ThrottleHint 个线程容易被限流",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }

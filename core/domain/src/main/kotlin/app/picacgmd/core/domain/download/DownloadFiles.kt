@@ -56,7 +56,7 @@ class DownloadFileStore(private val rootProvider: () -> File) {
     fun finishAllEpisodesRequest(comicId: String, expected: String?) {
         val marker = File(comicDirectory(comicId), ALL_EPISODES_MARKER)
         if (expected != null && marker.isFile && marker.readText() == expected && !marker.delete()) {
-            throw IOException("无法保存章节清单状态")
+            throw IOException("保存章节清单状态失败")
         }
     }
 
@@ -74,7 +74,7 @@ class DownloadFileStore(private val rootProvider: () -> File) {
 
     fun deleteComic(comicId: String) {
         val directory = comicDirectory(comicId)
-        if (directory.exists() && !directory.deleteRecursively()) throw IOException("无法删除下载文件")
+        if (directory.exists() && !directory.deleteRecursively()) throw IOException("删除下载文件失败")
     }
 
     internal fun createTemporaryFile(destination: File): File {
@@ -143,7 +143,7 @@ internal class StreamingImageDownloader(
                                 output.fd.sync()
                             }
                         }
-                        if (bytes == 0L) throw IOException("服务器返回了空图片")
+                        if (bytes == 0L) throw IOException("下载失败：服务器返回空图片")
                         val format = imageFormat(file, it.header("Content-Type"))
                         StagedDownload(file, destination, bytes, format)
                     }
@@ -184,7 +184,7 @@ internal fun imageFormat(file: File, contentType: String? = null): String? {
         ascii.startsWith("BM") -> "bmp"
         contentType?.substringBefore(';')?.trim()?.startsWith("image/") == true ->
             contentType.substringBefore(';').substringAfter('/').trim().let { if (it == "jpeg") "jpg" else it }
-        else -> throw IOException("服务器返回了非图片内容")
+        else -> throw IOException("下载失败：返回非图片内容")
     }
 }
 
@@ -193,7 +193,7 @@ private fun atomicMove(source: File, destination: File) {
 }
 
 private fun File.ensureDirectory() {
-    if (!isDirectory && !mkdirs() && !isDirectory) throw IOException("无法创建下载目录")
+    if (!isDirectory && !mkdirs() && !isDirectory) throw IOException("创建下载目录失败")
 }
 
 private fun retryAfterMillis(value: String?, now: Long): Long? {

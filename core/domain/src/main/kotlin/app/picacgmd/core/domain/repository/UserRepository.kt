@@ -59,14 +59,14 @@ class UserRepository(private val session: SessionManager, scope: CoroutineScope)
         val jpeg = withContext(Dispatchers.Default) {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size, bounds)
-            require(bounds.outWidth > 0 && bounds.outHeight > 0) { "头像图片无法读取" }
+            require(bounds.outWidth > 0 && bounds.outHeight > 0) { "读取头像失败" }
             val options = BitmapFactory.Options().apply {
                 while (minOf(bounds.outWidth, bounds.outHeight) / (inSampleSize.coerceAtLeast(1) * 2) >= AVATAR_SIZE) {
                     inSampleSize = inSampleSize.coerceAtLeast(1) * 2
                 }
             }
             val source = requireNotNull(BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size, options)) {
-                "头像图片无法读取"
+                "读取头像失败"
             }
             val avatar = Bitmap.createBitmap(AVATAR_SIZE, AVATAR_SIZE, Bitmap.Config.ARGB_8888)
             try {

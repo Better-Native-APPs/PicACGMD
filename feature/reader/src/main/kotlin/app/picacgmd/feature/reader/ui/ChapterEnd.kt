@@ -353,13 +353,6 @@ internal fun AllReadDialog(
                     style = MaterialTheme.typography.titleLargeEmphasized,
                     textAlign = TextAlign.Center,
                 )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = stringResource(R.string.reader_all_read_detail),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                )
                 Spacer(Modifier.height(20.dp))
                 Button(
                     onClick = onBackToDetails,

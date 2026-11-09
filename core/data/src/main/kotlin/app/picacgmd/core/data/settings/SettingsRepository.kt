@@ -52,7 +52,7 @@ class SettingsRepository(
     }
 
     suspend fun setSyncedApiAddresses(addresses: List<String>, syncedAt: Long) {
-        require(addresses.isNotEmpty() && addresses.all(String::isNotBlank)) { "服务器未返回有效的分流地址" }
+        require(addresses.isNotEmpty() && addresses.all(String::isNotBlank)) { "未获取到分流地址" }
         dataStore.edit { preferences ->
             preferences[Keys.syncedApiAddresses] = Json.encodeToString(addresses.distinct())
             preferences[Keys.apiRoutesSyncedAt] = syncedAt

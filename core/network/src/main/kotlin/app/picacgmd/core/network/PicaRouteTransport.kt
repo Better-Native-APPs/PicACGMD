@@ -27,7 +27,7 @@ object PicaInitAddresses {
         } catch (_: IllegalArgumentException) {
             emptyList()
         }
-        require(addresses.isNotEmpty()) { "服务器未返回有效的分流地址，请稍后重试" }
+        require(addresses.isNotEmpty()) { "未获取到分流地址" }
         return addresses
     }
 }
@@ -44,7 +44,7 @@ class PicaRouteTransport(private val initUrl: String = "http://68.183.234.72/ini
             .build()
         try {
             val body = client.newCall(Request.Builder().url(initUrl).build()).consumeResponse { response ->
-                if (!response.isSuccessful) throw IOException("获取分流地址失败（HTTP ${response.code}）")
+                if (!response.isSuccessful) throw IOException("获取分流地址失败：HTTP ${response.code}")
                 response.body.string()
             }
             return PicaInitAddresses.parse(body)

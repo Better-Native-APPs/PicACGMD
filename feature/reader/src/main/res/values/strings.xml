@@ -7,18 +7,18 @@
     <string name="reader_page_number">第 %1$d 页</string>
     <string name="reader_page_loading_progress">第 %1$d 页 · %2$d%%</string>
     <string name="reader_page_failed">第 %1$d 页加载失败</string>
-    <string name="reader_page_failed_timeout">图片服务器没有响应</string>
-    <string name="reader_page_failed_network">网络连接失败，请稍后重试</string>
-    <string name="reader_page_failed_local">本地文件无法读取，可能已被删除</string>
-    <string name="reader_page_failed_unknown">这张图无法显示</string>
+    <string name="reader_page_failed_timeout">图片服务器未响应</string>
+    <string name="reader_page_failed_network">网络连接失败</string>
+    <string name="reader_page_failed_local">读取本地文件失败</string>
+    <string name="reader_page_failed_unknown">图片显示失败</string>
     <string name="reader_retry">重试</string>
     <string name="reader_switch_server">换分流</string>
 
     <string name="reader_chapter_loading">正在打开</string>
-    <string name="reader_chapter_failed">这一话没有加载出来</string>
-    <string name="reader_chapter_failed_detail">请检查网络后重试</string>
-    <string name="reader_chapter_empty">这一话没有图片</string>
-    <string name="reader_no_chapters">这本漫画还没有可阅读的章节</string>
+    <string name="reader_chapter_failed">章节加载失败</string>
+    <string name="reader_chapter_failed_detail">请检查网络</string>
+    <string name="reader_chapter_empty">本话没有图片</string>
+    <string name="reader_no_chapters">暂无可读章节</string>
     <string name="reader_back">返回</string>
 
     <!-- Control layer. -->
@@ -79,9 +79,9 @@
     <string name="reader_auto_scroll_speed_3">适中</string>
     <string name="reader_auto_scroll_speed_4">快</string>
     <string name="reader_auto_scroll_speed_5">很快</string>
-    <string name="reader_setting_auto_scroll_pause_on_touch">手指触摸时暂停</string>
+    <string name="reader_setting_auto_scroll_pause_on_touch">触摸时暂停</string>
     <string name="reader_setting_auto_next_chapter">自动翻章</string>
-    <string name="reader_setting_auto_next_chapter_supporting">滚动到章节末尾时自动进入下一话</string>
+    <string name="reader_setting_auto_next_chapter_supporting">读完自动进入下一话</string>
     <string name="reader_auto_next_chapter_cue">下一话：%1$s</string>
     <string name="reader_setting_no_animation">取消翻页动画</string>
 
@@ -108,14 +108,14 @@
     <!-- Long press on a page. -->
     <string name="reader_page_info">%1$d × %2$d · %3$s</string>
     <string name="reader_action_save">保存到相册</string>
-    <string name="reader_action_reload">重新加载这张图</string>
+    <string name="reader_action_reload">重新加载图片</string>
     <string name="reader_action_share">分享</string>
     <string name="reader_action_preview">全屏预览</string>
     <string name="reader_action_preview_detail">可缩放和裁剪</string>
-    <string name="reader_reload_all">重载整页</string>
+    <string name="reader_reload_all">重新加载本话</string>
     <string name="reader_saved">已保存到相册</string>
     <string name="reader_save_failed">保存失败</string>
-    <string name="reader_storage_permission_required">需要存储权限才能保存</string>
+    <string name="reader_storage_permission_required">需要存储权限</string>
     <string name="reader_share_failed">分享失败</string>
     <string name="reader_close">关闭</string>
     <string name="reader_crop">裁剪</string>
@@ -126,12 +126,11 @@
     <string name="reader_end_finished">%1$s · 已读完</string>
     <string name="reader_page_count">%1$d 页</string>
     <string name="reader_finish">结束阅读</string>
-    <string name="reader_end_swipe_up">继续上滑直接进入下一话</string>
-    <string name="reader_end_swipe_left">继续左滑直接进入下一话</string>
-    <string name="reader_end_swipe_right">继续右滑直接进入下一话</string>
+    <string name="reader_end_swipe_up">上滑进入下一话</string>
+    <string name="reader_end_swipe_left">左滑进入下一话</string>
+    <string name="reader_end_swipe_right">右滑进入下一话</string>
     <string name="reader_end_release">松手进入下一话</string>
-    <string name="reader_all_read_title">全部读完了</string>
-    <string name="reader_all_read_detail">已经是最后一话。</string>
+    <string name="reader_all_read_title">全部读完</string>
     <string name="reader_back_to_details">返回详情</string>
     <string name="reader_see_comments">看评论</string>
     <string name="reader_related">也在看</string>
@@ -140,9 +139,9 @@
     <string name="reader_arrangement_close">靠近</string>
     <string name="reader_arrangement_away">远离</string>
     <string name="reader_arrangement_centered">居中</string>
-    <string name="reader_arrangement_caption">横屏时两页并排，竖屏时一次一页</string>
+    <string name="reader_arrangement_caption">横屏两页，竖屏一页</string>
     <string name="reader_setting_cover_alone">封面单独一页</string>
-    <string name="reader_setting_cover_alone_detail">第 1 页不和后面的页拼在一起</string>
+    <string name="reader_setting_cover_alone_detail">第 1 页单独显示</string>
     <string name="reader_setting_lock_drag">锁定拖动边界</string>
     <string name="reader_setting_lock_drag_detail">拖动时不越过图片边缘</string>
     <string name="reader_zoom_percent">%1$d%%</string>
