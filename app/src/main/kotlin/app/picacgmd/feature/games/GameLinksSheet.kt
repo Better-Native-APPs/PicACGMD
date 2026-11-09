@@ -49,7 +49,7 @@ internal fun GameLinksSheet(links: List<String>, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("下载链接", style = MaterialTheme.typography.headlineSmall)
-            Text("以下内容来自游戏资料。复制不会联网；打开链接会离开本应用。", style = MaterialTheme.typography.bodyMedium)
+            Text("复制链接不联网", style = MaterialTheme.typography.bodyMedium)
             links.forEach { raw ->
                 // Preserve codes/passwords alongside the original address instead of silently dropping them.
                 val urls = remember(raw) { Regex("https?://[^\\s<>\"']+").findAll(raw).map { it.value }.filter { Uri.parse(it).host != null }.toList() }
@@ -64,7 +64,7 @@ internal fun GameLinksSheet(links: List<String>, onDismiss: () -> Unit) {
                     }
                 }
             }
-            Text("外部网站可记录你的 IP 地址，提供的文件未经验证，请自行判断。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("外部网站可记录 IP 地址，文件未经验证", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             SnackbarHost(snackbar)
         }
     }
@@ -76,8 +76,7 @@ internal fun GameLinksSheet(links: List<String>, onDismiss: () -> Unit) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(Uri.parse(url).host.orEmpty(), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     SelectionContainer { Text(url) }
-                    Text("这个网站不属于哔咔。继续后它可以记录你的 IP 地址。")
-                    Text("即将离开本应用。外部文件没有经过检查，请自行判断。")
+                    Text("将离开本应用：网站不属于哔咔，可记录 IP 地址，文件未经验证")
                 }
             },
             confirmButton = { FilledTonalButton({
@@ -85,7 +84,7 @@ internal fun GameLinksSheet(links: List<String>, onDismiss: () -> Unit) {
                 try {
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE))
                 } catch (_: ActivityNotFoundException) {
-                    scope.launch { snackbar.showSnackbar("没有可用的浏览器，请复制链接后手动打开") }
+                    scope.launch { snackbar.showSnackbar("打开失败：无可用浏览器") }
                 }
             }) { Text("打开") } },
             dismissButton = { TextButton({ opening = null }) { Text("取消") } },

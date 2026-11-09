@@ -163,7 +163,7 @@ fun GamesScreen(onBack: () -> Unit, onGameClick: (String) -> Unit) {
                         if (!infinite) GamePagination(model.page, model.pages, model.loading) { model.load(it, false) }
                         else if (!model.loading && model.error == null && model.page < model.pages) {
                             TextButton({ model.load(model.page + 1, true) }) { Text("加载更多") }
-                        } else if (model.page >= model.pages) Text("已经到底了", style = MaterialTheme.typography.bodySmall)
+                        } else if (model.page >= model.pages) Text("没有更多", style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }

@@ -107,7 +107,7 @@ private fun BrowsingRoot(onBack: () -> Unit, onOpen: (BrowsingSub) -> Unit, modi
                     SettingsChoiceRow(
                         shapes = shapes,
                         title = "加载方式",
-                        summary = "连续滚动到底自动加载下一页；分页可以直接跳页，没有页数限制",
+                        summary = "连续滚动或分页跳转",
                         options = PaginationMode.entries,
                         selected = settings.paginationMode,
                         onSelect = { writer.update { setPaginationMode(it) } },
@@ -120,7 +120,7 @@ private fun BrowsingRoot(onBack: () -> Unit, onOpen: (BrowsingSub) -> Unit, modi
                 row { shapes ->
                     SettingsNavRow(
                         shapes, "列表列数", onClick = { dialog = BrowsingDialog.ListColumns },
-                        summary = "封面样式下每行显示几本", value = columnLabel(settings.listColumnCount),
+                        summary = "封面样式每行的漫画数", value = columnLabel(settings.listColumnCount),
                     )
                 }
                 row { shapes ->
@@ -137,7 +137,7 @@ private fun BrowsingRoot(onBack: () -> Unit, onOpen: (BrowsingSub) -> Unit, modi
                     val count = settings.shieldedCategories.size + settings.hiddenKeywords.size
                     SettingsNavRow(
                         shapes, "封印与隐藏", onClick = { onOpen(BrowsingSub.Shield) },
-                        summary = "封印分类、隐藏关键词；列表会显示隐藏了几本",
+                        summary = "封印分类、隐藏关键词",
                         value = if (count == 0) "未设置" else "$count 项",
                     )
                 }
@@ -145,14 +145,14 @@ private fun BrowsingRoot(onBack: () -> Unit, onOpen: (BrowsingSub) -> Unit, modi
                     SettingsSwitchRow(
                         shapes, "屏蔽 AI 作品", settings.hideAiComics,
                         onCheckedChange = { writer.update { setHideAiComics(it) } },
-                        summary = "标题、分类或标签标明是 AI 生成的作品不再显示，计入列表上的「已隐藏 M 本」",
+                        summary = "隐藏 AI 生成的作品",
                     )
                 }
                 row { shapes ->
                     SettingsSwitchRow(
                         shapes, "隐藏看过的漫画", settings.hideViewedComics,
                         onCheckedChange = { writer.update { setHideViewedComics(it) } },
-                        summary = "浏览记录里有的漫画不再出现在列表里",
+                        summary = "按浏览记录隐藏",
                     )
                 }
             }
@@ -162,7 +162,7 @@ private fun BrowsingRoot(onBack: () -> Unit, onOpen: (BrowsingSub) -> Unit, modi
                 row { shapes ->
                     SettingsNavRow(
                         shapes, "分类排序与隐藏", onClick = { onOpen(BrowsingSub.HomeCategories) },
-                        summary = "固定到首页、调整顺序、隐藏不看的分类",
+                        summary = "固定、排序和隐藏分类",
                         value = "固定 ${settings.pinnedHomeCategories.size} 个",
                     )
                 }
@@ -177,10 +177,10 @@ private fun BrowsingRoot(onBack: () -> Unit, onOpen: (BrowsingSub) -> Unit, modi
         item {
             SettingsGroup("功能入口") {
                 row { shapes ->
-                    SettingsSwitchRow(shapes, "按作者搜索", settings.showAuthorSearch, { writer.update { setShowAuthorSearch(it) } }, summary = "在详情页点作者名搜索 TA 的作品")
+                    SettingsSwitchRow(shapes, "按作者搜索", settings.showAuthorSearch, { writer.update { setShowAuthorSearch(it) } }, summary = "点按详情页作者名搜索")
                 }
                 row { shapes ->
-                    SettingsSwitchRow(shapes, "追更", settings.showSubscriptions, { writer.update { setShowSubscriptions(it) } }, summary = "书架里的追更视图和更新角标")
+                    SettingsSwitchRow(shapes, "追更", settings.showSubscriptions, { writer.update { setShowSubscriptions(it) } }, summary = "显示书架追更和更新角标")
                 }
                 row { shapes ->
                     SettingsSwitchRow(shapes, "标签收藏", settings.showTagFavourites, { writer.update { setShowTagFavourites(it) } })
@@ -213,7 +213,6 @@ private fun BrowsingRoot(onBack: () -> Unit, onOpen: (BrowsingSub) -> Unit, modi
         BrowsingDialog.ListColumns -> ChoiceDialog(
             "列表列数", ColumnOptions, settings?.listColumnCount, ::columnLabel,
             onSelect = { writer.update { setListColumnCount(it) } }, onDismiss = { dialog = null },
-            description = "「自动」按屏幕宽度决定。",
         )
         BrowsingDialog.CategoryColumns -> ChoiceDialog(
             "分类列数", ColumnOptions, settings?.categoryColumnCount, ::columnLabel,
@@ -388,7 +387,7 @@ private fun HiddenKeywordsGroup(keywords: List<String>, snackbar: SnackbarHostSt
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {
-                snackbar.showSnackbar(exception.message ?: "保存失败，请重试")
+                snackbar.showSnackbar(exception.message ?: "保存失败")
             }
         }
     }
@@ -396,9 +395,9 @@ private fun HiddenKeywordsGroup(keywords: List<String>, snackbar: SnackbarHostSt
         val word = draft.trim()
         val existing = keywords.findKeyword(word)
         when {
-            word.isEmpty() -> draftError = "先输入一个关键词"
+            word.isEmpty() -> draftError = "请输入关键词"
             // Same word in another case: it would hide exactly the same comics.
-            existing != null -> draftError = "「$existing」已经在列表里了"
+            existing != null -> draftError = "「$existing」已添加"
             else -> {
                 save(keywords.plusKeywords(listOf(word)), null)
                 draft = ""
@@ -413,7 +412,7 @@ private fun HiddenKeywordsGroup(keywords: List<String>, snackbar: SnackbarHostSt
                 shapes = shapes,
                 supportingContent = {
                     Column {
-                        Text("标题、作者、分类和标签里出现这些词的漫画会被隐藏。纯英文和数字的词按整词匹配，「BL」不会隐藏「Blue」。")
+                        Text("标题、作者、分类或标签含关键词时隐藏，纯英文及数字按整词匹配")
                         OutlinedTextField(
                             value = draft,
                             onValueChange = {
@@ -425,7 +424,7 @@ private fun HiddenKeywordsGroup(keywords: List<String>, snackbar: SnackbarHostSt
                             isError = draftError != null,
                             supportingText = draftError?.let { message -> { Text(message) } },
                             trailingIcon = {
-                                IconButton(onClick = add) { Icon(Icons.Outlined.Add, contentDescription = "添加") }
+                                IconButton(onClick = add) { Icon(Icons.Outlined.Add, contentDescription = "添加关键词") }
                             },
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                             keyboardActions = KeyboardActions(onDone = { add() }),
@@ -441,7 +440,7 @@ private fun HiddenKeywordsGroup(keywords: List<String>, snackbar: SnackbarHostSt
                                         selected = false,
                                         onClick = { save(keywords - word, null) },
                                         label = { Text(word) },
-                                        trailingIcon = { Icon(Icons.Outlined.Close, contentDescription = "删除 $word") },
+                                        trailingIcon = { Icon(Icons.Outlined.Close, contentDescription = "删除「$word」") },
                                     )
                                 }
                             }
@@ -458,7 +457,6 @@ private fun HiddenKeywordsGroup(keywords: List<String>, snackbar: SnackbarHostSt
                 shapes = shapes,
                 supportingContent = {
                     Column {
-                        Text("一次加入一组常见的词；整组都在列表里时，再点一下可以整组移除。")
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.padding(top = 8.dp),
@@ -470,7 +468,7 @@ private fun HiddenKeywordsGroup(keywords: List<String>, snackbar: SnackbarHostSt
                     }
                 },
             ) {
-                Text("快速添加预设组")
+                Text("预设关键词")
             }
         }
     }
@@ -524,9 +522,9 @@ private fun PresetDialog(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     when {
-                        removing -> "这组的 $total 个关键词都在屏蔽列表里，会全部移除："
-                        missing.size == total -> "这组有 $total 个关键词，会加入屏蔽列表："
-                        else -> "这组有 $total 个关键词，其中 ${total - missing.size} 个已经在列表里，这次加入其余 ${missing.size} 个："
+                        removing -> "从屏蔽列表移除 $total 个关键词"
+                        missing.size == total -> "添加 $total 个屏蔽关键词"
+                        else -> "共 $total 个关键词，已添加 ${total - missing.size} 个，本次添加 ${missing.size} 个"
                     },
                 )
                 Text(
@@ -543,7 +541,7 @@ private fun PresetDialog(
                         val next = keywords.minusKeywords(preset.keywords)
                         onConfirm(next, "已移除 ${keywords.size - next.size} 个关键词")
                     } else {
-                        onConfirm(keywords.plusKeywords(missing), "已添加 ${missing.size} 个新关键词")
+                        onConfirm(keywords.plusKeywords(missing), "已添加 ${missing.size} 个关键词")
                     }
                     onDismiss()
                 },
@@ -570,7 +568,7 @@ private fun HomeCategoriesPage(onBack: () -> Unit, modifier: Modifier = Modifier
             SettingsGroup("固定到首页") {
                 if (settings.pinnedHomeCategories.isEmpty()) {
                     row { shapes ->
-                        SettingsNoteRow(shapes, "还没有固定分类。在下面的分类上点图钉，它就会出现在排行榜、随机、游戏专区后面。", Icons.Outlined.PushPin)
+                        SettingsNoteRow(shapes, "还没有固定分类，点图钉即可添加", Icons.Outlined.PushPin)
                     }
                 }
                 settings.pinnedHomeCategories.forEachIndexed { index, name ->
@@ -587,7 +585,7 @@ private fun HomeCategoriesPage(onBack: () -> Unit, modifier: Modifier = Modifier
                                         onMove = { to -> writer.update { setPinnedHomeCategories(settings.pinnedHomeCategories.move(index, to)) } },
                                     )
                                     IconButton(onClick = { writer.update { setPinnedHomeCategories(settings.pinnedHomeCategories - name) } }) {
-                                        Icon(Icons.Outlined.Close, contentDescription = "取消固定 $name")
+                                        Icon(Icons.Outlined.Close, contentDescription = "取消固定「$name」")
                                     }
                                 }
                             },
@@ -598,7 +596,7 @@ private fun HomeCategoriesPage(onBack: () -> Unit, modifier: Modifier = Modifier
         }
         item {
             Text(
-                "隐藏的分类不出现在分类网格里，固定的快捷入口不受影响。",
+                "隐藏仅影响分类网格，保留固定入口",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
@@ -628,7 +626,7 @@ private fun HomeCategoriesPage(onBack: () -> Unit, modifier: Modifier = Modifier
                                                     writer.update { setPinnedHomeCategories(next) }
                                                 },
                                             ) {
-                                                Icon(Icons.Outlined.PushPin, contentDescription = if (pinned) "取消固定 $name" else "固定 $name 到首页")
+                                                Icon(Icons.Outlined.PushPin, contentDescription = if (pinned) "取消固定「$name」" else "固定「$name」到首页")
                                             }
                                             IconToggleButton(
                                                 checked = !hidden,
@@ -639,7 +637,7 @@ private fun HomeCategoriesPage(onBack: () -> Unit, modifier: Modifier = Modifier
                                             ) {
                                                 Icon(
                                                     if (hidden) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                                                    contentDescription = if (hidden) "显示 $name" else "隐藏 $name",
+                                                    contentDescription = if (hidden) "显示「$name」" else "隐藏「$name」",
                                                 )
                                             }
                                         }
