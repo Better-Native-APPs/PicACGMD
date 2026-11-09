@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.picacgmd.core.data.db.DownloadEp
 import app.picacgmd.core.data.db.DownloadStatus
+import app.picacgmd.core.data.db.LocalFavouriteFolder
 import app.picacgmd.core.domain.di.AppContainer
 import app.picacgmd.core.domain.repository.ReadingProgress
 import app.picacgmd.core.domain.repository.containsKeyword
@@ -70,6 +71,17 @@ class ComicDetailViewModel(private val container: AppContainer, val comicId: Str
     val state: StateFlow<DetailState> = mutableState.asStateFlow()
     private val mutableMessages = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val messages: SharedFlow<String> = mutableMessages.asSharedFlow()
+
+    val localFolders: StateFlow<List<LocalFavouriteFolder>?> = container.localFavouriteRepository.folders
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val localFolderIds: StateFlow<Set<String>?> = container.localFavouriteRepository.folderIds(comicId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    suspend fun createLocalFolder(name: String): String = container.localFavouriteRepository.createFolder(name).folderId
+    suspend fun saveLocalFavourite(folderIds: Set<String>) {
+        val comic = checkNotNull(mutableState.value.comic) { "漫画信息尚未加载" }
+        container.localFavouriteRepository.setFolders(comic, folderIds)
+    }
 
     /** Chapter order → picture count, so coming back from the reader does not ask again. */
     private val epPageCounts = HashMap<Int, Int>()
