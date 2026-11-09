@@ -1,5 +1,8 @@
 package app.picacgmd.feature.routing
 
+import app.picacgmd.core.designsystem.window.secureDialogProperties
+import app.picacgmd.core.designsystem.window.securePopupProperties
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -245,7 +248,7 @@ private fun <T> RoutePickerContent(
             }
         }
     }
-    BasicAlertDialog(onDismissRequest = { if (!busy) onDismiss() }) {
+    BasicAlertDialog(onDismissRequest = { if (!busy) onDismiss() }, properties = secureDialogProperties()) {
         Surface(
             shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -468,6 +471,7 @@ fun CustomRouteDialog(kind: RouteKind, initial: String, onDismiss: () -> Unit, o
         }
     }
     AlertDialog(
+        properties = secureDialogProperties(),
         onDismissRequest = { if (!busy) onDismiss() },
         title = { Text(if (api) "自定义分流" else "自定义图片分流") },
         text = {
@@ -538,6 +542,7 @@ fun RouteSyncDialog(onDismiss: () -> Unit) {
     }
     val syncedAt = state?.lastSyncedAtMillis
     AlertDialog(
+        properties = secureDialogProperties(),
         onDismissRequest = { if (work == null) onDismiss() },
         icon = { Icon(Icons.Outlined.Sync, contentDescription = null) },
         title = { Text("分流同步") },
@@ -589,7 +594,7 @@ fun RouteMenuButton(modifier: Modifier = Modifier) {
     var picker by remember { mutableStateOf<RouteKind?>(null) }
     Box(modifier) {
         IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.Route, contentDescription = "切换分流") }
-        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, properties = securePopupProperties(focusable = true)) {
             RouteMenuItems { menu = false; picker = it }
         }
     }

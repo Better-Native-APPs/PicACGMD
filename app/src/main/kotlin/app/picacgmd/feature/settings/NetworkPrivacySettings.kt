@@ -1,5 +1,7 @@
 package app.picacgmd.feature.settings
 
+import app.picacgmd.core.designsystem.window.secureDialogProperties
+
 import android.app.KeyguardManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -217,6 +219,7 @@ internal fun TextInputDialog(
     var value by remember { mutableStateOf(initial) }
     var error by remember { mutableStateOf<String?>(null) }
     AlertDialog(
+        properties = secureDialogProperties(),
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
@@ -271,6 +274,7 @@ private fun ProxyDialog(initial: String, onSave: (String) -> Unit, onDismiss: ()
     var port by remember { mutableStateOf(parsed?.port?.takeIf { it > 0 }?.toString().orEmpty()) }
     var error by remember { mutableStateOf<String?>(null) }
     AlertDialog(
+        properties = secureDialogProperties(),
         onDismissRequest = onDismiss,
         title = { Text("代理服务器") },
         text = {

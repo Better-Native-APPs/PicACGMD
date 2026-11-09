@@ -1,5 +1,7 @@
 package app.picacgmd.feature.comics
 
+import app.picacgmd.core.designsystem.window.secureDialogProperties
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
@@ -401,6 +403,7 @@ fun JumpToPageDialog(pages: Int, current: Int, onDismiss: () -> Unit, onJump: (I
     var text by rememberSaveable { mutableStateOf(current.takeIf { it > 0 }?.toString().orEmpty()) }
     val target = text.toIntOrNull()?.takeIf { it in 1..pages }
     AlertDialog(
+        properties = secureDialogProperties(),
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.comics_jump_title)) },
         text = {

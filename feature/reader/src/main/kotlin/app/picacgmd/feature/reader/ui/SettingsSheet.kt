@@ -1,5 +1,9 @@
 package app.picacgmd.feature.reader.ui
 
+import androidx.compose.runtime.key
+import app.picacgmd.core.designsystem.window.secureModalBottomSheetProperties
+import app.picacgmd.core.designsystem.window.secureWindowPolicy
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -137,7 +141,7 @@ internal fun ReaderSheet(
             then()
         }
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = state, scrimColor = scrim) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = state, scrimColor = scrim, properties = secureModalBottomSheetProperties()) {
         content(hide)
     }
 }
@@ -663,16 +667,19 @@ private fun TapModeDropdown(selected: TapMode, onSelect: (TapMode) -> Unit) {
                 ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
             }
         }
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            TapMode.entries.forEach { mode ->
-                DropdownMenuItem(
-                    text = { Text(stringResource(mode.label())) },
-                    onClick = {
-                        expanded = false
-                        onSelect(mode)
-                    },
-                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
-                )
+        // This API exposes no properties; recreate its inherited window when the policy changes.
+        key(secureWindowPolicy()) {
+            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                TapMode.entries.forEach { mode ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(mode.label())) },
+                        onClick = {
+                            expanded = false
+                            onSelect(mode)
+                        },
+                        contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                    )
+                }
             }
         }
     }

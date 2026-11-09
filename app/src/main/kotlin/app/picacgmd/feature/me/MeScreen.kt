@@ -1,5 +1,7 @@
 package app.picacgmd.feature.me
 
+import app.picacgmd.core.designsystem.window.secureDialogProperties
+
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -348,6 +350,7 @@ fun MeScreen(
             onDismiss = { dialog = null },
         )
         MeDialog.Logout -> AlertDialog(
+            properties = secureDialogProperties(),
             onDismissRequest = { dialog = null },
             title = { Text("退出登录？") },
             text = { Text("浏览记录和下载会保留在本机") },
@@ -530,6 +533,7 @@ private fun PasswordDialog(onSave: (String, String) -> Unit, onDismiss: () -> Un
     }
     val transformation = if (visible) VisualTransformation.None else PasswordVisualTransformation()
     AlertDialog(
+        properties = secureDialogProperties(),
         onDismissRequest = onDismiss,
         title = { Text("修改密码") },
         text = {

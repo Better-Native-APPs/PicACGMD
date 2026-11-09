@@ -1,5 +1,8 @@
 package app.picacgmd.feature.settings
 
+import app.picacgmd.core.designsystem.window.secureDialogProperties
+import app.picacgmd.core.designsystem.window.secureModalBottomSheetProperties
+
 import android.content.Context
 import android.os.StatFs
 import android.text.format.Formatter
@@ -314,7 +317,7 @@ private fun CleanCacheSheet(
     var images by rememberSaveable { mutableStateOf(true) }
     var api by rememberSaveable { mutableStateOf(true) }
     var history by rememberSaveable { mutableStateOf(false) }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, properties = secureModalBottomSheetProperties()) {
         Column(Modifier.padding(horizontal = 24.dp).navigationBarsPadding()) {
             Text("清理缓存？", style = MaterialTheme.typography.headlineSmall)
             Text(
@@ -457,6 +460,7 @@ internal fun AboutSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier
 @Composable
 private fun InfoDialog(title: String, onDismiss: () -> Unit, content: @Composable () -> Unit) {
     AlertDialog(
+        properties = secureDialogProperties(),
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = { Column(Modifier.verticalScroll(rememberScrollState())) { content() } },

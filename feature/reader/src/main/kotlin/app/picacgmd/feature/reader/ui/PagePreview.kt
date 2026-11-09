@@ -60,7 +60,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import app.picacgmd.core.designsystem.window.secureDialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 import coil3.compose.AsyncImagePainter
@@ -103,7 +103,7 @@ internal fun PagePreviewDialog(
 ) {
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+        properties = secureDialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
         // Always on black, whatever the reader's background: the bars' icons stay light.
         val dialogView = LocalView.current

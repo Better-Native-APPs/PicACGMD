@@ -1,5 +1,8 @@
 package app.picacgmd.feature.search
 
+import app.picacgmd.core.designsystem.window.secureModalBottomSheetProperties
+import app.picacgmd.core.designsystem.window.securePopupProperties
+
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.HorizontalDivider
@@ -396,7 +399,7 @@ private fun SearchFilterSheet(
 ) {
     var sort by remember { mutableStateOf(filter.sort) }
     var chosen by remember { mutableStateOf(filter.categories.toSet()) }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, properties = secureModalBottomSheetProperties()) {
         Column(
             Modifier
                 .fillMaxWidth()
@@ -449,7 +452,7 @@ private fun SearchOverflowMenu(layout: ListLayout, onLayout: (ListLayout) -> Uni
     var picker by remember { mutableStateOf<RouteKind?>(null) }
     Box {
         IconButton(onClick = { open = true }) { Icon(Icons.Outlined.MoreVert, stringResource(R.string.routes_more_options)) }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }, properties = securePopupProperties(focusable = true)) {
             LayoutMenuItems(layout) { open = false; onLayout(it) }
             HorizontalDivider(Modifier.padding(vertical = 4.dp))
             RouteMenuItems { open = false; picker = it }

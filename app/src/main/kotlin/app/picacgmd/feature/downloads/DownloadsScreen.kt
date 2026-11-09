@@ -1,5 +1,8 @@
 package app.picacgmd.feature.downloads
 
+import app.picacgmd.core.designsystem.window.secureDialogProperties
+import app.picacgmd.core.designsystem.window.securePopupProperties
+
 import android.annotation.SuppressLint
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -237,7 +240,7 @@ fun DownloadsScreen(
                             IconButton(onClick = onOpenSettings) { Icon(Icons.Outlined.Settings, contentDescription = "下载设置") }
                             Box {
                                 IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "更多操作") }
-                                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, properties = securePopupProperties(focusable = true)) {
                                     DropdownMenuItem(
                                         text = { Text("全部暂停") },
                                         leadingIcon = { Icon(Icons.Outlined.Pause, null) },
@@ -334,6 +337,7 @@ fun DownloadsScreen(
     pendingDelete?.let { targets ->
         val finished = targets.all { it.status == DownloadStatus.DONE }
         AlertDialog(
+            properties = secureDialogProperties(),
             onDismissRequest = { pendingDelete = null },
             title = { Text(if (targets.size == 1) "删除「${targets.first().title}」？" else "删除 ${targets.size} 本漫画？") },
             text = {
@@ -681,7 +685,7 @@ private fun DoneList(
                             label = { Text(sort.label) },
                             leadingIcon = { Icon(Icons.AutoMirrored.Outlined.Sort, contentDescription = null, modifier = Modifier.size(18.dp)) },
                         )
-                        DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                        DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }, properties = securePopupProperties(focusable = true)) {
                             DoneSort.entries.forEach { option ->
                                 DropdownMenuItem(text = { Text(option.label) }, onClick = { sortName = option.name; sortMenu = false })
                             }
@@ -719,7 +723,7 @@ private fun DoneList(
                     {
                         Box {
                             IconButton(onClick = { rowMenu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "更多操作") }
-                            DropdownMenu(expanded = rowMenu, onDismissRequest = { rowMenu = false }) {
+                            DropdownMenu(expanded = rowMenu, onDismissRequest = { rowMenu = false }, properties = securePopupProperties(focusable = true)) {
                                 DropdownMenuItem(text = { Text("阅读") }, onClick = { rowMenu = false; onOpen(comic.comicId) })
                                 DropdownMenuItem(text = { Text("查看详情") }, onClick = { rowMenu = false; onOpenDetail(comic.comicId) })
                                 DropdownMenuItem(text = { Text("多选") }, onClick = { rowMenu = false; onToggle(comic.comicId) })

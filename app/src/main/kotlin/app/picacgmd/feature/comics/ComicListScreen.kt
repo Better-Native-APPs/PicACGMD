@@ -1,5 +1,7 @@
 package app.picacgmd.feature.comics
 
+import app.picacgmd.core.designsystem.window.securePopupProperties
+
 import app.picacgmd.feature.routing.RouteMenuButton
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -238,7 +240,7 @@ fun LayoutMenuButton(layout: ListLayout, onLayout: (ListLayout) -> Unit) {
     IconButton(onClick = { open = true }) {
         Icon(layout.icon(), stringResource(R.string.comics_layout))
     }
-    DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+    DropdownMenu(expanded = open, onDismissRequest = { open = false }, properties = securePopupProperties(focusable = true)) {
         LayoutMenuItems(layout) { open = false; onLayout(it) }
     }
 }

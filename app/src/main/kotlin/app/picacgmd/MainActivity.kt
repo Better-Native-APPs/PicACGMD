@@ -42,6 +42,7 @@ import app.picacgmd.core.designsystem.theme.DarkMode
 import app.picacgmd.core.designsystem.theme.PikapikaTheme
 import app.picacgmd.core.designsystem.theme.ThemeChoice
 import app.picacgmd.core.designsystem.theme.isDark
+import app.picacgmd.core.designsystem.window.LocalSecureWindows
 import app.picacgmd.core.domain.session.SessionState
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.account.LoginScreen
@@ -74,7 +75,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         val splash = installSplashScreen()
         super.onCreate(savedInstanceState)
-        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        // Stay secure until the first settings snapshot, before any app content can be drawn.
+        updateLockWindow()
         authenticator = AppLockAuthenticator(
             this,
             onUnlocked = {
@@ -129,7 +131,10 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
-            CompositionLocalProvider(LocalAppContainer provides container) {
+            CompositionLocalProvider(
+                LocalAppContainer provides container,
+                LocalSecureWindows provides (settings?.preventScreenshots ?: true),
+            ) {
                 PikapikaTheme(themeChoice, darkMode, preferences.pureBlack) {
                     Surface(Modifier.fillMaxSize()) {
                         when {
@@ -199,11 +204,13 @@ class MainActivity : ComponentActivity() {
 
     private fun updateLockWindow() {
         locked = lockState.isLocked
-        if (settings == null || locked || settings?.preventScreenshots == true || obscureForRecents && lockState.isEnabled) {
+        val secure = settings == null || locked || settings?.preventScreenshots == true || obscureForRecents && lockState.isEnabled
+        if (secure) {
             window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         } else {
             window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }
+        if (Build.VERSION.SDK_INT >= 33) setRecentsScreenshotEnabled(!secure)
     }
 
     override fun onNewIntent(intent: Intent) {

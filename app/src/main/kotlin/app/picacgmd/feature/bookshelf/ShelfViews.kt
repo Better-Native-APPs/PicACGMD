@@ -1,5 +1,7 @@
 package app.picacgmd.feature.bookshelf
 
+import app.picacgmd.core.designsystem.window.securePopupProperties
+
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -130,7 +132,7 @@ internal fun OnlineFavouritesView(
                             Spacer(Modifier.width(6.dp))
                             Text(if (sort == ComicSort.OLDEST) "旧到新" else "新到旧")
                         }
-                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, properties = securePopupProperties(focusable = true)) {
                             listOf(ComicSort.NEWEST to "新到旧", ComicSort.OLDEST to "旧到新").forEach { (value, label) ->
                                 DropdownMenuItem(
                                     text = { Text(label) },
@@ -452,7 +454,7 @@ private fun HistoryRow(
                     {
                         Box {
                             IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "更多操作") }
-                            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, properties = securePopupProperties(focusable = true)) {
                                 DropdownMenuItem(
                                     text = { Text("继续阅读") },
                                     leadingIcon = { Icon(Icons.Outlined.PlayArrow, null) },

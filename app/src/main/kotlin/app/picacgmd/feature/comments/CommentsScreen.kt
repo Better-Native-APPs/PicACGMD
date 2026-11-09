@@ -1,5 +1,7 @@
 package app.picacgmd.feature.comments
 
+import app.picacgmd.core.designsystem.window.secureModalBottomSheetProperties
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -338,7 +340,7 @@ private fun RepliesSheet(
     val listState = rememberLazyListState()
     // Further pages come in by themselves as the end scrolls into view; only a failed page waits for a tap.
     LoadMoreEffect(listState, thread.replies.size, onLoadMore)
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), contentWindowInsets = { WindowInsets(0) }) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), contentWindowInsets = { WindowInsets(0) }, properties = secureModalBottomSheetProperties()) {
         Column(Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.comments_replies_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp))
             CommentRow(thread.parent, onLike = { onLike(thread.parent.id) }, onReport = { onReport(thread.parent) })
