@@ -23,6 +23,8 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.NotificationsOff
 import androidx.compose.material.icons.outlined.SelectAll
@@ -67,9 +69,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.picacgmd.core.data.db.Subscription
 import app.picacgmd.core.data.db.ViewHistory
+import app.picacgmd.core.domain.repository.toSimple
 import app.picacgmd.core.network.ComicSimple
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.downloads.rememberDownloadManager
+import app.picacgmd.feature.comics.ComicListScreen
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -83,7 +87,7 @@ fun rememberBookshelfUnseenCount(): Int {
 }
 
 /**
- * Bookshelf tab (boards 21–23): 收藏 / 追更 / 记录 in one connected switcher, long-press
+ * Bookshelf tab (boards 21–23): 收藏 / 本地收藏 / 追更 / 记录 in one connected switcher, long-press
  * multi-select with a floating action toolbar and undoable history/subscription removals.
  *
  * [onContinueReading] receives a 0-based [page] (history stores 1-based picture indexes).
@@ -107,19 +111,36 @@ fun BookshelfScreen(
     val unseen = rememberBookshelfUnseenCount()
     val batch by viewModel.batch.collectAsStateWithLifecycle()
     val messages by viewModel.messages.collectAsStateWithLifecycle()
+    val localFolders by viewModel.localFolders.collectAsStateWithLifecycle()
+    val localComics by viewModel.localComics.collectAsStateWithLifecycle()
+    val localFolder by viewModel.localFolder.collectAsStateWithLifecycle()
+    val localNewestFirst by viewModel.localNewestFirst.collectAsStateWithLifecycle()
+    val favouriteTags by viewModel.favouriteTags.collectAsStateWithLifecycle()
 
     var viewName by rememberSaveable { mutableStateOf<String?>(null) }
     var selectionList by rememberSaveable { mutableStateOf(emptyList<String>()) }
     val selection = selectionList.toSet()
     var dialog by remember { mutableStateOf<ShelfDialog?>(null) }
     var menu by remember { mutableStateOf(false) }
+    var newLocalFolder by rememberSaveable { mutableStateOf(false) }
+    var manageLocalFolders by rememberSaveable { mutableStateOf(false) }
+    var tagFavouritesOpen by rememberSaveable { mutableStateOf(false) }
+    var tagSearch by rememberSaveable { mutableStateOf<String?>(null) }
 
     val current = settings ?: return
     val views = current.visibleShelfViews()
     val view = views.firstOrNull { it.name == viewName } ?: views.first()
     val selecting = selection.isNotEmpty()
 
+    LaunchedEffect(current.showTagFavourites) {
+        if (!current.showTagFavourites) {
+            tagFavouritesOpen = false
+            tagSearch = null
+        }
+    }
+
     LaunchedEffect(view) {
+        menu = false
         if (viewName != null && viewName != view.name) {
             viewName = view.name
             selectionList = emptyList()
@@ -141,6 +162,7 @@ fun BookshelfScreen(
 
     fun selectedComics(): List<ComicSimple> = when (view) {
         ShelfView.Online -> viewModel.onlineComics(selection)
+        ShelfView.Local -> localComics.orEmpty().filter { it.comicId in selection }.map { it.toSimple() }
         ShelfView.Follow -> subscriptions.orEmpty().filter { it.comicId in selection }.map { it.toComic() }
         ShelfView.History -> history.orEmpty().filter { it.comicId in selection }.map { it.toComic() }
     }
@@ -164,6 +186,13 @@ fun BookshelfScreen(
         undoable("已取消追更 ${items.size} 本") { viewModel.restoreSubscriptions(items) }
     }
 
+    fun removeLocal(ids: List<String>) {
+        if (ids.isEmpty()) return
+        viewModel.removeLocal(ids) { removed ->
+            undoable("已移出 ${ids.distinct().size} 本本地收藏") { viewModel.restoreLocal(removed) }
+        }
+    }
+
     fun enqueueDownloads(comics: List<ComicSimple>) {
         if (comics.isEmpty()) return
         scope.launch {
@@ -177,6 +206,25 @@ fun BookshelfScreen(
             }
             snackbar.showSnackbar(message)
         }
+    }
+
+    // This secondary tag list reuses the existing comic-list screen without changing app routing.
+    val openedTag = tagSearch
+    if (openedTag != null && current.showTagFavourites) {
+        fun closeTagSearch() { tagSearch = null; tagFavouritesOpen = true }
+        BackHandler(onBack = ::closeTagSearch)
+        Box(modifier.fillMaxSize()) {
+            ComicListScreen(
+                category = null,
+                tag = openedTag,
+                author = null,
+                onBack = ::closeTagSearch,
+                onComicClick = onOpenComic,
+                onBatchDownload = ::enqueueDownloads,
+            )
+            SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(16.dp))
+        }
+        return
     }
 
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
@@ -194,6 +242,7 @@ fun BookshelfScreen(
                             IconButton(onClick = {
                                 when (view) {
                                     ShelfView.Online -> viewModel.selectAllOnline { setSelection(it) }
+                                    ShelfView.Local -> setSelection(localComics.orEmpty().map { it.comicId }.toSet())
                                     ShelfView.Follow -> setSelection(subscriptions.orEmpty().map { it.comicId }.toSet())
                                     ShelfView.History -> setSelection(history.orEmpty().map { it.comicId }.toSet())
                                 }
@@ -205,6 +254,22 @@ fun BookshelfScreen(
                         title = { Text("书架") },
                         scrollBehavior = scrollBehavior,
                         actions = {
+                            if (current.showTagFavourites) {
+                                IconButton(onClick = { tagFavouritesOpen = true }) { Icon(Icons.Outlined.Label, "标签收藏") }
+                            }
+                            if (view == ShelfView.Local) {
+                                Box {
+                                    IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, "更多操作") }
+                                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                                        DropdownMenuItem(
+                                            text = { Text("管理收藏夹") },
+                                            leadingIcon = { Icon(Icons.Outlined.Folder, null) },
+                                            enabled = localFolders != null,
+                                            onClick = { menu = false; manageLocalFolders = true },
+                                        )
+                                    }
+                                }
+                            }
                             if (view == ShelfView.History) {
                                 Box {
                                     IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "更多操作") }
@@ -253,6 +318,19 @@ fun BookshelfScreen(
                             selection = selection,
                             onSelectionChange = ::setSelection,
                             onOpenComic = onOpenComic,
+                        )
+                        ShelfView.Local -> LocalFavouritesView(
+                            folders = localFolders,
+                            comics = localComics,
+                            folderId = localFolder,
+                            newestFirst = localNewestFirst,
+                            selection = selection,
+                            onFolderSelect = { viewModel.selectLocalFolder(it); selectionList = emptyList() },
+                            onNewFolder = { newLocalFolder = true },
+                            onSort = viewModel::setLocalNewestFirst,
+                            onToggle = ::toggle,
+                            onOpenComic = onOpenComic,
+                            onRemove = ::removeLocal,
                         )
                         ShelfView.Follow -> FollowView(
                             subscriptions = subscriptions,
@@ -305,6 +383,10 @@ fun BookshelfScreen(
                         when (view) {
                             ShelfView.Online -> ToolbarAction(Icons.Outlined.BookmarkRemove, "取消收藏", destructive = true) {
                                 dialog = ShelfDialog.ConfirmUnfavourite(selection.toList())
+                            }
+                            ShelfView.Local -> ToolbarAction(Icons.Outlined.BookmarkRemove, "移出收藏", destructive = true) {
+                                removeLocal(selection.toList())
+                                selectionList = emptyList()
                             }
                             ShelfView.Follow -> ToolbarAction(Icons.Outlined.NotificationsOff, "取消追更", destructive = true) {
                                 unsubscribe(subscriptions.orEmpty().filter { it.comicId in selection })
@@ -366,6 +448,24 @@ fun BookshelfScreen(
         )
         null -> Unit
     }
+    if (newLocalFolder) LocalFolderNameDialog(
+        title = "新建收藏夹",
+        onDismiss = { newLocalFolder = false },
+        onConfirm = { name -> viewModel.selectLocalFolder(viewModel.createLocalFolder(name)) },
+    )
+    if (manageLocalFolders && localFolders != null) LocalFolderManagerSheet(
+        folders = localFolders.orEmpty(),
+        onDismiss = { manageLocalFolders = false },
+        onCreateFolder = viewModel::createLocalFolder,
+        onRenameFolder = viewModel::renameLocalFolder,
+        onDeleteFolder = viewModel::deleteLocalFolder,
+    )
+    if (tagFavouritesOpen && current.showTagFavourites) TagFavouritesSheet(
+        tags = favouriteTags,
+        onDismiss = { tagFavouritesOpen = false },
+        onOpenTag = { tag -> tagFavouritesOpen = false; tagSearch = tag },
+        onRemoveTag = viewModel::removeFavouriteTag,
+    )
 }
 
 internal sealed interface ShelfDialog {

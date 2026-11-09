@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.picacgmd.core.data.db.DownloadEp
 import app.picacgmd.core.data.db.DownloadStatus
+import app.picacgmd.core.data.db.LocalFavouriteFolder
 import app.picacgmd.core.domain.di.AppContainer
 import app.picacgmd.core.domain.repository.ReadingProgress
 import app.picacgmd.core.domain.repository.containsKeyword
@@ -64,12 +65,47 @@ data class LibraryState(
 /** A tag or category that 屏蔽模式 has just put into the hidden keywords ([blocked]) or taken out. */
 data class KeywordChange(val keyword: String, val blocked: Boolean)
 
+data class TagFavouriteChange(val tag: String, val added: Boolean)
+
 class ComicDetailViewModel(private val container: AppContainer, val comicId: String) : ViewModel() {
     private val comics = container.comicRepository
     private val mutableState = MutableStateFlow(DetailState())
     val state: StateFlow<DetailState> = mutableState.asStateFlow()
     private val mutableMessages = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val messages: SharedFlow<String> = mutableMessages.asSharedFlow()
+
+    val localFolders: StateFlow<List<LocalFavouriteFolder>?> = container.localFavouriteRepository.folders
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val localFolderIds: StateFlow<Set<String>?> = container.localFavouriteRepository.folderIds(comicId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val showTagFavourites: StateFlow<Boolean> = container.settingsRepository.settings
+        .map { it.showTagFavourites }.distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    val favouriteTags: StateFlow<Set<String>> = container.tagFavouriteRepository.favourites
+        .map { tags -> tags.mapTo(HashSet()) { it.tag } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+    private val mutableTagFavouriteChanges = MutableSharedFlow<TagFavouriteChange>(extraBufferCapacity = 4)
+    val tagFavouriteChanges: SharedFlow<TagFavouriteChange> = mutableTagFavouriteChanges.asSharedFlow()
+
+    suspend fun createLocalFolder(name: String): String = container.localFavouriteRepository.createFolder(name).folderId
+    suspend fun saveLocalFavourite(folderIds: Set<String>) {
+        val comic = checkNotNull(mutableState.value.comic) { "漫画信息尚未加载" }
+        container.localFavouriteRepository.setFolders(comic, folderIds)
+    }
+
+    fun toggleTagFavourite(tag: String) {
+        viewModelScope.launch {
+            try {
+                val added = container.tagFavouriteRepository.toggle(tag)
+                mutableTagFavouriteChanges.tryEmit(TagFavouriteChange(tag, added))
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (exception: Exception) {
+                mutableMessages.tryEmit(exception.readable())
+            }
+        }
+    }
 
     /** Chapter order → picture count, so coming back from the reader does not ask again. */
     private val epPageCounts = HashMap<Int, Int>()

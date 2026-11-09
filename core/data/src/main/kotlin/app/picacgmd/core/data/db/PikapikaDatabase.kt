@@ -18,9 +18,14 @@ import androidx.room.TypeConverters
         RemoteImage::class,
         TagFavourite::class,
         Subscription::class,
+        LocalFavouriteFolder::class,
+        LocalFavouriteEntry::class,
     ],
-    version = 2,
-    autoMigrations = [AutoMigration(from = 1, to = 2, spec = DropObsoleteFoldersSpec::class)],
+    version = 3,
+    autoMigrations = [
+        AutoMigration(from = 1, to = 2, spec = DropObsoleteFoldersSpec::class),
+        AutoMigration(from = 2, to = 3),
+    ],
     exportSchema = true,
 )
 @TypeConverters(DownloadStatusConverters::class)
@@ -32,6 +37,7 @@ abstract class PikapikaDatabase : RoomDatabase() {
     abstract fun remoteImageDao(): RemoteImageDao
     abstract fun tagFavouriteDao(): TagFavouriteDao
     abstract fun subscriptionDao(): SubscriptionDao
+    abstract fun localFavouriteDao(): LocalFavouriteDao
 
     companion object {
         const val DATABASE_NAME: String = "pikapika.db"

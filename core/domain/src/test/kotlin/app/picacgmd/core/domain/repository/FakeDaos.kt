@@ -2,9 +2,14 @@ package app.picacgmd.core.domain.repository
 
 import app.picacgmd.core.data.db.ApiCache
 import app.picacgmd.core.data.db.ApiCacheDao
+import app.picacgmd.core.data.db.LocalFavouriteDao
+import app.picacgmd.core.data.db.LocalFavouriteEntry
+import app.picacgmd.core.data.db.LocalFavouriteFolder
 import app.picacgmd.core.data.db.ReadChapter
 import app.picacgmd.core.data.db.SearchHistory
 import app.picacgmd.core.data.db.SearchHistoryDao
+import app.picacgmd.core.data.db.TagFavourite
+import app.picacgmd.core.data.db.TagFavouriteDao
 import app.picacgmd.core.data.db.ViewHistory
 import app.picacgmd.core.data.db.ViewHistoryDao
 import kotlinx.coroutines.flow.Flow
@@ -76,4 +81,72 @@ internal class FakeViewHistoryDao : ViewHistoryDao {
         return count
     }
     override suspend fun clear() { entries.value = emptyMap() }
+}
+
+/** The inherited transaction bodies are exercised with the same keys and folder-delete cascade as Room. */
+internal class FakeLocalFavouriteDao : LocalFavouriteDao() {
+    val folders = MutableStateFlow<Map<String, LocalFavouriteFolder>>(emptyMap())
+    val entries = MutableStateFlow<Map<Pair<String, String>, LocalFavouriteEntry>>(emptyMap())
+
+    override fun observeFolders(): Flow<List<LocalFavouriteFolder>> = folders.map {
+        it.values.sortedWith(compareBy<LocalFavouriteFolder> { folder -> folder.sortOrder }.thenBy { folder -> folder.folderId })
+    }
+    override fun observeEntries(): Flow<List<LocalFavouriteEntry>> = entries.map {
+        it.values.sortedWith(compareByDescending<LocalFavouriteEntry> { entry -> entry.addedAt }.thenBy { entry -> entry.comicId })
+    }
+    override fun observeFolderIds(comicId: String): Flow<List<String>> = entries.map { values ->
+        values.values.filter { it.comicId == comicId }.map { it.folderId }.sorted()
+    }
+    override suspend fun getFolder(folderId: String): LocalFavouriteFolder? = folders.value[folderId]
+    override suspend fun nextFolderOrder(): Int = (folders.value.values.maxOfOrNull { it.sortOrder } ?: -1) + 1
+    override suspend fun insertFolder(folder: LocalFavouriteFolder): Long {
+        if (folder.folderId in folders.value) return -1
+        folders.value += folder.folderId to folder
+        return folders.value.size.toLong()
+    }
+    override suspend fun renameFolder(folderId: String, name: String): Int {
+        val folder = getFolder(folderId) ?: return 0
+        folders.value += folderId to folder.copy(name = name)
+        return 1
+    }
+    override suspend fun markSelected(folderIds: List<String>, timestamp: Long) {
+        folders.value = folders.value.mapValues { (id, folder) ->
+            if (id in folderIds) folder.copy(lastSelectedAt = timestamp) else folder
+        }
+    }
+    override suspend fun getComicEntries(comicId: String): List<LocalFavouriteEntry> = entries.value.values.filter { it.comicId == comicId }
+    override suspend fun getFolderEntries(folderId: String): List<LocalFavouriteEntry> = entries.value.values.filter { it.folderId == folderId }
+    override suspend fun upsertEntries(entries: List<LocalFavouriteEntry>) {
+        require(entries.all { it.folderId in folders.value }) { "FOREIGN KEY constraint failed" }
+        this.entries.value += entries.associateBy { it.folderId to it.comicId }
+    }
+    override suspend fun deleteComicEntries(comicId: String) {
+        entries.value = entries.value.filterValues { it.comicId != comicId }
+    }
+    override suspend fun removeEntries(comicIds: List<String>, folderId: String?): Int {
+        val previous = entries.value
+        entries.value = previous.filterValues { it.comicId !in comicIds || (folderId != null && it.folderId != folderId) }
+        return previous.size - entries.value.size
+    }
+    override suspend fun deleteFolderRow(folderId: String): Int {
+        if (folderId !in folders.value) return 0
+        folders.value -= folderId
+        entries.value = entries.value.filterValues { it.folderId != folderId }
+        return 1
+    }
+}
+
+internal class FakeTagFavouriteDao : TagFavouriteDao {
+    private val entries = MutableStateFlow<List<TagFavourite>>(emptyList())
+    override fun observeAll(): Flow<List<TagFavourite>> = entries
+    override suspend fun upsert(favourite: TagFavourite) {
+        entries.value = (entries.value.filterNot { it.tag == favourite.tag } + favourite)
+            .sortedWith(compareBy<TagFavourite> { it.sortOrder }.thenBy { it.createdAt }.thenBy { it.tag })
+    }
+    override suspend fun delete(tags: List<String>): Int {
+        val previous = entries.value
+        entries.value = previous.filterNot { it.tag in tags }
+        return previous.size - entries.value.size
+    }
+    override suspend fun clear() { entries.value = emptyList() }
 }

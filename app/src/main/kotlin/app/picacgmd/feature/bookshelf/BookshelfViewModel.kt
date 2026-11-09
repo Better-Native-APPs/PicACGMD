@@ -2,7 +2,10 @@ package app.picacgmd.feature.bookshelf
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.picacgmd.core.data.db.LocalFavouriteEntry
+import app.picacgmd.core.data.db.LocalFavouriteFolder
 import app.picacgmd.core.data.db.Subscription
+import app.picacgmd.core.data.db.TagFavourite
 import app.picacgmd.core.data.db.ViewHistory
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.domain.di.AppContainer
@@ -14,16 +17,18 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /** Bookshelf views in their fixed order (board 21); 记录 is always shown. */
-enum class ShelfView(val label: String) { Online("收藏"), Follow("追更"), History("记录") }
+enum class ShelfView(val label: String) { Online("收藏"), Local("本地收藏"), Follow("追更"), History("记录") }
 
 internal fun AppSettings.visibleShelfViews(): List<ShelfView> = buildList {
     if (showOnlineFavourites) add(ShelfView.Online)
+    add(ShelfView.Local)
     if (showSubscriptions) add(ShelfView.Follow)
     add(ShelfView.History)
 }
@@ -37,6 +42,26 @@ class BookshelfViewModel(private val container: AppContainer) : ViewModel() {
     val sort: StateFlow<ComicSort> = mutableSort.asStateFlow()
     val settings: StateFlow<AppSettings?> = container.settingsRepository.settings
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    val localFolders: StateFlow<List<LocalFavouriteFolder>?> = container.localFavouriteRepository.folders
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val favouriteTags: StateFlow<List<TagFavourite>?> = container.tagFavouriteRepository.favourites
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    private val localEntries: StateFlow<List<LocalFavouriteEntry>?> = container.localFavouriteRepository.entries
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    private val mutableLocalFolder = MutableStateFlow<String?>(null)
+    val localFolder: StateFlow<String?> = mutableLocalFolder.asStateFlow()
+    private val mutableLocalNewestFirst = MutableStateFlow(true)
+    val localNewestFirst: StateFlow<Boolean> = mutableLocalNewestFirst.asStateFlow()
+    val localComics: StateFlow<List<LocalFavouriteEntry>?> = combine(
+        localEntries, mutableLocalFolder, mutableLocalNewestFirst,
+    ) { entries, folderId, newestFirst ->
+        entries?.filter { folderId == null || it.folderId == folderId }
+            ?.sortedWith(
+                (if (newestFirst) compareByDescending<LocalFavouriteEntry> { it.addedAt } else compareBy { it.addedAt })
+                    .thenBy { it.comicId },
+            )?.distinctBy { it.comicId }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Every online favourite seen so far, so selected comics stay resolvable after "全选". */
     private val known = LinkedHashMap<String, ComicSimple>()
@@ -78,6 +103,27 @@ class BookshelfViewModel(private val container: AppContainer) : ViewModel() {
         mutableSort.value = value
         onlinePager.reload()
     }
+
+    fun selectLocalFolder(folderId: String?) { mutableLocalFolder.value = folderId }
+    fun setLocalNewestFirst(newestFirst: Boolean) { mutableLocalNewestFirst.value = newestFirst }
+    suspend fun removeFavouriteTag(tag: String) { container.tagFavouriteRepository.remove(listOf(tag)) }
+    suspend fun createLocalFolder(name: String): String = container.localFavouriteRepository.createFolder(name).folderId
+    suspend fun renameLocalFolder(folderId: String, name: String) = container.localFavouriteRepository.renameFolder(folderId, name)
+    suspend fun deleteLocalFolder(folderId: String, targetFolderId: String) {
+        container.localFavouriteRepository.deleteFolder(folderId, targetFolderId)
+        if (mutableLocalFolder.value == folderId) mutableLocalFolder.value = targetFolderId
+    }
+
+    fun removeLocal(comicIds: List<String>, onRemoved: (List<LocalFavouriteEntry>) -> Unit) {
+        val folderId = mutableLocalFolder.value
+        val removed = localEntries.value.orEmpty().filter { it.comicId in comicIds && (folderId == null || it.folderId == folderId) }
+        run("移出本地收藏失败") {
+            localFavouriteRepository.remove(comicIds, folderId)
+            onRemoved(removed)
+        }
+    }
+
+    fun restoreLocal(entries: List<LocalFavouriteEntry>) = run("撤销失败") { localFavouriteRepository.restore(entries) }
 
     fun consumeMessage(message: String) = mutableMessages.update { it - message }
 
