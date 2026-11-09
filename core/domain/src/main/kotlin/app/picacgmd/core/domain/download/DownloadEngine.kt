@@ -74,6 +74,7 @@ internal class DownloadEngine(
     private val networkAllowed = MutableStateFlow(false)
     private val trackedComics = ConcurrentHashMap.newKeySet<String>()
     private val failedPictures = ConcurrentHashMap<String, Int>()
+    private val manifestTotals = ConcurrentHashMap<String, Int>()
     private val queue = MutableStateFlow<List<DownloadComic>>(emptyList())
     private val mutableProgress = MutableStateFlow(DownloadProgress())
     val progress: StateFlow<DownloadProgress> = mutableProgress.asStateFlow()
@@ -133,8 +134,10 @@ internal class DownloadEngine(
                         updatedAt = nowMillis(),
                     )
                 }
+                manifestTotals.remove(comic.comicId)
                 dao.enqueue(comic, selected)
                 if (running) trackedComics.add(comic.comicId)
+                updateQueueProgress()
             }
         }
     }
@@ -206,6 +209,7 @@ internal class DownloadEngine(
             files.removeInterruptedTemporaryFiles()
             trackedComics.clear()
             failedPictures.clear()
+            manifestTotals.clear()
             queue.value = emptyList()
             mutableProgress.value = DownloadProgress()
             speedBytes.set(0)
@@ -256,6 +260,15 @@ internal class DownloadEngine(
                         settingsReady.await()
                         networkReady.await()
                         queueReady.await()
+                        // Resolve the whole queued batch before the first page transfer. Otherwise
+                        // each new chapter/comic enlarges the denominator after progress has begun.
+                        for (comic in queue.value.filter { it.status in activeStatuses }) {
+                            val job = launch(start = CoroutineStart.LAZY) { processComic(comic.comicId, manifestsOnly = true) }
+                            activeComic = ActiveComic(comic.comicId, job)
+                            job.start()
+                            job.join()
+                            activeComic = null
+                        }
                         while (true) {
                             dao.getDeletingComics().forEach { removeDeletingComic(it.comicId) }
                             val next = dao.getNextComic() ?: break
@@ -280,7 +293,7 @@ internal class DownloadEngine(
         }
     }
 
-    private suspend fun processComic(comicId: String) {
+    private suspend fun processComic(comicId: String, manifestsOnly: Boolean = false) {
         try {
             coroutineScope {
                 val comic = withComicLock(comicId) {
@@ -303,15 +316,23 @@ internal class DownloadEngine(
                     if (allRequest != null || dao.observeEps(comicId).first().isEmpty()) {
                         resolveAllEpisodes(comicId, allRequest)
                     }
-                    val coverError = downloadCover(comicId)
-                    prepareFetchedEpisodes(comicId)
-                    downloadPendingPictures(comicId)
                     while (true) {
                         val ep = dao.getNextUnfetchedEp(comicId) ?: break
                         resolvePictures(ep)
-                        downloadPendingPictures(comicId)
                     }
-                    summarize(comicId, coverError)
+                    val eps = dao.observeEps(comicId).first()
+                    if (files.allEpisodesRequest(comicId) == null && eps.all { it.picturesFetched }) {
+                        manifestTotals[comicId] = eps.sumOf { it.selectedPictureCount }
+                    } else {
+                        manifestTotals.remove(comicId)
+                    }
+                    updateQueueProgress()
+                    if (!manifestsOnly) {
+                        val coverError = downloadCover(comicId)
+                        prepareFetchedEpisodes(comicId)
+                        downloadPendingPictures(comicId)
+                        summarize(comicId, coverError)
+                    }
                 } finally {
                     stateObserver.cancelAndJoin()
                 }
@@ -778,7 +799,8 @@ internal class DownloadEngine(
                 activeComics = comics.count { comic -> comic.status in activeStatuses },
                 completedComics = comics.count { comic -> comic.status == DownloadStatus.DONE },
                 failedComics = comics.count { comic -> comic.status == DownloadStatus.FAILED },
-                totalPictures = comics.sumOf { comic -> comic.selectedPictureCount },
+                totalPictures = comics.sumOf { comic -> manifestTotals[comic.comicId] ?: comic.selectedPictureCount },
+                pictureTotalsKnown = comics.isNotEmpty() && comics.all { comic -> manifestTotals.containsKey(comic.comicId) },
                 completedPictures = comics.sumOf { comic -> comic.completedPictureCount },
                 downloadedBytes = comics.sumOf { comic -> comic.downloadedBytes },
                 failedPictures = comics.sumOf { comic -> failedPictures[comic.comicId] ?: 0 },
