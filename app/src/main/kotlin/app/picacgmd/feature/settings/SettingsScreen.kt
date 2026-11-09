@@ -297,7 +297,7 @@ fun SettingsScreen(
                 }
                 item {
                     Text(
-                        if (results.isEmpty()) "没有找到「$needle」相关的设置" else "${results.size} 项结果 · 点按进入所在页面",
+                        if (results.isEmpty()) "未找到「$needle」" else "${results.size} 项结果",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
@@ -321,7 +321,7 @@ fun SettingsScreen(
                 if (results.isEmpty()) {
                     item {
                         Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
-                            Text("也可以试试", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                            Text("试试搜索", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                             Spacer(Modifier.height(8.dp))
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 listOf("线程", "代理", "音量键", "截屏", "缓存", "纯黑").forEach { hint ->

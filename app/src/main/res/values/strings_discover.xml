@@ -31,7 +31,7 @@
     <string name="categories_title">排序与隐藏</string>
     <string name="categories_pinned_title">固定到首页</string>
     <string name="categories_pinned_hint">拖动把手调整顺序</string>
-    <string name="categories_pinned_empty">还没有固定分类，点图钉即可添加</string>
+    <string name="categories_pinned_empty">暂无固定分类，点图钉添加</string>
     <string name="categories_all_title">全部分类</string>
     <string name="categories_all_hint">拖动排序，关闭后不在首页显示</string>
     <string name="categories_show_on_home">在首页显示「%1$s」</string>

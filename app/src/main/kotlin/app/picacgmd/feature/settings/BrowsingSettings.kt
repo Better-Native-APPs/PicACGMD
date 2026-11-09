@@ -568,7 +568,7 @@ private fun HomeCategoriesPage(onBack: () -> Unit, modifier: Modifier = Modifier
             SettingsGroup("固定到首页") {
                 if (settings.pinnedHomeCategories.isEmpty()) {
                     row { shapes ->
-                        SettingsNoteRow(shapes, "还没有固定分类，点图钉即可添加", Icons.Outlined.PushPin)
+                        SettingsNoteRow(shapes, "暂无固定分类，点图钉添加", Icons.Outlined.PushPin)
                     }
                 }
                 settings.pinnedHomeCategories.forEachIndexed { index, name ->
