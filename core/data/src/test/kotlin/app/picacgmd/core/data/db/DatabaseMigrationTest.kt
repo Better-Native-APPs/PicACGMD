@@ -34,7 +34,10 @@ class DatabaseMigrationTest {
         val createdTables = statements.filter { it.startsWith("CREATE TABLE") }
         assertEquals(2, createdTables.size)
         assertTrue(createdTables.any { "`local_folders`" in it })
-        assertTrue(createdTables.any { "`local_folder_entries`" in it && "ON DELETE CASCADE" in it })
+        val entriesTable = createdTables.single { "`local_folder_entries`" in it }
+        assertTrue("ON DELETE CASCADE" in entriesTable)
+        assertTrue("PRIMARY KEY(`comicId`)" in entriesTable, "A comic must belong to only one local folder")
+        assertTrue(statements.any { "CREATE INDEX" in it && "ON `local_folder_entries` (`folderId`)" in it })
         assertTrue(statements.none { Regex("^(DROP|ALTER|DELETE|UPDATE|REPLACE)\\b").containsMatchIn(it) })
         assertTrue(createdTables.none { "`local_favourites`" in it || "`local_favourite_folders`" in it })
     }

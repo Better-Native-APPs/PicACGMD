@@ -176,7 +176,7 @@ fun ComicDetailScreen(
     val library by viewModel.library.collectAsStateWithLifecycle()
     val hiddenKeywords by viewModel.hiddenKeywords.collectAsStateWithLifecycle()
     val localFolders by viewModel.localFolders.collectAsStateWithLifecycle()
-    val localFolderIds by viewModel.localFolderIds.collectAsStateWithLifecycle()
+    val localFolderId by viewModel.localFolderId.collectAsStateWithLifecycle()
     val showTagFavourites by viewModel.showTagFavourites.collectAsStateWithLifecycle()
     val favouriteTags by viewModel.favouriteTags.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
@@ -223,7 +223,7 @@ fun ComicDetailScreen(
                 preferences = preferences ?: AppSettings.DEFAULT,
                 state = state,
                 library = library,
-                locallyFavourited = !localFolderIds.isNullOrEmpty(),
+                locallyFavourited = localFolderId != null,
                 onLocalFavourite = { localFavouritePicker = true },
                 onBack = onBack,
                 onRead = { ep, page -> onRead(comic.id, ep, page) },
@@ -256,13 +256,14 @@ fun ComicDetailScreen(
             onConfirm = { downloadPicker = false; onDownloadChapters(comic, it) },
         )
     }
-    if (localFavouritePicker && comic != null && localFolders != null && localFolderIds != null) {
+    if (localFavouritePicker && comic != null && localFolders != null) {
         LocalFavouritePickerSheet(
             folders = localFolders.orEmpty(),
-            selectedFolderIds = localFolderIds.orEmpty(),
+            selectedFolderId = localFolderId,
             onDismiss = { localFavouritePicker = false },
             onCreateFolder = viewModel::createLocalFolder,
-            onSave = viewModel::saveLocalFavourite,
+            onSelectFolder = { viewModel.saveLocalFavourite(it) },
+            onRemove = { viewModel.saveLocalFavourite(null) },
         )
     }
 }

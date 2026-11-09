@@ -78,7 +78,7 @@ class ComicDetailViewModel(private val container: AppContainer, val comicId: Str
 
     val localFolders: StateFlow<List<LocalFavouriteFolder>?> = container.localFavouriteRepository.folders
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-    val localFolderIds: StateFlow<Set<String>?> = container.localFavouriteRepository.folderIds(comicId)
+    val localFolderId: StateFlow<String?> = container.localFavouriteRepository.folderId(comicId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val showTagFavourites: StateFlow<Boolean> = container.settingsRepository.settings
@@ -91,9 +91,9 @@ class ComicDetailViewModel(private val container: AppContainer, val comicId: Str
     val tagFavouriteChanges: SharedFlow<TagFavouriteChange> = mutableTagFavouriteChanges.asSharedFlow()
 
     suspend fun createLocalFolder(name: String): String = container.localFavouriteRepository.createFolder(name).folderId
-    suspend fun saveLocalFavourite(folderIds: Set<String>) {
+    suspend fun saveLocalFavourite(folderId: String?) {
         val comic = checkNotNull(mutableState.value.comic) { "漫画信息尚未加载" }
-        container.localFavouriteRepository.setFolders(comic, folderIds)
+        container.localFavouriteRepository.setFolder(comic, folderId)
     }
 
     fun toggleTagFavourite(tag: String) {

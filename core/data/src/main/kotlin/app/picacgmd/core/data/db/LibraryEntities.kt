@@ -50,17 +50,17 @@ data class LocalFavouriteFolder(
     }
 }
 
-/** A complete list snapshot, so browsing local favourites never needs a network request. */
+/** One folder per comic, with a complete snapshot for browsing without a network request. */
 @Entity(
     tableName = "local_folder_entries",
-    primaryKeys = ["folderId", "comicId"],
+    primaryKeys = ["comicId"],
     foreignKeys = [ForeignKey(
         entity = LocalFavouriteFolder::class,
         parentColumns = ["folderId"],
         childColumns = ["folderId"],
         onDelete = ForeignKey.CASCADE,
     )],
-    indices = [Index(value = ["comicId"]), Index(value = ["addedAt"])],
+    indices = [Index(value = ["folderId"]), Index(value = ["addedAt"])],
 )
 data class LocalFavouriteEntry(
     val folderId: String,
