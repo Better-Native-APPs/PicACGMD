@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 3,
-    "identityHash": "89be24f12e4168663f50eb666a78d4a7",
+    "identityHash": "8f1721636e8ed18f684839fab305849c",
     "entities": [
       {
         "tableName": "view_history",
@@ -102,7 +102,7 @@
       },
       {
         "tableName": "download_comics",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`comicId` TEXT NOT NULL, `title` TEXT NOT NULL, `author` TEXT NOT NULL, `thumbFileServer` TEXT NOT NULL, `thumbPath` TEXT NOT NULL, `categoriesJson` TEXT NOT NULL, `tagsJson` TEXT NOT NULL, `description` TEXT NOT NULL, `status` TEXT NOT NULL, `selectedEpCount` INTEGER NOT NULL, `completedEpCount` INTEGER NOT NULL, `selectedPictureCount` INTEGER NOT NULL, `completedPictureCount` INTEGER NOT NULL, `downloadedBytes` INTEGER NOT NULL, `folder` TEXT NOT NULL, `filePath` TEXT NOT NULL, `thumbFilePath` TEXT NOT NULL, `thumbFormat` TEXT, `storageRoot` TEXT DEFAULT NULL, `error` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `completedAt` INTEGER, PRIMARY KEY(`comicId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`comicId` TEXT NOT NULL, `title` TEXT NOT NULL, `author` TEXT NOT NULL, `thumbFileServer` TEXT NOT NULL, `thumbPath` TEXT NOT NULL, `categoriesJson` TEXT NOT NULL, `tagsJson` TEXT NOT NULL, `description` TEXT NOT NULL, `status` TEXT NOT NULL, `selectedEpCount` INTEGER NOT NULL, `completedEpCount` INTEGER NOT NULL, `selectedPictureCount` INTEGER NOT NULL, `completedPictureCount` INTEGER NOT NULL, `downloadedBytes` INTEGER NOT NULL, `folder` TEXT NOT NULL, `filePath` TEXT NOT NULL, `thumbFilePath` TEXT NOT NULL, `thumbFormat` TEXT, `error` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `completedAt` INTEGER, PRIMARY KEY(`comicId`))",
         "fields": [
           {
             "fieldPath": "comicId",
@@ -210,12 +210,6 @@
             "fieldPath": "thumbFormat",
             "columnName": "thumbFormat",
             "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "storageRoot",
-            "columnName": "storageRoot",
-            "affinity": "TEXT",
-            "defaultValue": "NULL"
           },
           {
             "fieldPath": "error",
@@ -947,7 +941,7 @@
       },
       {
         "tableName": "local_folder_entries",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`folderId` TEXT NOT NULL, `comicId` TEXT NOT NULL, `title` TEXT NOT NULL, `author` TEXT NOT NULL, `coverUrl` TEXT NOT NULL, `thumbFileServer` TEXT NOT NULL, `thumbPath` TEXT NOT NULL, `categoriesJson` TEXT NOT NULL, `pagesCount` INTEGER NOT NULL, `epsCount` INTEGER NOT NULL, `finished` INTEGER NOT NULL, `addedAt` INTEGER NOT NULL, PRIMARY KEY(`folderId`, `comicId`), FOREIGN KEY(`folderId`) REFERENCES `local_folders`(`folderId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`folderId` TEXT NOT NULL, `comicId` TEXT NOT NULL, `title` TEXT NOT NULL, `author` TEXT NOT NULL, `coverUrl` TEXT NOT NULL, `thumbFileServer` TEXT NOT NULL, `thumbPath` TEXT NOT NULL, `categoriesJson` TEXT NOT NULL, `pagesCount` INTEGER NOT NULL, `epsCount` INTEGER NOT NULL, `finished` INTEGER NOT NULL, `addedAt` INTEGER NOT NULL, PRIMARY KEY(`comicId`), FOREIGN KEY(`folderId`) REFERENCES `local_folders`(`folderId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "folderId",
@@ -1025,19 +1019,18 @@
         "primaryKey": {
           "autoGenerate": false,
           "columnNames": [
-            "folderId",
             "comicId"
           ]
         },
         "indices": [
           {
-            "name": "index_local_folder_entries_comicId",
+            "name": "index_local_folder_entries_folderId",
             "unique": false,
             "columnNames": [
-              "comicId"
+              "folderId"
             ],
             "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_local_folder_entries_comicId` ON `${TABLE_NAME}` (`comicId`)"
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_local_folder_entries_folderId` ON `${TABLE_NAME}` (`folderId`)"
           },
           {
             "name": "index_local_folder_entries_addedAt",
@@ -1066,7 +1059,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '89be24f12e4168663f50eb666a78d4a7')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '8f1721636e8ed18f684839fab305849c')"
     ]
   }
 }

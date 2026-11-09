@@ -60,7 +60,7 @@ class BookshelfViewModel(private val container: AppContainer) : ViewModel() {
             ?.sortedWith(
                 (if (newestFirst) compareByDescending<LocalFavouriteEntry> { it.addedAt } else compareBy { it.addedAt })
                     .thenBy { it.comicId },
-            )?.distinctBy { it.comicId }
+            )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Every online favourite seen so far, so selected comics stay resolvable after "全选". */
@@ -108,6 +108,7 @@ class BookshelfViewModel(private val container: AppContainer) : ViewModel() {
     fun setLocalNewestFirst(newestFirst: Boolean) { mutableLocalNewestFirst.value = newestFirst }
     suspend fun removeFavouriteTag(tag: String) { container.tagFavouriteRepository.remove(listOf(tag)) }
     suspend fun createLocalFolder(name: String): String = container.localFavouriteRepository.createFolder(name).folderId
+    suspend fun moveLocalComic(comicId: String, folderId: String) = container.localFavouriteRepository.move(comicId, folderId)
     suspend fun renameLocalFolder(folderId: String, name: String) = container.localFavouriteRepository.renameFolder(folderId, name)
     suspend fun deleteLocalFolder(folderId: String, targetFolderId: String) {
         container.localFavouriteRepository.deleteFolder(folderId, targetFolderId)

@@ -86,7 +86,7 @@ internal class FakeViewHistoryDao : ViewHistoryDao {
 /** The inherited transaction bodies are exercised with the same keys and folder-delete cascade as Room. */
 internal class FakeLocalFavouriteDao : LocalFavouriteDao() {
     val folders = MutableStateFlow<Map<String, LocalFavouriteFolder>>(emptyMap())
-    val entries = MutableStateFlow<Map<Pair<String, String>, LocalFavouriteEntry>>(emptyMap())
+    val entries = MutableStateFlow<Map<String, LocalFavouriteEntry>>(emptyMap())
 
     override fun observeFolders(): Flow<List<LocalFavouriteFolder>> = folders.map {
         it.values.sortedWith(compareBy<LocalFavouriteFolder> { folder -> folder.sortOrder }.thenBy { folder -> folder.folderId })
@@ -94,9 +94,7 @@ internal class FakeLocalFavouriteDao : LocalFavouriteDao() {
     override fun observeEntries(): Flow<List<LocalFavouriteEntry>> = entries.map {
         it.values.sortedWith(compareByDescending<LocalFavouriteEntry> { entry -> entry.addedAt }.thenBy { entry -> entry.comicId })
     }
-    override fun observeFolderIds(comicId: String): Flow<List<String>> = entries.map { values ->
-        values.values.filter { it.comicId == comicId }.map { it.folderId }.sorted()
-    }
+    override fun observeFolderId(comicId: String): Flow<String?> = entries.map { it[comicId]?.folderId }
     override suspend fun getFolder(folderId: String): LocalFavouriteFolder? = folders.value[folderId]
     override suspend fun nextFolderOrder(): Int = (folders.value.values.maxOfOrNull { it.sortOrder } ?: -1) + 1
     override suspend fun insertFolder(folder: LocalFavouriteFolder): Long {
@@ -109,19 +107,19 @@ internal class FakeLocalFavouriteDao : LocalFavouriteDao() {
         folders.value += folderId to folder.copy(name = name)
         return 1
     }
-    override suspend fun markSelected(folderIds: List<String>, timestamp: Long) {
+    override suspend fun markSelected(folderId: String, timestamp: Long) {
         folders.value = folders.value.mapValues { (id, folder) ->
-            if (id in folderIds) folder.copy(lastSelectedAt = timestamp) else folder
+            if (id == folderId) folder.copy(lastSelectedAt = timestamp) else folder
         }
     }
-    override suspend fun getComicEntries(comicId: String): List<LocalFavouriteEntry> = entries.value.values.filter { it.comicId == comicId }
+    override suspend fun getComicEntry(comicId: String): LocalFavouriteEntry? = entries.value[comicId]
     override suspend fun getFolderEntries(folderId: String): List<LocalFavouriteEntry> = entries.value.values.filter { it.folderId == folderId }
     override suspend fun upsertEntries(entries: List<LocalFavouriteEntry>) {
         require(entries.all { it.folderId in folders.value }) { "FOREIGN KEY constraint failed" }
-        this.entries.value += entries.associateBy { it.folderId to it.comicId }
+        this.entries.value += entries.associateBy { it.comicId }
     }
-    override suspend fun deleteComicEntries(comicId: String) {
-        entries.value = entries.value.filterValues { it.comicId != comicId }
+    override suspend fun deleteComicEntry(comicId: String) {
+        entries.value -= comicId
     }
     override suspend fun removeEntries(comicIds: List<String>, folderId: String?): Int {
         val previous = entries.value

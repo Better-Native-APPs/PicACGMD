@@ -33,6 +33,8 @@ import androidx.compose.ui.unit.dp
 import app.picacgmd.core.data.db.TagFavourite
 import app.picacgmd.core.designsystem.component.EmptyState
 import app.picacgmd.core.designsystem.component.LoadingState
+import app.picacgmd.core.designsystem.window.secureModalBottomSheetProperties
+import app.picacgmd.core.designsystem.window.securePopupProperties
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -48,7 +50,7 @@ internal fun TagFavouritesSheet(
     val scope = rememberCoroutineScope()
     var removing by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, properties = secureModalBottomSheetProperties()) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)) {
             Text("标签收藏", style = MaterialTheme.typography.titleLarge)
             Text("点标签查看漫画，长按或点更多可移出收藏", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -80,7 +82,7 @@ internal fun TagFavouritesSheet(
                                 IconButton(onClick = { menu = true }, enabled = removing != favourite.tag) {
                                     Icon(Icons.Outlined.MoreVert, "管理${favourite.tag}")
                                 }
-                                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, properties = securePopupProperties(focusable = true)) {
                                     DropdownMenuItem(
                                         text = { Text("移出标签收藏") },
                                         leadingIcon = { Icon(Icons.Outlined.Delete, null) },
