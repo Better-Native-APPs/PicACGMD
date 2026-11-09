@@ -32,6 +32,7 @@ class AppContainer(context: Context) : AutoCloseable {
     private val applicationContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val lowRamDevice = isLowRamDevice(applicationContext)
+    val defaultDownloadConcurrency: Int = AppSettings.defaultsForDevice(lowRamDevice).downloadThreads
 
     val database: PikapikaDatabase = PikapikaDatabase.create(applicationContext)
     val settingsRepository: SettingsRepository = SettingsRepository.create(
