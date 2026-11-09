@@ -43,6 +43,7 @@ import app.picacgmd.feature.comics.ComicListScreen
 import app.picacgmd.feature.detail.ComicDetailScreen
 import app.picacgmd.feature.discover.DiscoverScreen
 import app.picacgmd.feature.downloads.DownloadSettingsScreen
+import app.picacgmd.feature.downloads.DownloadDetailScreen
 import app.picacgmd.feature.downloads.DownloadsScreen
 import app.picacgmd.feature.games.GameCommentsScreen
 import app.picacgmd.feature.games.GameDetailScreen
@@ -202,7 +203,7 @@ private fun NavGraphBuilder.topLevelGraphs(
                 onReadDownloaded = { navController.navigate(DownloadedReaderRoute(it)) },
                 onOpenSettings = { navController.navigate(DownloadSettingsRoute) },
                 onBrowse = { navController.navigateToTopLevel(TopLevelDestination.Discover) },
-                onOpenDetail = { navController.navigate(ComicDetailRoute(it)) },
+                onOpenDetail = { navController.navigate(DownloadDetailRoute(it)) },
             )
         }
     }
@@ -236,6 +237,16 @@ private fun NavGraphBuilder.sharedDestinations(
     }
     page<DownloadSettingsRoute> {
         DownloadSettingsScreen(onBack = navController.backAction())
+    }
+    page<DownloadDetailRoute> { entry ->
+        val comicId = entry.toRoute<DownloadDetailRoute>().comicId
+        DownloadDetailScreen(
+            comicId = comicId,
+            onBack = navController.backAction(),
+            onReadDownloaded = { id, order -> navController.navigate(DownloadedReaderRoute(id, order)) },
+            onAddChapters = { navController.navigate(ComicDetailRoute(it)) },
+            onOpenComments = { navController.navigate(ComicCommentsRoute(it)) },
+        )
     }
     page<AnnouncementsRoute> {
         AnnouncementsScreen(onBack = navController.backAction())
@@ -306,9 +317,11 @@ private fun NavGraphBuilder.sharedDestinations(
         )
     }
     page<DownloadedReaderRoute> { entry ->
-        val comicId = entry.toRoute<DownloadedReaderRoute>().comicId
+        val route = entry.toRoute<DownloadedReaderRoute>()
+        val comicId = route.comicId
         DownloadedReaderDestination(
             comicId = comicId,
+            episodeOrder = route.episodeOrder,
             onBack = navController.backAction(),
             onMessage = onReaderMessage,
             onOpenComments = { navController.navigate(ComicCommentsRoute(comicId)) },

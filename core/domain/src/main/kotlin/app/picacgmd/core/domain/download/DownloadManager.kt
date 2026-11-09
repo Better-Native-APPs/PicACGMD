@@ -1,6 +1,7 @@
 package app.picacgmd.core.domain.download
 
 import android.content.Context
+import android.net.Uri
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
@@ -24,6 +25,9 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import okhttp3.OkHttpClient
 
@@ -32,16 +36,25 @@ class DownloadManager(
     apiProvider: () -> PicaApi,
     imageClientProvider: () -> OkHttpClient,
     private val dao: DownloadDao,
-    settingsRepository: SettingsRepository,
+    private val settingsRepository: SettingsRepository,
     context: Context,
     imageUrlProvider: ((PicaImage) -> String)? = null,
     notificationSmallIcon: Int = R.drawable.ic_download_notification,
 ) {
     private val context = context.applicationContext
-    val files = DownloadFileStore {
-        val external = this.context.getExternalFilesDir(null) ?: throw IOException("下载失败：存储空间不可用")
-        File(external, "downloads")
-    }
+    val files = DownloadFileStore(
+        rootProvider = {
+            val external = this.context.getExternalFilesDir(null) ?: throw IOException("下载失败：存储空间不可用")
+            File(external, "downloads")
+        },
+        // Same place as every download made before custom locations existed; app-internal storage only
+        // when shared external app storage is unavailable.
+        internalRootProvider = {
+            this.context.getExternalFilesDir(null)?.let { File(it, "downloads") } ?: File(this.context.filesDir, "downloads")
+        },
+        stagingRootProvider = { File(this.context.cacheDir, "download-staging") },
+        treeBackendProvider = { tree -> TreeDownloadBackend(AndroidDownloadTreeAccess(this.context.contentResolver, Uri.parse(tree))) },
+    )
     private val engine = DownloadEngine(
         apiProvider = apiProvider,
         imageClientProvider = imageClientProvider,
@@ -50,6 +63,7 @@ class DownloadManager(
         network = observeDownloadNetwork(this.context),
         files = files,
         imageUrlProvider = imageUrlProvider,
+        onStorageFallback = settingsRepository::clearDownloadTreeUriIfMatches,
     )
     val progress: StateFlow<DownloadProgress> = engine.progress
     internal val notifications = DownloadNotifications(this.context, notificationSmallIcon)
@@ -86,6 +100,21 @@ class DownloadManager(
 
     suspend fun delete(comicId: String) { engine.delete(comicId) }
 
+    suspend fun deleteChapter(epId: String) { engine.deleteChapter(epId) }
+
+    suspend fun retryChapter(epId: String): Int = engine.retryChapter(epId).also { start() }
+
+    /** Changing this setting never moves existing downloads or releases their retained tree grants. */
+    suspend fun setDownloadLocation(treeUri: String?) = withContext(Dispatchers.IO) {
+        if (treeUri != null) files.validateTree(treeUri)
+        settingsRepository.setDownloadTreeUri(treeUri)
+    }
+
+    suspend fun validateDownloadLocation() = withContext(Dispatchers.IO) {
+        val tree = settingsRepository.settings.first().downloadTreeUri ?: return@withContext
+        files.selectStorageRoot(tree).unavailableTree?.let { settingsRepository.clearDownloadTreeUriIfMatches(it) }
+    }
+
     suspend fun pauseAll() {
         engine.pauseAll()
         WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
@@ -103,6 +132,10 @@ class DownloadManager(
         dao.observeComics(folder, search)
 
     fun observeCounts(comicId: String): Flow<DownloadCounts?> = dao.observeCounts(comicId)
+
+    fun observeComic(comicId: String): Flow<DownloadComic?> = dao.observeComic(comicId)
+
+    fun observeChapters(comicId: String): Flow<List<DownloadEp>> = dao.observeEps(comicId)
 
     /** Call on application startup as well as after enqueue to recover work after process death. */
     fun start() {

@@ -99,7 +99,7 @@ internal class PageReloadState {
 internal enum class PageFailure { Timeout, Network, LocalFile, Unknown }
 
 internal fun pageFailureOf(throwable: Throwable, image: PageImage): PageFailure {
-    if (image is PageImage.Local) return PageFailure.LocalFile
+    if (image is PageImage.Local || image is PageImage.Document) return PageFailure.LocalFile
     val chain = generateSequence(throwable) { it.cause }.take(8).toList()
     return when {
         chain.any { it is InterruptedIOException } -> PageFailure.Timeout

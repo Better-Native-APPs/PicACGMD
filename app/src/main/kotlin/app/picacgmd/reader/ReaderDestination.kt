@@ -50,6 +50,8 @@ private class ReaderViewModel(
     private val episodeOrder: Int = 1,
     private val page: Int = 0,
     private val downloads: DownloadManager? = null,
+    /** Downloaded reader only: open this chapter from its first page instead of restoring history. */
+    private val downloadedEpisode: Int? = null,
 ) : ViewModel() {
     var start by mutableStateOf<ReaderStart?>(null)
         private set
@@ -117,6 +119,10 @@ private class ReaderViewModel(
             historyRepository = container.historyRepository,
             onProgressError = { reportError("保存阅读进度失败", it) },
         )
+        if (downloadedEpisode != null) {
+            val chosen = source.indexOfEpisode(downloadedEpisode)
+            if (chosen >= 0) return ReaderStart(source, chosen, 0)
+        }
         val progress = container.historyRepository.getProgress(comicId)
         val index = source.indexOfEpisode(progress?.epOrder ?: 1)
         return ReaderStart(source, index.coerceAtLeast(0), if (index >= 0) (progress?.pictureIndex ?: 1) - 1 else 0)
@@ -149,6 +155,7 @@ internal fun OnlineReaderDestination(
 @Composable
 internal fun DownloadedReaderDestination(
     comicId: String,
+    episodeOrder: Int?,
     onBack: () -> Unit,
     onMessage: (String) -> Unit,
     onOpenComments: () -> Unit,
@@ -158,8 +165,8 @@ internal fun DownloadedReaderDestination(
 ) {
     val container = LocalAppContainer.current
     val downloads = (LocalContext.current.applicationContext as DownloadManagerOwner).downloadManager
-    val viewModel = viewModel(key = "downloaded-reader:$comicId") {
-        ReaderViewModel(container, comicId, onMessage, downloads = downloads)
+    val viewModel = viewModel(key = "downloaded-reader:$comicId:${episodeOrder ?: "history"}") {
+        ReaderViewModel(container, comicId, onMessage, downloads = downloads, downloadedEpisode = episodeOrder)
     }
     ReaderDestination(viewModel, onBack, modifier, onOpenComments, onOpenRelated, onOpenAllSettings)
 }

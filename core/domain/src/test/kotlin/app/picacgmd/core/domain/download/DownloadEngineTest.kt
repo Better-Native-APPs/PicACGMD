@@ -19,6 +19,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -269,10 +270,86 @@ class DownloadEngineTest {
         assertEquals(IMAGE, File(root, "$COMIC/1/1").readText())
     }
 
-    private fun engine(scope: TestScope) = DownloadEngine(
+    @Test
+    fun retryingOneChapterLeavesOtherFailuresAndFinishedFilesUntouched() = runTest {
+        seed(1)
+        dao.upsertEps(listOf(DownloadEp("ep-2", COMIC, 2, "第二话", picturesFetched = true, status = DownloadStatus.FAILED)))
+        dao.upsertPictures(listOf(DownloadPicture("picture-2", COMIC, "ep-2", 2, 1, "server", "image", status = DownloadStatus.FAILED)))
+        dao.upsertEps(listOf(DownloadEp("ep-3", COMIC, 3, "第三话", picturesFetched = true, status = DownloadStatus.DONE)))
+        dao.upsertPictures(listOf(DownloadPicture("picture-3", COMIC, "ep-3", 3, 1, "server", "image", status = DownloadStatus.DONE)))
+        val finished = File(root, "$COMIC/3/1")
+        finished.parentFile!!.mkdirs()
+        finished.writeText(IMAGE)
+        dao.transitionComic(COMIC, DownloadStatus.RUNNING, updatedAt = 1)
+        dao.transitionEp(EP, DownloadStatus.RUNNING, updatedAt = 1)
+        dao.claimPicture("picture-1", 1)
+        dao.savePictureResults(listOf(checkNotNull(dao.getPicture("picture-1")).copy(status = DownloadStatus.FAILED)), 1)
+        dao.transitionEp(EP, DownloadStatus.FAILED, updatedAt = 1)
+        dao.transitionComic(COMIC, DownloadStatus.FAILED, updatedAt = 1)
+
+        assertEquals(1, engine(this).retryChapter(EP))
+        assertEquals(DownloadStatus.QUEUED, dao.getEp(EP)?.status)
+        assertEquals(DownloadStatus.QUEUED, dao.getPicture("picture-1")?.status)
+        assertEquals(DownloadStatus.FAILED, dao.getEp("ep-2")?.status)
+        assertEquals(DownloadStatus.FAILED, dao.getPicture("picture-2")?.status)
+        assertEquals(DownloadStatus.DONE, dao.getEp("ep-3")?.status)
+        assertEquals(IMAGE, finished.readText())
+    }
+
+    @Test
+    fun deletingTheLastChapterDoesNotRequeueAllChapters() = runTest {
+        seed(1)
+        val chapterFile = File(root, "$COMIC/1/1")
+        chapterFile.parentFile!!.mkdirs()
+        chapterFile.writeText(IMAGE)
+        val cover = File(root, "$COMIC/logo").apply { writeText(IMAGE) }
+        val engine = engine(this)
+
+        engine.deleteChapter(EP)
+
+        assertNull(dao.getEp(EP))
+        assertNull(dao.getPicture("picture-1"))
+        assertFalse(chapterFile.exists())
+        assertTrue(cover.exists())
+        assertEquals(DownloadStatus.DONE, dao.getComic(COMIC)?.status)
+        assertEquals(0, dao.getComic(COMIC)?.selectedEpCount)
+        engine.runUntilIdle()
+        assertEquals(0, apiServer.requestCount)
+    }
+
+    @Test
+    fun treeDownloadsPersistDocumentUrisAndKeepTheirRootWhenAddingChapters() = runTest {
+        val provider = FakeDownloadTreeAccess()
+        val files = DownloadFileStore({ root }, { root }, { File(root, "staging") }) { TreeDownloadBackend(provider) }
+        settings.value = settings.value.copy(downloadTreeUri = FakeDownloadTreeAccess.TREE)
+        val engine = engine(this, files)
+        engine.enqueue(listOf(DownloadRequest(DownloadComic(COMIC, "漫画",
+            thumbFileServer = imageServer.url("/").toString(), thumbPath = "cover.gif"), listOf(DownloadEp(EP, COMIC, 1, "第一话")))))
+        enqueuePictures("picture-1", 1, 1)
+        repeat(2) { imageServer.enqueue(imageResponse()) }
+        engine.runUntilIdle()
+        val comic = checkNotNull(dao.getComic(COMIC))
+        val picture = checkNotNull(dao.getPicture("picture-1"))
+        assertEquals(FakeDownloadTreeAccess.TREE, comic.storageRoot)
+        assertTrue(comic.thumbFilePath.startsWith("content://"))
+        assertTrue(picture.filePath.startsWith("content://"))
+        assertEquals(IMAGE, provider.openRead(provider.documentId(picture.filePath)).reader().use { it.readText() })
+        assertFalse(File(root, "$COMIC/1/1").exists())
+
+        settings.value = settings.value.copy(downloadTreeUri = null)
+        engine.enqueue(listOf(DownloadRequest(DownloadComic(COMIC, "漫画"), listOf(DownloadEp("ep-2", COMIC, 2, "第二话")))))
+        enqueuePictures("picture-2", 1, 1)
+        imageServer.enqueue(imageResponse())
+        engine.runUntilIdle()
+        assertEquals(FakeDownloadTreeAccess.TREE, dao.getComic(COMIC)?.storageRoot)
+        assertTrue(checkNotNull(dao.getPicture("picture-2")).filePath.startsWith("content://"))
+        assertEquals(DownloadStatus.DONE, dao.getComic(COMIC)?.status)
+    }
+
+    private fun engine(scope: TestScope, files: DownloadFileStore = DownloadFileStore(root)) = DownloadEngine(
         apiProvider = { PicaApi(baseUrl = apiServer.url("/").toString(), client = client) },
         imageClientProvider = { client }, dao = dao, settings = settings, network = network,
-        files = DownloadFileStore(root),
+        files = files,
         retryPolicy = DownloadRetryPolicy(jitter = { 0 }),
         limiter = AdaptiveDownloadLimiter(nowMillis = { scope.testScheduler.currentTime }, jitter = { 0 }),
         nowMillis = { scope.testScheduler.currentTime }, ioDispatcher = StandardTestDispatcher(scope.testScheduler),

@@ -252,9 +252,34 @@ abstract class DownloadDao {
             status = next, error = error, updatedAt = updatedAt,
             completedAt = if (next == DownloadStatus.DONE) ep.completedAt ?: updatedAt else null,
         )))
+        if (next == DownloadStatus.DELETING) markEpPicturesDeleting(epId, updatedAt)
         refreshProgress(ep.comicId, updatedAt)
         return true
     }
+
+    @Query("UPDATE download_pictures SET status = 'deleting', updatedAt = :updatedAt WHERE epId = :epId")
+    protected abstract suspend fun markEpPicturesDeleting(epId: String, updatedAt: Long)
+
+    @Query("UPDATE download_pictures SET status = 'queued', error = NULL, updatedAt = :updatedAt WHERE epId = :epId AND status = 'failed'")
+    protected abstract suspend fun requeueFailedEpPictures(epId: String, updatedAt: Long): Int
+
+    /** Retry just this chapter; other failed/paused chapters and finished files remain untouched. */
+    @Transaction
+    open suspend fun retryEp(epId: String, updatedAt: Long): Int {
+        val ep = getEp(epId) ?: return 0
+        val comic = getComic(ep.comicId) ?: return 0
+        if (ep.status != DownloadStatus.FAILED || comic.status in setOf(DownloadStatus.PAUSED, DownloadStatus.DELETING)) return 0
+        val count = requeueFailedEpPictures(epId, updatedAt)
+        transitionEp(epId, DownloadStatus.QUEUED, updatedAt = updatedAt)
+        if (comic.status == DownloadStatus.FAILED || comic.status == DownloadStatus.DONE) {
+            changeComicStatus(comic.comicId, comic.status, DownloadStatus.QUEUED, null, updatedAt, null)
+        }
+        return count
+    }
+
+    /** Caller removes the chapter directory first; pictures are cascade-deleted. */
+    @Query("DELETE FROM download_eps WHERE epId = :epId AND status = 'deleting'")
+    abstract suspend fun deleteEp(epId: String): Int
 
     @Query("UPDATE download_eps SET status = 'paused', updatedAt = :updatedAt WHERE comicId = :comicId AND status IN ('queued', 'running', 'failed')")
     protected abstract suspend fun pauseEps(comicId: String, updatedAt: Long)

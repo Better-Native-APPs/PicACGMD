@@ -66,6 +66,7 @@ internal class DownloadEngine(
     private val nowMillis: () -> Long = System::currentTimeMillis,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val progressClockMillis: () -> Long = { System.nanoTime() / 1_000_000 },
+    private val onStorageFallback: suspend (String) -> Unit = {},
 ) {
     private val runMutex = Mutex()
     private val comicLocks = ConcurrentHashMap<String, Mutex>()
@@ -105,8 +106,11 @@ internal class DownloadEngine(
                 }
                 val current = dao.getComic(incoming.comicId)
                 val comic = if (current == null) {
+                    val selection = files.selectStorageRoot(settings.first().downloadTreeUri)
+                    selection.unavailableTree?.let { onStorageFallback(it) }
                     incoming.copy(status = DownloadStatus.QUEUED, error = null, completedAt = null,
-                        filePath = incoming.comicId, thumbFilePath = "${incoming.comicId}/logo", updatedAt = nowMillis())
+                        filePath = incoming.comicId, thumbFilePath = "${incoming.comicId}/logo", updatedAt = nowMillis(),
+                        storageRoot = selection.root)
                 } else {
                     current.copy(
                         title = incoming.title,
@@ -200,6 +204,38 @@ internal class DownloadEngine(
         }
         job?.join()
         removeDeletingComic(comicId)
+    }
+
+    suspend fun retryChapter(epId: String): Int = withContext(ioDispatcher) {
+        val ep = dao.getEp(epId) ?: return@withContext 0
+        withComicLock(ep.comicId) {
+            val count = dao.retryEp(epId, nowMillis())
+            manifestTotals.remove(ep.comicId)
+            refreshFailureCount(ep.comicId)
+            count
+        }
+    }
+
+    suspend fun deleteChapter(epId: String) = withContext(ioDispatcher) {
+        val ep = dao.getEp(epId) ?: return@withContext
+        flushActivePictureResults(ep.comicId)
+        withContext(NonCancellable) { withComicLock(ep.comicId) {
+            val current = dao.getEp(epId) ?: return@withComicLock
+            val parent = dao.getComic(current.comicId) ?: return@withComicLock
+            if (parent.status == DownloadStatus.DELETING) return@withComicLock
+            // Invalidate claims before removing files. Late transfers are discarded, never committed.
+            dao.transitionEp(epId, DownloadStatus.DELETING, updatedAt = nowMillis())
+            files.deleteChapter(parent, current.epOrder)
+            dao.deleteEp(epId)
+            dao.refreshProgress(current.comicId, nowMillis())
+            val remaining = dao.observeEps(current.comicId).first()
+            val comic = dao.getComic(current.comicId)
+            if (comic != null && remaining.all { it.status == DownloadStatus.DONE }) {
+                dao.upsertComic(comic.copy(status = DownloadStatus.DONE, error = null, completedAt = nowMillis()))
+            }
+            manifestTotals.remove(current.comicId)
+            refreshFailureCount(current.comicId)
+        } }
     }
 
     /** Serialized restarts guarantee interrupted claims are recovered only after old workers exit. */
@@ -329,7 +365,6 @@ internal class DownloadEngine(
                     updateQueueProgress()
                     if (!manifestsOnly) {
                         val coverError = downloadCover(comicId)
-                        prepareFetchedEpisodes(comicId)
                         downloadPendingPictures(comicId)
                         summarize(comicId, coverError)
                     }
@@ -342,6 +377,7 @@ internal class DownloadEngine(
         } catch (exception: Exception) {
             withComicLock(comicId) {
                 val current = dao.getComic(comicId)
+                reportStorageFailure(exception)
                 if (current?.status in activeStatuses) {
                     // Release unfinished claims after an engine-level failure; successful files survive.
                     if (current?.status == DownloadStatus.RUNNING) {
@@ -384,12 +420,12 @@ internal class DownloadEngine(
     private suspend fun downloadCover(comicId: String): String? {
         val comic = dao.getComic(comicId) ?: return null
         if (comic.thumbFileServer.isBlank() || comic.thumbPath.isBlank()) return null
-        val destination = files.coverFile(comicId)
         return try {
-            if (destination.isFile) {
+            val destination = files.coverDestination(comic)
+            if (destination.exists()) {
                 // Recover a cover renamed just before a process/storage failure in its metadata write.
                 if (comic.thumbFormat == null) {
-                    val format = imageFormat(destination)
+                    val format = imageFormat(destination.openRead())
                     withContext(NonCancellable) {
                         withComicLock(comicId) {
                             val current = dao.getComic(comicId)
@@ -408,8 +444,8 @@ internal class DownloadEngine(
                         val current = dao.getComic(comicId)
                         if (current?.status in activeStatuses && current?.thumbFileServer == comic.thumbFileServer &&
                             current.thumbPath == comic.thumbPath) {
-                            staged.commit()
-                            dao.upsertComic(current.copy(thumbFormat = staged.format, updatedAt = nowMillis()))
+                            val location = staged.commit()
+                            dao.upsertComic(current.copy(thumbFormat = staged.format, thumbFilePath = location, updatedAt = nowMillis()))
                         }
                     }
                 }
@@ -420,19 +456,14 @@ internal class DownloadEngine(
         } catch (exception: CancellationException) {
             throw exception
         } catch (exception: Exception) {
+            reportStorageFailure(exception)
             downloadError(exception)
         }
     }
 
-    private suspend fun prepareFetchedEpisodes(comicId: String) = withComicLock(comicId) {
-        if (dao.getComic(comicId)?.status !in activeStatuses) return@withComicLock
-        dao.observeEps(comicId).first().filter { it.picturesFetched && it.status == DownloadStatus.QUEUED }
-            .forEach { dao.transitionEp(it.epId, DownloadStatus.RUNNING, updatedAt = nowMillis()) }
-    }
-
     private suspend fun resolvePictures(ep: DownloadEp) {
         withComicLock(ep.comicId) {
-            if (dao.getComic(ep.comicId)?.status !in activeStatuses) return@withComicLock
+            if (dao.getComic(ep.comicId)?.status !in activeStatuses || dao.getEp(ep.epId)?.status !in activeStatuses) return@withComicLock
             dao.transitionEp(ep.epId, DownloadStatus.RUNNING, updatedAt = nowMillis())
         }
         try {
@@ -454,7 +485,7 @@ internal class DownloadEngine(
                     )
                 }
                 withComicLock(ep.comicId) {
-                    if (dao.getComic(ep.comicId)?.status !in activeStatuses) return@withComicLock
+                    if (dao.getComic(ep.comicId)?.status !in activeStatuses || dao.getEp(ep.epId)?.status !in activeStatuses) return@withComicLock
                     dao.upsertPictures(pictures.map { picture ->
                         dao.getPicture(picture.pictureId)?.also {
                             require(it.epId == ep.epId && it.pictureIndex == picture.pictureIndex)
@@ -466,14 +497,16 @@ internal class DownloadEngine(
             withComicLock(ep.comicId) {
                 if (dao.getComic(ep.comicId)?.status !in activeStatuses) return@withComicLock
                 val current = dao.getEp(ep.epId) ?: return@withComicLock
-                dao.upsertEps(listOf(current.copy(picturesFetched = true, selectedPictureCount = index, updatedAt = nowMillis())))
+                if (current.status !in activeStatuses) return@withComicLock
+                dao.upsertEps(listOf(current.copy(picturesFetched = true, status = DownloadStatus.QUEUED,
+                    selectedPictureCount = index, updatedAt = nowMillis())))
                 dao.refreshProgress(ep.comicId, nowMillis())
             }
         } catch (exception: CancellationException) {
             throw exception
         } catch (exception: Exception) {
             withComicLock(ep.comicId) {
-                if (dao.getComic(ep.comicId)?.status in activeStatuses) {
+                if (dao.getComic(ep.comicId)?.status in activeStatuses && dao.getEp(ep.epId)?.status in activeStatuses) {
                     dao.transitionEp(ep.epId, DownloadStatus.FAILED, downloadError(exception), nowMillis())
                 }
             }
@@ -513,6 +546,11 @@ internal class DownloadEngine(
                     flushed.await()
                 }
                 previousEpId = epId
+                withComicLock(comicId) {
+                    if (dao.getEp(epId)?.status == DownloadStatus.QUEUED) {
+                        dao.transitionEp(epId, DownloadStatus.RUNNING, updatedAt = nowMillis())
+                    }
+                }
                 val batch = pending.takeWhile { it.epId == epId }.map { PictureTask(it, CompletableDeferred()) }
                 batch.forEach { tasks.send(it) }
                 batch.forEach { it.finished.await() }
@@ -550,10 +588,11 @@ internal class DownloadEngine(
                     }
                 }
                 val current = checkNotNull(claimed)
+                val comic = dao.getComic(current.comicId) ?: throw PictureNotClaimed()
                 mutableProgress.update { it.copy(currentEpTitle = "第 ${current.epOrder} 话") }
                 downloader.download(
                     imageUrl(PicaImage(current.fileServer, current.path, current.originalName)),
-                    files.pictureFile(current.comicId, current.epOrder, current.pictureIndex),
+                    files.pictureDestination(comic, current),
                 )
             }
             PictureEvent.Ready(checkNotNull(claimed).copy(
@@ -565,6 +604,7 @@ internal class DownloadEngine(
         } catch (exception: CancellationException) {
             throw exception
         } catch (exception: Exception) {
+            reportStorageFailure(exception)
             val snapshot = claimed ?: throw exception
             PictureEvent.Ready(snapshot.copy(status = DownloadStatus.FAILED, error = downloadError(exception)))
         }
@@ -673,9 +713,11 @@ internal class DownloadEngine(
                             current?.acceptsResult(event.picture) != true) return@mapNotNull null
                         if (event.staged != null) {
                             try {
-                                event.staged.commit()
+                                val location = event.staged.commit()
                                 committed.add(event)
+                                return@mapNotNull event.picture.copy(filePath = location)
                             } catch (exception: IOException) {
+                                reportStorageFailure(exception)
                                 return@mapNotNull event.picture.copy(status = DownloadStatus.FAILED, downloadedBytes = 0,
                                     fileSizeBytes = 0, error = downloadError(exception))
                             }
@@ -683,10 +725,11 @@ internal class DownloadEngine(
                         event.picture
                     }
                     dao.savePictureResults(prepared, nowMillis())
+                    prepared.map { it.epId }.distinct().forEach { finishEpisodeIfReady(it) }
                     committed.forEach { event ->
                         val saved = dao.getPicture(event.picture.pictureId)
                         if (saved?.status != DownloadStatus.DONE || saved.attemptCount != event.picture.attemptCount) {
-                            event.staged!!.destination.delete()
+                            event.staged!!.deleteCommitted()
                         }
                     }
                 } finally {
@@ -699,16 +742,7 @@ internal class DownloadEngine(
 
     private suspend fun summarize(comicId: String, coverError: String?) = withComicLock(comicId) {
         if (dao.getComic(comicId)?.status !in activeStatuses) return@withComicLock
-        dao.observeEps(comicId).first().filter { it.status in activeStatuses && it.picturesFetched }.forEach { ep ->
-            val pictures = dao.observePictures(ep.epId).first()
-            if (pictures.all { it.status == DownloadStatus.DONE || it.status == DownloadStatus.FAILED }) {
-                if (ep.status == DownloadStatus.QUEUED) dao.transitionEp(ep.epId, DownloadStatus.RUNNING, updatedAt = nowMillis())
-                val error = pictures.firstOrNull { it.status == DownloadStatus.FAILED }?.error
-                dao.transitionEp(ep.epId, if (error != null || pictures.any { it.status == DownloadStatus.FAILED }) {
-                    DownloadStatus.FAILED
-                } else DownloadStatus.DONE, error, nowMillis())
-            }
-        }
+        dao.observeEps(comicId).first().forEach { finishEpisodeIfReady(it.epId) }
         val eps = dao.observeEps(comicId).first()
         val counts = dao.getCounts(comicId) ?: return@withComicLock
         if (files.allEpisodesRequest(comicId) != null || eps.any { it.status in activeStatuses } ||
@@ -719,12 +753,24 @@ internal class DownloadEngine(
         dao.refreshProgress(comicId, nowMillis())
     }
 
+    /** Called under the comic lock, so a completed chapter is readable before its siblings finish. */
+    private suspend fun finishEpisodeIfReady(epId: String) {
+        val ep = dao.getEp(epId) ?: return
+        if (ep.status !in activeStatuses || !ep.picturesFetched) return
+        val pictures = dao.observePictures(epId).first()
+        if (pictures.any { it.status != DownloadStatus.DONE && it.status != DownloadStatus.FAILED }) return
+        if (ep.status == DownloadStatus.QUEUED) dao.transitionEp(epId, DownloadStatus.RUNNING, updatedAt = nowMillis())
+        val failed = pictures.firstOrNull { it.status == DownloadStatus.FAILED }
+        dao.transitionEp(epId, if (failed == null) DownloadStatus.DONE else DownloadStatus.FAILED, failed?.error, nowMillis())
+    }
+
     private suspend fun <T> retry(block: suspend () -> T): T {
         var attempt = 1
         while (true) {
             try {
                 return networkOperation(block).also { limiter.onSuccess() }
             } catch (exception: IOException) {
+                if (exception is DownloadStorageAccessException) throw exception
                 val status = when (exception) {
                     is DownloadHttpException -> exception.status
                     is PicaException -> exception.httpStatus?.takeIf { it !in 200..299 } ?: exception.code
@@ -781,9 +827,17 @@ internal class DownloadEngine(
     )
 
     private suspend fun removeDeletingComic(comicId: String) = withComicLock(comicId) {
-        if (dao.getComic(comicId)?.status == DownloadStatus.DELETING) {
-            files.deleteComic(comicId)
+        val comic = dao.getComic(comicId)
+        if (comic?.status == DownloadStatus.DELETING) {
+            files.deleteComic(comic)
             dao.deleteComic(comicId)
+        }
+    }
+
+    private suspend fun reportStorageFailure(exception: Exception) {
+        if (exception is DownloadStorageAccessException) {
+            files.reportStorageAccessFailure(exception)
+            onStorageFallback(exception.treeUri)
         }
     }
 

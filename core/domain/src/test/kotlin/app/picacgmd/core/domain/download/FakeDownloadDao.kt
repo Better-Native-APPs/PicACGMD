@@ -156,6 +156,22 @@ internal class FakeDownloadDao : DownloadDao() {
     override suspend fun markPicturesDeleting(comicId: String, updatedAt: Long) {
         updatePictures(comicId, DownloadStatus.entries.toSet(), DownloadStatus.DELETING, updatedAt)
     }
+    override suspend fun markEpPicturesDeleting(epId: String, updatedAt: Long) {
+        change { pictures.values.filter { it.epId == epId }.toList().forEach {
+            pictures[it.pictureId] = it.copy(status = DownloadStatus.DELETING, updatedAt = updatedAt)
+        } }
+    }
+    override suspend fun requeueFailedEpPictures(epId: String, updatedAt: Long): Int = change {
+        val changed = pictures.values.filter { it.epId == epId && it.status == DownloadStatus.FAILED }.toList()
+        changed.forEach { pictures[it.pictureId] = it.copy(status = DownloadStatus.QUEUED, error = null, updatedAt = updatedAt) }
+        changed.size
+    }
+    override suspend fun deleteEp(epId: String): Int = change {
+        if (eps[epId]?.status != DownloadStatus.DELETING) return@change 0
+        eps.remove(epId)
+        pictures.entries.removeIf { it.value.epId == epId }
+        1
+    }
     override suspend fun requeueFailedPictures(updatedAt: Long): Int = change {
         comics.values.filter { it.status in active + DownloadStatus.FAILED }.sumOf {
             updatePictures(it.comicId, setOf(DownloadStatus.FAILED), DownloadStatus.QUEUED, updatedAt, true)

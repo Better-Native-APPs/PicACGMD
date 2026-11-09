@@ -31,6 +31,7 @@ internal val PageImage.coilModel: Any
     get() = when (this) {
         is PageImage.Remote -> url
         is PageImage.Local -> file
+        is PageImage.Document -> uri
     }
 
 /**

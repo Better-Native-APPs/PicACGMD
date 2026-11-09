@@ -239,6 +239,24 @@ class SettingsRepositoryTest {
     }
 
     @Test
+    fun downloadTreeSelectionSurvivesRecreationAndCanReturnToInternalStorage() = runTest {
+        val store = MemoryPreferencesStore()
+        val repository = SettingsRepository(store)
+        val tree = "content://documents/tree/primary%3AComics"
+        assertNull(repository.settings.first().downloadTreeUri)
+        repository.setDownloadTreeUri(tree)
+        assertEquals(tree, SettingsRepository(store).settings.first().downloadTreeUri)
+        repository.clearDownloadTreeUriIfMatches("content://documents/tree/old")
+        assertEquals(tree, repository.settings.first().downloadTreeUri)
+        repository.clearDownloadTreeUriIfMatches(tree)
+        assertNull(repository.settings.first().downloadTreeUri)
+        repository.setDownloadTreeUri(tree)
+        repository.setDownloadTreeUri(null)
+        assertNull(repository.settings.first().downloadTreeUri)
+        assertFailsWith<IllegalArgumentException> { repository.setDownloadTreeUri("/storage/emulated/0") }
+    }
+
+    @Test
     fun automaticAndTwoThroughSevenColumnsWorkButOneDoesNot() = runTest {
         val repository = SettingsRepository(MemoryPreferencesStore())
         for (count in listOf(0, 2, 3, 4, 5, 6, 7)) {

@@ -126,6 +126,8 @@ data class AppSettings(
     val eInkTriggerDistanceCm: Float = 0.3f,
     val downloadThreads: Int = 4,
     val downloadWifiOnly: Boolean = false,
+    /** Null uses app-private storage. Existing comics retain their own recorded storage root. */
+    val downloadTreeUri: String? = null,
     val autoDownloadOnFavourite: Boolean = false,
     val autoDownloadWifiOnly: Boolean = true,
     val autoDeleteDownloadOnUnfavourite: Boolean = false,

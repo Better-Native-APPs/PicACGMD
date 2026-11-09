@@ -91,7 +91,7 @@ data class ReaderPage(
     val height: Int = 0,
 )
 
-/** Where a page image comes from. Both cases are loaded by Coil. */
+/** Where a page image comes from. Every case is loaded by Coil. */
 @Immutable
 sealed interface PageImage {
     /**
@@ -108,6 +108,10 @@ sealed interface PageImage {
     /** A file on disk, typically a downloaded page. */
     @Immutable
     data class Local(val file: File) : PageImage
+
+    /** A persisted SAF document URI; stays local and never uses the network image loader. */
+    @Immutable
+    data class Document(val uri: String) : PageImage
 }
 
 /** Reading position reported through [ReaderSource.saveProgress]. */

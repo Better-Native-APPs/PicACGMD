@@ -9,6 +9,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.BitmapRegionDecoder
 import android.graphics.Rect
+import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
@@ -146,6 +147,18 @@ private suspend fun <T> withPageFile(
 ): T? = withContext(Dispatchers.IO) {
     when (image) {
         is PageImage.Local -> if (image.file.isFile) block(image.file) else null
+        is PageImage.Document -> {
+            // Media actions need a seekable original file; normal reading streams directly through Coil.
+            val temporary = File.createTempFile(".document-page.", ".image", context.cacheDir)
+            try {
+                context.contentResolver.openInputStream(Uri.parse(image.uri))?.use { input ->
+                    temporary.outputStream().use { input.copyTo(it, 64 * 1024) }
+                } ?: throw IOException("无法读取下载文件，请重新授权下载目录")
+                block(temporary)
+            } finally {
+                temporary.delete()
+            }
+        }
         is PageImage.Remote -> {
             val loader = SingletonImageLoader.get(context)
             val cached = loader.readCached(image.stableKey, block)
