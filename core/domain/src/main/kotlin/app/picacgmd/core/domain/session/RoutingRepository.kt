@@ -19,6 +19,10 @@ enum class RouteSource { SYSTEM, SERVER, BUILT_IN, CUSTOM, SAVED }
 
 data class RouteOption<out T>(val value: T, val label: String, val address: String?, val source: RouteSource)
 
+/** Missing and failed samples never win; ties retain the catalogue order. */
+fun <T> fastestReachableRoute(options: List<RouteOption<T>>, latencies: Map<T, Long?>): RouteOption<T>? =
+    options.filter { latencies[it.value] != null }.minByOrNull { latencies.getValue(it.value)!! }
+
 data class ApiRouteState(
     val options: List<RouteOption<ApiRoute>>,
     val selected: RouteOption<ApiRoute>,
@@ -69,6 +73,12 @@ class RoutingRepository(
 
     suspend fun measureApiRoute(route: ApiRoute): Long? = networkConfigProvider.measureApiRoute(route)
 
+    /** Recover an unreachable selection after a picker measurement, without replaying API mutations. */
+    suspend fun fallbackApiRoute(latencies: Map<ApiRoute, Long?>): RouteOption<ApiRoute>? {
+        val state = apiRoutes.first()
+        return fallbackRoute(state.options, state.selected, latencies, ::selectApiRoute)
+    }
+
     suspend fun selectImageRoute(server: ImageServer) {
         when (server) {
             ImageServer.Original -> settingsRepository.setImageRouting(RoutingMode.NONE)
@@ -84,13 +94,30 @@ class RoutingRepository(
     suspend fun measureImageRoute(server: ImageServer): Long? = withRouteProbeDeadline {
         PicaRouteTransport().measureImageHost(imageRouteHost(server))
     }
+
+    suspend fun fallbackImageRoute(latencies: Map<ImageServer, Long?>): RouteOption<ImageServer>? {
+        val state = imageRoutes.first()
+        return fallbackRoute(state.options, state.selected, latencies, ::selectImageRoute)
+    }
+}
+
+private suspend fun <T> fallbackRoute(
+    options: List<RouteOption<T>>,
+    selected: RouteOption<T>,
+    latencies: Map<T, Long?>,
+    select: suspend (T) -> Unit,
+): RouteOption<T>? {
+    if (!latencies.containsKey(selected.value) || latencies[selected.value] != null) return null
+    val fastest = fastestReachableRoute(options, latencies) ?: return null
+    select(fastest.value)
+    return fastest
 }
 
 fun apiRouteState(settings: AppSettings): ApiRouteState {
     val synced = settings.syncedApiAddresses.mapNotNull(IpLiteral::normalizeOrNull).distinct()
     val custom = settings.customApiIp.takeIf(String::isNotBlank)?.let(IpLiteral::normalize)
     val selected = settings.apiRouteAddress?.let(IpLiteral::normalize)
-    val addresses = (synced + defaultApiAddresses + listOfNotNull(selected).filter { it != custom }).distinct()
+    val addresses = (synced + defaultApiAddresses + listOfNotNull(selected)).distinct().filter { it != custom }
     val options: List<RouteOption<ApiRoute>> = listOf(RouteOption(ApiRoute.None, "不分流", null, RouteSource.SYSTEM)) +
         addresses.mapIndexed { index, address ->
             RouteOption(ApiRoute.Address(address), "分流 ${index + 1}", address, when (address) {

@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Restore
 import androidx.compose.material.icons.outlined.Route
+import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BasicAlertDialog
@@ -72,9 +73,11 @@ import androidx.compose.ui.unit.dp
 import app.picacgmd.core.domain.session.RouteOption
 import app.picacgmd.core.domain.session.RouteSource
 import app.picacgmd.core.domain.session.formatRouteLatency
+import app.picacgmd.core.domain.session.fastestReachableRoute
 import app.picacgmd.core.domain.session.routeLatencyGrade
 import app.picacgmd.di.LocalAppContainer
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -140,6 +143,7 @@ fun RoutePickerDialog(kind: RouteKind, onDismiss: () -> Unit) {
                 synced = current.lastSyncedAtMillis != null,
                 measure = routing::measureApiRoute,
                 select = routing::selectApiRoute,
+                fallback = routing::fallbackApiRoute,
                 onDismiss = onDismiss,
                 customSummary = current.customIp.ifBlank { "输入 IP 地址" },
                 onCustom = { custom = true },
@@ -160,6 +164,7 @@ fun RoutePickerDialog(kind: RouteKind, onDismiss: () -> Unit) {
                 synced = false,
                 measure = routing::measureImageRoute,
                 select = routing::selectImageRoute,
+                fallback = routing::fallbackImageRoute,
                 onDismiss = onDismiss,
                 customSummary = current.customHost.ifBlank { "输入图片服务器地址" },
                 onCustom = { custom = true },
@@ -179,6 +184,7 @@ private fun <T> RoutePickerContent(
     synced: Boolean,
     measure: suspend (T) -> Long?,
     select: suspend (T) -> Unit,
+    fallback: suspend (Map<T, Long?>) -> RouteOption<T>?,
     onDismiss: () -> Unit,
     customSummary: String,
     onCustom: () -> Unit,
@@ -189,6 +195,36 @@ private fun <T> RoutePickerContent(
     var round by remember { mutableIntStateOf(0) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var notice by remember { mutableStateOf<String?>(null) }
+    var latencies by remember(options, round) { mutableStateOf<Map<T, Long?>>(emptyMap()) }
+    val probe by rememberUpdatedState(measure)
+    val recover by rememberUpdatedState(fallback)
+    val usingProxy by rememberUpdatedState(proxyOn)
+    val complete = latencies.size == options.size
+    val fastest = fastestReachableRoute(options, latencies)
+    val sortedOptions = options.sortedBy { latencies[it.value] ?: Long.MAX_VALUE }
+    LaunchedEffect(options, round) {
+        notice = null
+        error = null
+        // Probes belong to the dialog, not to rows that can move while results are sorted.
+        coroutineScope {
+            options.forEach { option ->
+                launch { latencies = latencies + (option.value to probe(option.value)) }
+            }
+        }
+        if (!usingProxy && !busy) {
+            busy = true
+            try {
+                recover(latencies)?.let { notice = "当前分流不可用，已切换至${it.label}" }
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                error = exception.message ?: "自动切换失败，请点按分流重试"
+            } finally {
+                busy = false
+            }
+        }
+    }
     val choose: (RouteOption<T>) -> Unit = choose@{ option ->
         if (busy) return@choose
         if (option == selected) {
@@ -220,12 +256,34 @@ private fun <T> RoutePickerContent(
                     Column(Modifier.weight(1f)) {
                         Text(title, style = MaterialTheme.typography.headlineSmall)
                         Text(
-                            if (proxyOn) "已启用代理，分流暂不生效" else "点按切换",
+                            if (proxyOn) "直连测速；当前请求使用代理" else "点按立即切换，无需确认",
                             style = MaterialTheme.typography.bodyMedium,
                             color = if (proxyOn) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    IconButton(onClick = { round++ }) { Icon(Icons.Outlined.Refresh, contentDescription = "重新测速") }
+                    IconButton(onClick = { round++ }, enabled = !busy) { Icon(Icons.Outlined.Refresh, contentDescription = "重新测速") }
+                }
+                FilledTonalButton(
+                    onClick = { fastest?.let(choose) },
+                    enabled = complete && fastest != null && !busy,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+                ) {
+                    Icon(Icons.Outlined.Speed, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("自动选择最快")
+                }
+                val status = notice ?: when {
+                    !complete -> "正在同时测量所有分流…"
+                    fastest == null -> "暂无可用分流，请检查网络或代理后重新测速"
+                    else -> null
+                }
+                status?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+                    )
                 }
                 error?.let {
                     Text(
@@ -242,9 +300,17 @@ private fun <T> RoutePickerContent(
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    options.forEach { option ->
+                    sortedOptions.forEach { option ->
                         key(option.value) {
-                            RouteRow(option, option == selected, synced, round, !busy, measure) { choose(option) }
+                            RouteRow(
+                                option = option,
+                                selected = option == selected,
+                                synced = synced,
+                                enabled = !busy,
+                                probing = !latencies.containsKey(option.value),
+                                latency = latencies[option.value],
+                                fastest = complete && option == fastest,
+                            ) { choose(option) }
                         }
                     }
                 }
@@ -264,20 +330,12 @@ private fun <T> RouteRow(
     option: RouteOption<T>,
     selected: Boolean,
     synced: Boolean,
-    round: Int,
     enabled: Boolean,
-    measure: suspend (T) -> Long?,
+    probing: Boolean,
+    latency: Long?,
+    fastest: Boolean,
     onClick: () -> Unit,
 ) {
-    // One coroutine per row: each result lands as soon as its own probe finishes.
-    var probing by remember(option.value) { mutableStateOf(true) }
-    var latency by remember(option.value) { mutableStateOf<Long?>(null) }
-    val probe by rememberUpdatedState(measure)
-    LaunchedEffect(option.value, round) {
-        probing = true
-        latency = probe(option.value)
-        probing = false
-    }
     val colors = MaterialTheme.colorScheme
     Row(
         Modifier
@@ -294,6 +352,7 @@ private fun <T> RouteRow(
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(option.label, style = MaterialTheme.typography.titleSmall)
+                    if (fastest) SourceHint("最快", false)
                     sourceHint(option.source, synced)?.let { (text, warn) -> SourceHint(text, warn) }
                 }
                 Text(
