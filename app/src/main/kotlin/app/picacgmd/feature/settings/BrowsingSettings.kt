@@ -1,6 +1,5 @@
 package app.picacgmd.feature.settings
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -60,6 +59,7 @@ import app.picacgmd.core.data.settings.ListLayout
 import app.picacgmd.core.data.settings.PaginationMode
 import app.picacgmd.core.designsystem.component.ErrorState
 import app.picacgmd.core.designsystem.component.LoadingState
+import app.picacgmd.core.designsystem.component.PredictiveBackContent
 import app.picacgmd.core.domain.repository.BlockPreset
 import app.picacgmd.core.domain.repository.BlockPresets
 import app.picacgmd.core.domain.repository.findKeyword
@@ -81,11 +81,18 @@ private fun columnLabel(value: Int) = if (value == 0) "自动" else "$value 列"
 @Composable
 internal fun BrowsingSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
     var sub by rememberSaveable { mutableStateOf<BrowsingSub?>(null) }
-    BackHandler(enabled = sub != null) { sub = null }
-    when (sub) {
-        BrowsingSub.Shield -> ShieldSettingsPage(onBack = { sub = null }, modifier = modifier)
-        BrowsingSub.HomeCategories -> HomeCategoriesPage(onBack = { sub = null }, modifier = modifier)
-        null -> BrowsingRoot(onBack, onOpen = { sub = it }, modifier)
+    PredictiveBackContent(
+        current = sub?.name ?: "root",
+        previous = "root",
+        onBack = { sub = null },
+        enabled = sub != null,
+        modifier = modifier,
+    ) { page, back ->
+        when (page) {
+            BrowsingSub.Shield.name -> ShieldSettingsPage(onBack = back)
+            BrowsingSub.HomeCategories.name -> HomeCategoriesPage(onBack = back)
+            else -> BrowsingRoot(onBack, onOpen = { sub = it }, Modifier)
+        }
     }
 }
 

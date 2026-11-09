@@ -21,7 +21,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
@@ -100,7 +99,7 @@ fun CommentsScreen(comicId: String, onBack: () -> Unit, modifier: Modifier = Mod
             TopAppBar(
                 title = { Text(title ?: stringResource(R.string.comments_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.comics_back)) }
+                    app.picacgmd.core.designsystem.component.BackButton(onBack)
                 },
             )
         },

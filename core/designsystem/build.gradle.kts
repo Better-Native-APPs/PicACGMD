@@ -20,6 +20,7 @@ android {
 kotlin { jvmToolchain(21) }
 
 dependencies {
+    implementation(libs.androidx.activity.compose)
     api(platform(libs.compose.bom))
     api(libs.compose.material3)
     implementation(libs.compose.foundation)

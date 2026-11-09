@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -114,7 +113,7 @@ fun GameDetailScreen(gameId: String, onBack: () -> Unit, onComments: (String) ->
         topBar = {
             LargeFlexibleTopAppBar(
                 title = { Text(game?.title ?: "游戏详情") },
-                navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "返回") } },
+                navigationIcon = { app.picacgmd.core.designsystem.component.BackButton(onBack) },
             )
         },
         snackbarHost = { SnackbarHost(snackbar) },

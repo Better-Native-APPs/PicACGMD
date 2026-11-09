@@ -19,12 +19,14 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -65,6 +67,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.picacgmd.core.designsystem.component.BackButton
 import app.picacgmd.feature.reader.logic.AutoScrollSpeed
 import app.picacgmd.feature.reader.logic.PagingAxis
 import app.picacgmd.feature.reader.logic.TapAction
@@ -528,6 +531,17 @@ fun ReaderScreen(
                     onOpenAllSettings = onOpenAllSettings,
                 ),
             )
+
+            // Full-screen reading can hide the tools, but never the way back out of the page.
+            if (!controlsShown) {
+                Surface(
+                    modifier = Modifier.align(Alignment.TopStart)
+                        .windowInsetsPadding(chromeInsets.only(WindowInsetsSides.Top + WindowInsetsSides.Start))
+                        .padding(start = 12.dp, top = TopCapsuleGap),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                ) { BackButton(onBack) }
+            }
 
             TapZoneOverlay(
                 visible = zoneOverlayVisible,
