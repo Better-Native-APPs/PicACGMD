@@ -259,6 +259,7 @@ private fun NavGraphBuilder.sharedDestinations(
             onTagClick = { navController.navigate(ComicListRoute(tag = it)) },
             onAuthorClick = { navController.navigate(ComicListRoute(author = it)) },
             onTeamClick = { navController.navigate(ComicListRoute(chineseTeam = it)) },
+            onCreatorClick = { id, name -> navController.navigate(ComicListRoute(creatorId = id, title = name)) },
             onComicClick = { navController.navigate(ComicDetailRoute(it)) },
             onOpenComments = { navController.navigate(ComicCommentsRoute(it)) },
         )

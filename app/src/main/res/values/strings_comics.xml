@@ -76,7 +76,9 @@
     <string name="detail_continue_page">第 %1$d 页</string>
     <string name="detail_author">作者</string>
     <string name="detail_team">汉化</string>
-    <string name="detail_uploader">上传</string>
+    <string name="detail_uploader">上传者</string>
+    <string name="detail_uploader_level">Lv.%1$d</string>
+    <string name="detail_uploader_description">上传者：%1$s，查看上传者作品</string>
     <string name="detail_updated">更新于 %1$s</string>
     <string name="detail_categories">分类</string>
     <string name="detail_tags">标签</string>

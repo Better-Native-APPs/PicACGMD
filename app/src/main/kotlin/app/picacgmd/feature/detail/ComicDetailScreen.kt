@@ -40,6 +40,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Comment
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Favorite
@@ -91,11 +92,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.AnnotatedString
@@ -112,14 +117,17 @@ import app.picacgmd.core.designsystem.component.LoadingState
 import app.picacgmd.core.designsystem.component.MetaIcons
 import app.picacgmd.core.designsystem.component.MetaInfo
 import app.picacgmd.core.designsystem.component.SectionHeader
+import app.picacgmd.core.designsystem.component.ShapedAvatar
 import app.picacgmd.core.designsystem.component.SoftBackdrop
 import app.picacgmd.core.designsystem.theme.PikapikaTheme
 import app.picacgmd.core.designsystem.theme.withTabularFigures
 import app.picacgmd.core.domain.repository.ReadingProgress
 import app.picacgmd.core.domain.repository.containsKeyword
+import app.picacgmd.core.domain.repository.uploader
 import app.picacgmd.core.network.ComicInfo
 import app.picacgmd.core.network.ComicSimple
 import app.picacgmd.core.network.Ep
+import app.picacgmd.core.network.UserProfile
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.comics.formatCount
 import app.picacgmd.feature.comics.readMarkText
@@ -137,6 +145,7 @@ private const val COLLAPSED_CHAPTER_COUNT = 8
  * @param onRead open the reader at chapter [epOrder] (1-based) and picture index [page] (0-based).
  * @param onDownloadChapters enqueue the chosen chapters (all chapters are pre-selected in the picker).
  * @param onTeamClick 汉化组 chip; the list API filters by `chineseTeam`.
+ * @param onCreatorClick uploader row: the uploader's comics, listed by their [id] and titled with their [name].
  */
 @Composable
 fun ComicDetailScreen(
@@ -148,6 +157,7 @@ fun ComicDetailScreen(
     onTagClick: (String) -> Unit,
     onAuthorClick: (String) -> Unit,
     onTeamClick: (String) -> Unit,
+    onCreatorClick: (id: String, name: String) -> Unit,
     onComicClick: (String) -> Unit,
     onOpenComments: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -201,6 +211,7 @@ fun ComicDetailScreen(
                 onTagClick = onTagClick,
                 onAuthorClick = onAuthorClick,
                 onTeamClick = onTeamClick,
+                onCreatorClick = onCreatorClick,
                 onComicClick = onComicClick,
                 onOpenComments = { onOpenComments(comic.id) },
                 onRetryEps = viewModel::retryEps,
@@ -252,6 +263,7 @@ private fun DetailBody(
     onTagClick: (String) -> Unit,
     onAuthorClick: (String) -> Unit,
     onTeamClick: (String) -> Unit,
+    onCreatorClick: (String, String) -> Unit,
     onComicClick: (String) -> Unit,
     onOpenComments: () -> Unit,
     onRetryEps: () -> Unit,
@@ -298,6 +310,7 @@ private fun DetailBody(
                     onTagClick = onTagClick,
                     onAuthorClick = onAuthorClick,
                     onTeamClick = onTeamClick,
+                    onCreatorClick = onCreatorClick,
                 )
             }
             if (comic.description.isNotBlank()) item(key = "desc") { Description(comic.description) }
@@ -536,8 +549,8 @@ private fun ActionToggle(
 private class ChipGroup(@StringRes val label: Int, val names: List<String>, val onOpen: (String) -> Unit)
 
 /**
- * Author and team chips, then the categories and tags. Those two groups share 屏蔽模式, switched on the
- * first label: while it is on, a tap puts the word into the hidden keywords or takes it out again.
+ * Author and team chips, the uploader, then the categories and tags. Those two groups share 屏蔽模式,
+ * switched on the first label: while it is on, a tap puts the word into the hidden keywords or takes it out again.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -551,12 +564,14 @@ private fun MetaChips(
     onTagClick: (String) -> Unit,
     onAuthorClick: (String) -> Unit,
     onTeamClick: (String) -> Unit,
+    onCreatorClick: (String, String) -> Unit,
 ) {
     val motion = MaterialTheme.motionScheme
     val groups = listOfNotNull(
         ChipGroup(R.string.detail_categories, comic.categories, onCategoryClick).takeIf { comic.categories.isNotEmpty() },
         ChipGroup(R.string.detail_tags, comic.tags, onTagClick).takeIf { comic.tags.isNotEmpty() },
     )
+    val uploader = comic.uploader()
     Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (comic.author.isNotBlank()) {
@@ -565,6 +580,13 @@ private fun MetaChips(
             if (comic.chineseTeam.isNotBlank()) {
                 AssistChip(onClick = { onTeamClick(comic.chineseTeam) }, label = { Text(comic.chineseTeam) }, leadingIcon = { Icon(Icons.Outlined.Translate, stringResource(R.string.detail_team)) })
             }
+        }
+        if (uploader != null) {
+            UploaderRow(
+                uploader = uploader,
+                onClick = { onCreatorClick(uploader.id, uploader.name) },
+                modifier = Modifier.padding(vertical = 4.dp),
+            )
         }
         groups.forEachIndexed { index, group ->
             val first = index == 0
@@ -600,6 +622,61 @@ private fun MetaChips(
                 }
             }
         }
+    }
+}
+
+/**
+ * The uploader: avatar, name and level over 「上传者」 and their title. A tap lists their comics, the
+ * same list the 骑士榜 opens. TalkBack reads the row as one button.
+ */
+@Composable
+private fun UploaderRow(uploader: UserProfile, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+    val description = stringResource(R.string.detail_uploader_description, uploader.name)
+    val role = listOfNotNull(stringResource(R.string.detail_uploader), uploader.title.ifBlank { null }).joinToString(" · ")
+    Row(
+        modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.large)
+            .background(colors.surfaceContainerLow)
+            .clickable(role = Role.Button, onClick = onClick)
+            .clearAndSetSemantics { contentDescription = description }
+            .padding(start = 12.dp, top = 10.dp, end = 10.dp, bottom = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ShapedAvatar(imageUrl = rememberImageUrl(uploader.avatar), initial = uploader.name.trim().take(1), size = 40.dp)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    uploader.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                if (uploader.level > 0) {
+                    Text(
+                        stringResource(R.string.detail_uploader_level, uploader.level),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.onSecondaryContainer,
+                        maxLines = 1,
+                        modifier = Modifier
+                            .background(colors.secondaryContainer, CircleShape)
+                            .padding(horizontal = 6.dp, vertical = 1.dp),
+                    )
+                }
+            }
+            Text(
+                role,
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = colors.onSurfaceVariant)
     }
 }
 
