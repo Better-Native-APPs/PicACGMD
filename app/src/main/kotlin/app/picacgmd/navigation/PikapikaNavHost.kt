@@ -317,9 +317,11 @@ private fun NavGraphBuilder.sharedDestinations(
         )
     }
     page<DownloadedReaderRoute> { entry ->
-        val comicId = entry.toRoute<DownloadedReaderRoute>().comicId
+        val route = entry.toRoute<DownloadedReaderRoute>()
+        val comicId = route.comicId
         DownloadedReaderDestination(
             comicId = comicId,
+            episodeOrder = route.episodeOrder,
             onBack = navController.backAction(),
             onMessage = onReaderMessage,
             onOpenComments = { navController.navigate(ComicCommentsRoute(comicId)) },

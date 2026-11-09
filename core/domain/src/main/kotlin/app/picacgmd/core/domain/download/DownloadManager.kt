@@ -47,7 +47,11 @@ class DownloadManager(
             val external = this.context.getExternalFilesDir(null) ?: throw IOException("下载失败：存储空间不可用")
             File(external, "downloads")
         },
-        internalRootProvider = { File(this.context.filesDir, "downloads") },
+        // Same place as every download made before custom locations existed; app-internal storage only
+        // when shared external app storage is unavailable.
+        internalRootProvider = {
+            this.context.getExternalFilesDir(null)?.let { File(it, "downloads") } ?: File(this.context.filesDir, "downloads")
+        },
         stagingRootProvider = { File(this.context.cacheDir, "download-staging") },
         treeBackendProvider = { tree -> TreeDownloadBackend(AndroidDownloadTreeAccess(this.context.contentResolver, Uri.parse(tree))) },
     )
