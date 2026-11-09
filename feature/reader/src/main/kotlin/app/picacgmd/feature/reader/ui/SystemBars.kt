@@ -11,6 +11,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import app.picacgmd.feature.reader.SystemBarsMode
 
 private tailrec fun Context.findWindow(): Window? = when (this) {
     is Activity -> window
@@ -22,11 +23,11 @@ private tailrec fun Context.findWindow(): Window? = when (this) {
  * Controls the system bars while the reader is on screen and gives them back as they were when it
  * leaves. Hidden bars come back for a moment with a swipe from the edge.
  *
- * @param hidden hide the status and navigation bars.
+ * @param mode app-wide system bar visibility.
  * @param lightBackground the chrome behind the bars is light (纸 / 白), so their icons must be dark.
  */
 @Composable
-internal fun ReaderSystemBars(hidden: Boolean, lightBackground: Boolean) {
+fun ReaderSystemBars(mode: SystemBarsMode, lightBackground: Boolean) {
     val view = LocalView.current
     if (view.isInEditMode) return
     val controller = remember(view) {
@@ -39,17 +40,19 @@ internal fun ReaderSystemBars(hidden: Boolean, lightBackground: Boolean) {
         val lightNavigationBars = controller.isAppearanceLightNavigationBars
         controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         onDispose {
-            controller.show(WindowInsetsCompat.Type.systemBars())
             controller.systemBarsBehavior = behavior
             controller.isAppearanceLightStatusBars = lightStatusBars
             controller.isAppearanceLightNavigationBars = lightNavigationBars
         }
     }
-    DisposableEffect(controller, hidden) {
-        if (hidden) {
-            controller.hide(WindowInsetsCompat.Type.systemBars())
-        } else {
-            controller.show(WindowInsetsCompat.Type.systemBars())
+    DisposableEffect(controller, mode) {
+        when (mode) {
+            SystemBarsMode.Visible -> controller.show(WindowInsetsCompat.Type.systemBars())
+            SystemBarsMode.HiddenNavigation -> {
+                controller.show(WindowInsetsCompat.Type.statusBars())
+                controller.hide(WindowInsetsCompat.Type.navigationBars())
+            }
+            SystemBarsMode.HiddenAll -> controller.hide(WindowInsetsCompat.Type.systemBars())
         }
         onDispose { }
     }

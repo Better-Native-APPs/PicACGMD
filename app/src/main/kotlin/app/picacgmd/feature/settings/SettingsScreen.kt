@@ -100,7 +100,7 @@ private val SearchIndex: List<SettingsEntry> = buildList {
     add(
         SettingsPage.Appearance, "显示",
         "屏幕刷新率" to "仅对本应用生效", "屏幕方向" to "跟随系统、横屏、竖屏",
-        "全屏显示" to "隐藏状态栏或导航栏", "连按两次返回退出" to "仅在首页生效", "启动图片" to "使用自选图片",
+        "全屏显示" to "隐藏状态栏或导航栏", "连按两次返回退出" to "仅在一级导航页面生效", "启动图片" to "使用自选图片",
     )
     add(
         SettingsPage.Browsing, "列表",

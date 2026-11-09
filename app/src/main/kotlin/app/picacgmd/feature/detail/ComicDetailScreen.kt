@@ -1,6 +1,7 @@
 package app.picacgmd.feature.detail
 
 import app.picacgmd.core.designsystem.window.secureModalBottomSheetProperties
+import app.picacgmd.core.designsystem.window.secureDialogProperties
 
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
@@ -60,6 +61,7 @@ import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -112,6 +114,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.picacgmd.R
+import app.picacgmd.core.data.settings.AppSettings
+import app.picacgmd.core.data.settings.renderCopyName
 import app.picacgmd.core.designsystem.component.ComicCover
 import app.picacgmd.core.designsystem.component.ComicCoverCard
 import app.picacgmd.core.designsystem.component.ErrorState
@@ -168,6 +172,7 @@ fun ComicDetailScreen(
     val container = LocalAppContainer.current
     val viewModel = viewModel(key = "detail:$comicId") { ComicDetailViewModel(container, comicId) }
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val preferences by container.settingsRepository.settings.collectAsStateWithLifecycle(null)
     val library by viewModel.library.collectAsStateWithLifecycle()
     val hiddenKeywords by viewModel.hiddenKeywords.collectAsStateWithLifecycle()
     val localFolders by viewModel.localFolders.collectAsStateWithLifecycle()
@@ -180,6 +185,9 @@ fun ComicDetailScreen(
     val unblockedTemplate = stringResource(R.string.detail_keyword_unblocked_message, "%s")
     LaunchedEffect(viewModel) {
         viewModel.messages.collect { snackbar.showSnackbar(failedTemplate.replace("%s", it)) }
+    }
+    LaunchedEffect(viewModel) {
+        viewModel.notices.collect { snackbar.showSnackbar(it) }
     }
     LaunchedEffect(viewModel) {
         // The newest change replaces the one on screen, so a run of taps doesn't queue up a run of snackbars.
@@ -212,6 +220,7 @@ fun ComicDetailScreen(
             }
             else -> DetailBody(
                 comic = comic,
+                preferences = preferences ?: AppSettings.DEFAULT,
                 state = state,
                 library = library,
                 locallyFavourited = !localFolderIds.isNullOrEmpty(),
@@ -278,6 +287,7 @@ private fun DetailTopBar(title: String?, onBack: () -> Unit, solid: Boolean, act
 @Composable
 private fun DetailBody(
     comic: ComicInfo,
+    preferences: AppSettings,
     state: DetailState,
     library: LibraryState,
     locallyFavourited: Boolean,
@@ -305,6 +315,7 @@ private fun DetailBody(
     val listState = rememberLazyListState()
     val collapsed by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
     val clipboard = LocalClipboardManager.current
+    var copyConfirmation by rememberSaveable(comic.id) { mutableStateOf<String?>(null) }
     var showAllChapters by rememberSaveable { mutableStateOf(false) }
     var chaptersReversed by rememberSaveable { mutableStateOf(false) }
     var blockMode by rememberSaveable { mutableStateOf(false) }
@@ -316,7 +327,7 @@ private fun DetailBody(
     val readMarks = rememberReadMarks(remember(state.recommendations) { state.recommendations.map(ComicSimple::id) })
     Box(Modifier.fillMaxSize()) {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 112.dp)) {
-            item(key = "hero") { Hero(comic, onAuthorClick) }
+            item(key = "hero") { Hero(comic, onAuthorClick, preferences.showAuthorSearch) }
             if (showHiddenNotice) item(key = "hidden") { HiddenNotice() }
             item(key = "actions") {
                 ActionRow(
@@ -353,6 +364,7 @@ private fun DetailBody(
                     onTeamClick = onTeamClick,
                     onCreatorClick = onCreatorClick,
                     showTagFavourites = showTagFavourites,
+                    showAuthorSearch = preferences.showAuthorSearch,
                     favouriteTags = favouriteTags,
                     onToggleTagFavourite = onToggleTagFavourite,
                 )
@@ -422,7 +434,11 @@ private fun DetailBody(
                         onBack = onBack,
                         solid = collapsed,
                         actions = {
-                            IconButton(onClick = { clipboard.setText(AnnotatedString(comic.title)) }) {
+                            IconButton(onClick = {
+                                val rendered = renderCopyName(preferences.copyNameTemplate, comic.author, comic.title, comic.id)
+                                if (preferences.confirmCopy) copyConfirmation = rendered
+                                else clipboard.setText(AnnotatedString(rendered))
+                            }) {
                                 Icon(Icons.Outlined.ContentCopy, stringResource(R.string.detail_copy_title))
                             }
                         },
@@ -438,11 +454,23 @@ private fun DetailBody(
             modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
+    copyConfirmation?.let { rendered ->
+        AlertDialog(
+            properties = secureDialogProperties(),
+            onDismissRequest = { copyConfirmation = null },
+            title = { Text("复制名称") },
+            text = { Text(rendered) },
+            confirmButton = {
+                TextButton(onClick = { clipboard.setText(AnnotatedString(rendered)); copyConfirmation = null }) { Text("复制") }
+            },
+            dismissButton = { TextButton(onClick = { copyConfirmation = null }) { Text("取消") } },
+        )
+    }
 }
 
 /** Blurred cover wash behind a crisp cover and the title block: the page's one dramatic moment. */
 @Composable
-private fun Hero(comic: ComicInfo, onAuthorClick: (String) -> Unit) {
+private fun Hero(comic: ComicInfo, onAuthorClick: (String) -> Unit, showAuthorSearch: Boolean) {
     val cover = rememberImageUrl(comic.thumb)
     val surface = MaterialTheme.colorScheme.surface
     Box(Modifier.fillMaxWidth()) {
@@ -476,7 +504,7 @@ private fun Hero(comic: ComicInfo, onAuthorClick: (String) -> Unit) {
                             comic.author,
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.clickable { onAuthorClick(comic.author) },
+                            modifier = if (showAuthorSearch) Modifier.clickable { onAuthorClick(comic.author) } else Modifier,
                         )
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -610,6 +638,7 @@ private fun MetaChips(
     onTeamClick: (String) -> Unit,
     onCreatorClick: (String, String) -> Unit,
     showTagFavourites: Boolean,
+    showAuthorSearch: Boolean,
     favouriteTags: Set<String>,
     onToggleTagFavourite: (String) -> Unit,
 ) {
@@ -623,7 +652,7 @@ private fun MetaChips(
     val uploader = comic.uploader()
     Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (comic.author.isNotBlank()) {
+            if (showAuthorSearch && comic.author.isNotBlank()) {
                 AssistChip(onClick = { onAuthorClick(comic.author) }, label = { Text(comic.author) }, leadingIcon = { Icon(Icons.Outlined.Person, stringResource(R.string.detail_author)) })
             }
             if (comic.chineseTeam.isNotBlank()) {

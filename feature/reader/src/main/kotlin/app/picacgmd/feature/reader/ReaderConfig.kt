@@ -39,8 +39,8 @@ data class ReaderConfig(
     val volumeKeyPaging: Boolean = false,
     /** 双击音量键跳下一章 (needs [volumeKeyPaging]). */
     val volumeKeyChapterJump: Boolean = false,
-    /** Hide the status and navigation bars while the controls are hidden. */
-    val fullscreen: Boolean = true,
+    /** App-wide system bar policy, distinct from whether reader controls are visible. */
+    val systemBars: SystemBarsMode = SystemBarsMode.HiddenAll,
     /** 进入时自动全屏: open with the controls hidden. */
     val autoFullscreen: Boolean = false,
     /** 往后翻页时自动全屏: hide the controls when moving forward. */
@@ -61,6 +61,10 @@ data class ReaderConfig(
     val noPageAnimation: Boolean = false,
     /** 减少动画 (e-ink): also drops loading animations. */
     val reduceMotion: Boolean = false,
+    /** E-ink page commands and swipes jump a fixed screen fraction, without animation. */
+    val eInkScrollByScreen: Boolean = false,
+    val eInkScrollAmount: Float = 0.8f,
+    val eInkTriggerDistanceCm: Float = 0.3f,
     /** 最小缩放, 0.5–2.0. Continuous strips never go below 1.0. */
     val minZoom: Float = 1f,
     /** 最大缩放, 2.0–5.0. */
@@ -78,6 +82,8 @@ data class ReaderConfig(
         val max = maxZoom.coerceIn(MAX_ZOOM_RANGE)
         return copy(
             scrollFraction = scrollFraction.coerceIn(SCROLL_FRACTION_RANGE),
+            eInkScrollAmount = eInkScrollAmount.coerceIn(SCROLL_FRACTION_RANGE),
+            eInkTriggerDistanceCm = eInkTriggerDistanceCm.coerceIn(0.1f..2f),
             autoTurnSeconds = autoTurnSeconds.coerceIn(AUTO_TURN_SECONDS_RANGE),
             autoScrollSpeed = autoScrollSpeed.coerceIn(AUTO_SCROLL_SPEED_RANGE),
             minZoom = min,
@@ -121,6 +127,8 @@ enum class ReaderMode {
     /** 自由缩放: a strip that can be zoomed and dragged freely. */
     FreeZoom,
 }
+
+enum class SystemBarsMode { Visible, HiddenNavigation, HiddenAll }
 
 /** 翻页方向. */
 enum class ReaderDirection {

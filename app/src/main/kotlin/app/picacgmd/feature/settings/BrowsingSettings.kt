@@ -256,7 +256,7 @@ private val TemplateTokens = listOf("{title}" to "标题", "{author}" to "作者
 @Composable
 private fun CopyTemplateDialog(initial: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
     var value by remember { mutableStateOf(TextFieldValue(initial, TextRange(initial.length))) }
-    val preview = value.text.replace("{title}", "星屑列车").replace("{author}", "白川凪").replace("{id}", "5821…")
+    val preview = app.picacgmd.core.data.settings.renderCopyName(value.text, "白川凪", "星屑列车", "5821…")
     AlertDialog(
         properties = secureDialogProperties(),
         onDismissRequest = onDismiss,

@@ -2,6 +2,7 @@ package app.picacgmd.feature.reader.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -64,6 +65,7 @@ import app.picacgmd.feature.reader.logic.spreadAnchor
 import app.picacgmd.feature.reader.logic.spreadPageAt
 import app.picacgmd.feature.reader.logic.spreadSides
 import app.picacgmd.feature.reader.logic.stepTarget
+import app.picacgmd.feature.reader.logic.eInkStepDistance
 import app.picacgmd.feature.reader.logic.tapZoneAt
 import kotlinx.coroutines.launch
 import coil3.size.Size as CoilSize
@@ -151,6 +153,16 @@ internal fun PagedReader(
         object : PageNavigator {
             override suspend fun step(forward: Boolean, leaveAtEnd: Boolean): Boolean {
                 val settings = latestConfig
+                if (settings.eInkScrollByScreen) {
+                    if (forward && !pagerState.canScrollForward) {
+                        if (leaveAtEnd) host.onPastEnd()
+                        return leaveAtEnd
+                    }
+                    if (!forward && !pagerState.canScrollBackward) return false
+                    val distance = eInkStepDistance(pagerState.layoutInfo.pageSize, settings.eInkScrollAmount)
+                    pagerState.scrollBy(if (forward) distance else -distance)
+                    return true
+                }
                 val instant = settings.noPageAnimation || settings.reduceMotion
                 val target = stepTarget(pagerState.targetPage, if (forward) 1 else -1, pagerState.pageCount)
                 return when {
@@ -177,6 +189,13 @@ internal fun PagedReader(
         modifier = modifier
             .fillMaxSize()
             .nestedScroll(pull)
+            .eInkSwipe(
+                enabled = config.eInkScrollByScreen && !zoom.isZoomed,
+                vertical = vertical,
+                rightToLeft = rightToLeft,
+                triggerCm = config.eInkTriggerDistanceCm,
+                onStep = { forward -> scope.launch { navigator.step(forward) } },
+            )
             .pointerInput(pagerState, zoom, navigator) {
                 fun run(action: TapAction, position: Offset) {
                     when (action) {
@@ -304,6 +323,7 @@ internal fun PagedReader(
         if (vertical) {
             VerticalPager(
                 state = pagerState,
+                userScrollEnabled = !config.eInkScrollByScreen,
                 modifier = Modifier.fillMaxSize(),
                 beyondViewportPageCount = PAGES_BEYOND_VIEWPORT,
                 key = { it },
@@ -313,6 +333,7 @@ internal fun PagedReader(
         } else {
             HorizontalPager(
                 state = pagerState,
+                userScrollEnabled = !config.eInkScrollByScreen,
                 modifier = Modifier.fillMaxSize(),
                 beyondViewportPageCount = PAGES_BEYOND_VIEWPORT,
                 reverseLayout = rightToLeft,
