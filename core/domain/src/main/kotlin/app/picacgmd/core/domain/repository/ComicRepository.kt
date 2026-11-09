@@ -7,7 +7,6 @@ import app.picacgmd.core.data.db.ViewHistoryDao
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.domain.session.SessionManager
 import app.picacgmd.core.network.Category
-import app.picacgmd.core.network.ComicCollection
 import app.picacgmd.core.network.ComicInfo
 import app.picacgmd.core.network.ComicSimple
 import app.picacgmd.core.network.ComicSort
@@ -33,20 +32,6 @@ class ComicRepository(
 
     suspend fun categories(forceRefresh: Boolean = false): List<Category> =
         catalogueCache.categories(forceRefresh) { session.withApi { it.categories() } }
-
-    suspend fun collections(forceRefresh: Boolean = false): List<CollectionGroup> =
-        filterCollections(rawCollections(forceRefresh), settings.first())
-
-    internal suspend fun rawCollections(forceRefresh: Boolean = false): List<ComicCollection> =
-        catalogueCache.collections(forceRefresh) { session.withApi { it.collections() } }
-
-    internal suspend fun filterCollections(
-        collections: List<ComicCollection>,
-        preferences: AppSettings,
-    ): List<CollectionGroup> = collections.map { group ->
-        val filtered = filter(group.comics, preferences)
-        CollectionGroup(group.title, filtered.items, filtered.hiddenCount)
-    }
 
     suspend fun comics(
         category: String? = null,

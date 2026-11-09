@@ -74,12 +74,6 @@ data class ReaderRoute(
 
 @Serializable data class GameRepliesRoute(val gameId: String, val commentId: String)
 
-/** 推荐: official collections (home carousel 「全部」 and the 推荐 tile of the category grid). */
-@Serializable data object CollectionsRoute
-
-/** All comics in one recommendation collection, using its original catalogue index. */
-@Serializable data class CollectionRoute(val index: Int, val title: String)
-
 /** 全分类. */
 @Serializable data object CategoriesRoute
 

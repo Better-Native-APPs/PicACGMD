@@ -21,7 +21,6 @@
     <string name="title_rankings">排行榜</string>
     <string name="title_random">随机本子</string>
     <string name="title_games">游戏专区</string>
-    <string name="title_collections">推荐</string>
     <string name="title_categories">全分类</string>
     <string name="title_login">登录</string>
 
@@ -31,13 +30,11 @@
     <string name="discover_channel_rankings">排行榜</string>
     <string name="discover_channel_random">随机</string>
     <string name="discover_channel_games">游戏专区</string>
-    <string name="discover_section_recommend">推荐</string>
     <string name="discover_section_categories">分类</string>
     <string name="discover_action_all">全部</string>
     <string name="discover_action_all_categories">全分类</string>
-    <string name="discover_category_recommend">推荐</string>
 
-    <!-- Static discover content shown until the discover data layer is wired in. -->
+    <!-- Discover preview content. -->
     <string-array name="discover_sample_pinned">
         <item>大家都在看</item>
         <item>大湿推荐</item>
@@ -54,21 +51,5 @@
         <item>科幻</item>
         <item>悬疑</item>
         <item>治愈</item>
-    </string-array>
-    <string-array name="discover_sample_titles">
-        <item>机巧图书馆</item>
-        <item>星屑列车</item>
-        <item>夜行邮差</item>
-        <item>灯塔看守人</item>
-        <item>午后猫咖物语</item>
-        <item>云上面包店</item>
-    </string-array>
-    <string-array name="discover_sample_authors">
-        <item>八云透</item>
-        <item>白川凪</item>
-        <item>葛城遥</item>
-        <item>远野朔</item>
-        <item>栗原千夏</item>
-        <item>栗原千夏</item>
     </string-array>
 </resources>

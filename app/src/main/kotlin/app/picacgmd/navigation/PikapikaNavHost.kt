@@ -51,8 +51,6 @@ import app.picacgmd.feature.games.GamesScreen
 import app.picacgmd.feature.announcements.AnnouncementsScreen
 import app.picacgmd.feature.me.MeScreen
 import app.picacgmd.feature.me.MyCommentsScreen
-import app.picacgmd.feature.rankings.CollectionScreen
-import app.picacgmd.feature.rankings.CollectionsScreen
 import app.picacgmd.feature.rankings.RandomScreen
 import app.picacgmd.feature.rankings.RankingsScreen
 import app.picacgmd.feature.search.SearchScreen
@@ -176,9 +174,7 @@ private fun NavGraphBuilder.topLevelGraphs(navController: NavHostController, com
                     }
                 },
                 onOpenCategory = { navController.navigate(ComicListRoute(category = it)) },
-                onOpenCollections = { navController.navigate(CollectionsRoute) },
                 onOpenCategories = { navController.navigate(CategoriesRoute) },
-                onOpenComic = { navController.navigate(ComicDetailRoute(it)) },
             )
         }
     }
@@ -348,22 +344,6 @@ private fun NavGraphBuilder.sharedDestinations(
         GameCommentsScreen(
             gameId = route.gameId, title = "评论回复", parentCommentId = route.commentId,
             onBack = navController.backAction(),
-        )
-    }
-    page<CollectionsRoute> {
-        CollectionsScreen(
-            onBack = navController.backAction(),
-            onOpenComic = { navController.navigate(ComicDetailRoute(it)) },
-            onOpenCollection = { index, title -> navController.navigate(CollectionRoute(index, title)) },
-        )
-    }
-    page<CollectionRoute> { entry ->
-        val route = entry.toRoute<CollectionRoute>()
-        CollectionScreen(
-            index = route.index,
-            title = route.title,
-            onBack = navController.backAction(),
-            onOpenComic = { navController.navigate(ComicDetailRoute(it)) },
         )
     }
     page<CategoriesRoute> {

@@ -11,6 +11,8 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -48,16 +50,17 @@ class ComicRepositoryTest {
     }
 
     @Test
-    fun cachedCollectionsAreRefilteredWhenPreferencesChange() = runTest {
-        val repository = repository(backgroundScope)
-        enqueue("""{"collections":[{"title":"推荐","comics":[{"_id":"1","title":"日常"},{"_id":"2","title":"冒险","categories":["冒险"]}]}]}""")
-        assertEquals(2, repository.collections().single().comics.size)
-        preferences.settings.value = preferences.settings.value.copy(shieldedCategories = listOf("冒险"))
-        val filtered = repository.collections().single()
-        assertEquals(listOf("1"), filtered.comics.map { it.id })
-        assertEquals(1, filtered.hiddenCount)
-        preferences.settings.value = preferences.settings.value.copy(shieldedCategories = emptyList())
-        assertEquals(2, repository.collections().single().comics.size)
+    fun homeOnlyFetchesCategoriesAndReappliesPreferencesWithoutAnotherRequest() = runTest {
+        val home = HomeRepository(repository(backgroundScope), preferences.settings, backgroundScope)
+        enqueue("""{"categories":[{"_id":"1","title":"日常"},{"_id":"2","title":"冒险"}]}""")
+        assertEquals(listOf("日常", "冒险"), home.refresh().categories.map { it.title })
+        assertEquals("/categories", server.takeRequest().url.encodedPath)
+        preferences.settings.value = preferences.settings.value.copy(
+            hiddenCategories = listOf("冒险"), pinnedHomeCategories = listOf("冒险"),
+        )
+        val updated = home.state.filterIsInstance<RepositoryState.Ready<HomeModel>>()
+            .first { it.data.categories.map { category -> category.title } == listOf("日常") }.data
+        assertEquals("冒险", updated.channels.last().title)
         assertEquals(1, server.requestCount)
     }
 

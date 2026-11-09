@@ -30,28 +30,14 @@ data class FilteredPage<T>(
     val hasNextPage: Boolean get() = page < pages
 }
 
-data class CollectionGroup(val title: String, val comics: List<ComicSimple>, val hiddenCount: Int = 0)
-
 enum class HomeChannelKind { RANKINGS, RANDOM, GAMES, CATEGORY }
 
 data class HomeChannel(val kind: HomeChannelKind, val title: String, val category: Category? = null)
 
-sealed interface HomeCategoryEntry {
-    data object Recommendations : HomeCategoryEntry
-    data class ServerCategory(val category: Category) : HomeCategoryEntry
-}
-
 data class HomeModel(
     val channels: List<HomeChannel>,
     val categories: List<Category>,
-    val collections: List<CollectionGroup>,
-    val carousel: List<ComicSimple>,
-    val carouselHiddenCount: Int,
-) {
-    val showCarousel: Boolean get() = carousel.isNotEmpty()
-    val categoryEntries: List<HomeCategoryEntry> get() =
-        listOf(HomeCategoryEntry.Recommendations) + categories.map(HomeCategoryEntry::ServerCategory)
-}
+)
 
 /** Server spelling is retained in requests; only the approved default's two spellings are aliases. */
 internal fun categoryKey(name: String): String = when (val trimmed = name.trim()) {
@@ -147,7 +133,6 @@ fun ComicInfo.uploader(): UserProfile? = creator?.takeIf { it.id.isNotBlank() &&
 
 fun buildHomeModel(
     categories: List<Category>,
-    collections: List<CollectionGroup>,
     settings: AppSettings,
 ): HomeModel {
     val serverCategories = categories.filterNot { it.isWeb }
@@ -168,8 +153,5 @@ fun buildHomeModel(
     return HomeModel(
         channels = fixed + pins.map { HomeChannel(HomeChannelKind.CATEGORY, it.title, it) },
         categories = visible,
-        collections = collections,
-        carousel = collections.firstOrNull()?.comics.orEmpty(),
-        carouselHiddenCount = collections.firstOrNull()?.hiddenCount ?: 0,
     )
 }

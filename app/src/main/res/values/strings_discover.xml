@@ -23,10 +23,6 @@
     <string name="random_reroll">换一批</string>
     <string name="random_empty">这批漫画均已屏蔽</string>
 
-    <!-- 推荐 -->
-    <string name="collections_title">推荐</string>
-    <string name="collections_empty">暂无推荐合集</string>
-
     <!-- 排序与隐藏 -->
     <string name="categories_title">排序与隐藏</string>
     <string name="categories_pinned_title">固定到首页</string>

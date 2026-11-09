@@ -91,9 +91,7 @@ fun DiscoverScreen(
     onProfileClick: () -> Unit,
     onChannelClick: (HomeChannel) -> Unit,
     onOpenCategory: (String) -> Unit,
-    onOpenCollections: () -> Unit,
     onOpenCategories: () -> Unit,
-    onOpenComic: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val viewModel = appViewModel { DiscoverViewModel(it) }
@@ -122,9 +120,7 @@ fun DiscoverScreen(
         onProfileClick = onProfileClick,
         onChannelClick = onChannelClick,
         onCategoryClick = onOpenCategory,
-        onCollectionsClick = onOpenCollections,
         onAllCategoriesClick = onOpenCategories,
-        onComicClick = onOpenComic,
         modifier = modifier,
         failure = viewModel.failure,
         isRefreshing = viewModel.isRefreshing,
@@ -139,6 +135,5 @@ private fun HomeModel.toContent(container: AppContainer) = DiscoverContent(
     pinnedCategories = channels
         .filter { it.kind == HomeChannelKind.CATEGORY }
         .map { HomeCategory(it.category?.title ?: it.title, container.imageUrl(it.category?.thumb)) },
-    carousel = carousel.map { CarouselComic(it.id, it.title, it.author, container.imageUrl(it.thumb)) },
     categories = categories.map { HomeCategory(it.title, container.imageUrl(it.thumb)) },
 )
