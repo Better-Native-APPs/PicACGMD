@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.picacgmd.core.data.db.DownloadEp
 import app.picacgmd.core.data.db.DownloadStatus
-import app.picacgmd.core.data.db.LocalFavouriteFolder
 import app.picacgmd.core.domain.di.AppContainer
 import app.picacgmd.core.domain.repository.ReadingProgress
 import app.picacgmd.core.domain.repository.containsKeyword
@@ -76,11 +75,6 @@ class ComicDetailViewModel(private val container: AppContainer, val comicId: Str
     private val mutableNotices = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val notices: SharedFlow<String> = mutableNotices.asSharedFlow()
 
-    val localFolders: StateFlow<List<LocalFavouriteFolder>?> = container.localFavouriteRepository.folders
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-    val localFolderId: StateFlow<String?> = container.localFavouriteRepository.folderId(comicId)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
     val showTagFavourites: StateFlow<Boolean> = container.settingsRepository.settings
         .map { it.showTagFavourites }.distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
@@ -89,12 +83,6 @@ class ComicDetailViewModel(private val container: AppContainer, val comicId: Str
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
     private val mutableTagFavouriteChanges = MutableSharedFlow<TagFavouriteChange>(extraBufferCapacity = 4)
     val tagFavouriteChanges: SharedFlow<TagFavouriteChange> = mutableTagFavouriteChanges.asSharedFlow()
-
-    suspend fun createLocalFolder(name: String): String = container.localFavouriteRepository.createFolder(name).folderId
-    suspend fun saveLocalFavourite(folderId: String?) {
-        val comic = checkNotNull(mutableState.value.comic) { "漫画信息尚未加载" }
-        container.localFavouriteRepository.setFolder(comic, folderId)
-    }
 
     fun toggleTagFavourite(tag: String) {
         viewModelScope.launch {

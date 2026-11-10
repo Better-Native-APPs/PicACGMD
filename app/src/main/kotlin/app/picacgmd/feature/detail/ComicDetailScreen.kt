@@ -55,7 +55,6 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.DownloadDone
 import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Translate
@@ -135,7 +134,6 @@ import app.picacgmd.core.network.ComicSimple
 import app.picacgmd.core.network.Ep
 import app.picacgmd.core.network.UserProfile
 import app.picacgmd.di.LocalAppContainer
-import app.picacgmd.feature.bookshelf.LocalFavouritePickerSheet
 import app.picacgmd.feature.comics.formatCount
 import app.picacgmd.feature.comics.readMarkText
 import app.picacgmd.feature.comics.rememberImageUrl
@@ -175,8 +173,6 @@ fun ComicDetailScreen(
     val preferences by container.settingsRepository.settings.collectAsStateWithLifecycle(null)
     val library by viewModel.library.collectAsStateWithLifecycle()
     val hiddenKeywords by viewModel.hiddenKeywords.collectAsStateWithLifecycle()
-    val localFolders by viewModel.localFolders.collectAsStateWithLifecycle()
-    val localFolderId by viewModel.localFolderId.collectAsStateWithLifecycle()
     val showTagFavourites by viewModel.showTagFavourites.collectAsStateWithLifecycle()
     val favouriteTags by viewModel.favouriteTags.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
@@ -201,7 +197,6 @@ fun ComicDetailScreen(
         }
     }
     var downloadPicker by rememberSaveable { mutableStateOf(false) }
-    var localFavouritePicker by rememberSaveable(comicId) { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier,
@@ -223,8 +218,6 @@ fun ComicDetailScreen(
                 preferences = preferences ?: AppSettings.DEFAULT,
                 state = state,
                 library = library,
-                locallyFavourited = localFolderId != null,
-                onLocalFavourite = { localFavouritePicker = true },
                 onBack = onBack,
                 onRead = { ep, page -> onRead(comic.id, ep, page) },
                 onLike = viewModel::toggleLike,
@@ -256,16 +249,6 @@ fun ComicDetailScreen(
             onConfirm = { downloadPicker = false; onDownloadChapters(comic, it) },
         )
     }
-    if (localFavouritePicker && comic != null && localFolders != null) {
-        LocalFavouritePickerSheet(
-            folders = localFolders.orEmpty(),
-            selectedFolderId = localFolderId,
-            onDismiss = { localFavouritePicker = false },
-            onCreateFolder = viewModel::createLocalFolder,
-            onSelectFolder = { viewModel.saveLocalFavourite(it) },
-            onRemove = { viewModel.saveLocalFavourite(null) },
-        )
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -291,8 +274,6 @@ private fun DetailBody(
     preferences: AppSettings,
     state: DetailState,
     library: LibraryState,
-    locallyFavourited: Boolean,
-    onLocalFavourite: () -> Unit,
     onBack: () -> Unit,
     onRead: (Int, Int) -> Unit,
     onLike: () -> Unit,
@@ -339,15 +320,6 @@ private fun DetailBody(
                     onSubscribe = onSubscribe,
                     onDownload = onDownload,
                 )
-            }
-            item(key = "local-favourite") {
-                FilledTonalButton(
-                    onClick = onLocalFavourite,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                ) {
-                    Icon(Icons.Outlined.Folder, null)
-                    Text(if (locallyFavourited) "本地收藏 · 已收藏" else "本地收藏", Modifier.padding(start = 8.dp))
-                }
             }
             item(key = "meta") {
                 MetaChips(

@@ -17,7 +17,6 @@ import app.picacgmd.core.domain.repository.CommentRepository
 import app.picacgmd.core.domain.repository.GameRepository
 import app.picacgmd.core.domain.repository.HistoryRepository
 import app.picacgmd.core.domain.repository.HomeRepository
-import app.picacgmd.core.domain.repository.LocalFavouriteRepository
 import app.picacgmd.core.domain.repository.SubscriptionCheckReport
 import app.picacgmd.core.domain.repository.SubscriptionRepository
 import app.picacgmd.core.domain.repository.TagFavouriteRepository
@@ -66,7 +65,6 @@ class AppContainer(context: Context) : AutoCloseable {
         database.subscriptionDao(), comicRepository, settingsRepository.settings,
     )
     val tagFavouriteRepository: TagFavouriteRepository = TagFavouriteRepository(database.tagFavouriteDao())
-    val localFavouriteRepository: LocalFavouriteRepository = LocalFavouriteRepository(database.localFavouriteDao())
     val imageLoader: ImageLoader = createImageLoader(applicationContext, networkConfigProvider, lowRamDevice = lowRamDevice)
     val cacheMaintenance = CacheMaintenance(applicationContext, imageLoader, database.apiCacheDao())
     val favouriteDownloads by lazy {
