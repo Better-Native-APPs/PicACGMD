@@ -7,7 +7,6 @@ sealed interface ImageServer {
     data object Split1 : ImageServer
     data object Split2 : ImageServer
     data object Split3 : ImageServer
-    data class Custom(val baseUrl: String) : ImageServer
 }
 
 object PicaImageUrls {
@@ -21,7 +20,6 @@ object PicaImageUrls {
             ImageServer.Split1 -> "https://storage.wikawika.xyz"
             ImageServer.Split2 -> "https://s2.picacomic.com"
             ImageServer.Split3 -> "https://s3.picacomic.com"
-            is ImageServer.Custom -> server.baseUrl
         }.trimEnd('/')
         val normalizedBase = base.removeSuffix("/static")
         val normalizedPath = path.trimStart('/').removePrefix("static/")

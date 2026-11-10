@@ -4,6 +4,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.mutablePreferencesOf
+import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -43,14 +44,52 @@ class SettingsPreferencesMapperTest {
 
     @Test
     fun everyLegacyApiModeKeepsItsEffectiveAddress() {
-        val addresses = listOf(null, "172.67.7.24", "104.20.180.50", "172.67.208.169", "203.0.113.7")
+        val addresses = listOf(null, "172.67.7.24", "104.20.180.50", "172.67.208.169")
+        assertEquals(addresses.size, RoutingMode.entries.size)
         RoutingMode.entries.zip(addresses).forEach { (mode, expected) ->
-            val preferences = mutablePreferencesOf(
-                SettingsKeys.apiRoutingMode to mode.name,
-                SettingsKeys.customApiIp to "203.0.113.7",
-            )
+            val preferences = mutablePreferencesOf(SettingsKeys.apiRoutingMode to mode.name)
             assertEquals(expected, SettingsPreferencesMapper.decode(preferences).apiRouteAddress, mode.name)
         }
+    }
+
+    @Test
+    fun removedCustomRoutesFallBackToTheDefaultRoutes() {
+        val custom = "203.0.113.7"
+        val legacyMode = mutablePreferencesOf(
+            SettingsKeys.apiRoutingMode to "CUSTOM",
+            SettingsKeys.legacyCustomApiIp to custom,
+            SettingsKeys.imageRoutingMode to "CUSTOM",
+            stringPreferencesKey("custom_image_host") to "images.example.com",
+        )
+        val decoded = SettingsPreferencesMapper.decode(legacyMode)
+        assertEquals("172.67.7.24", decoded.apiRouteAddress)
+        assertEquals(RoutingMode.NONE, decoded.imageRoutingMode)
+
+        val selected = mutablePreferencesOf(
+            SettingsKeys.apiRouteAddress to custom,
+            SettingsKeys.legacyCustomApiIp to custom,
+        )
+        assertEquals("172.67.7.24", SettingsPreferencesMapper.decode(selected).apiRouteAddress)
+        // Another route chosen after the custom one was saved is not touched.
+        selected[SettingsKeys.apiRouteAddress] = "104.19.53.76"
+        assertEquals("104.19.53.76", SettingsPreferencesMapper.decode(selected).apiRouteAddress)
+        selected[SettingsKeys.apiRouteAddress] = ""
+        assertNull(SettingsPreferencesMapper.decode(selected).apiRouteAddress)
+    }
+
+    @Test
+    fun formerCustomAddressStaysSelectedWhileTheRouteListStillOffersIt() {
+        val builtIn = mutablePreferencesOf(
+            SettingsKeys.apiRouteAddress to "104.20.180.50",
+            SettingsKeys.legacyCustomApiIp to "104.20.180.50",
+        )
+        assertEquals("104.20.180.50", SettingsPreferencesMapper.decode(builtIn).apiRouteAddress)
+        val synced = mutablePreferencesOf(
+            SettingsKeys.apiRouteAddress to "104.19.53.76",
+            SettingsKeys.legacyCustomApiIp to "104.19.53.76",
+            SettingsKeys.syncedApiAddresses to "[\"104.19.53.76\"]",
+        )
+        assertEquals("104.19.53.76", SettingsPreferencesMapper.decode(synced).apiRouteAddress)
     }
 
     @Test

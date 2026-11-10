@@ -60,7 +60,6 @@ import app.picacgmd.core.designsystem.component.PredictiveBackContent
 import app.picacgmd.core.domain.session.SessionState
 import app.picacgmd.core.domain.session.apiRouteState
 import app.picacgmd.di.LocalAppContainer
-import app.picacgmd.feature.routing.RouteKind
 import app.picacgmd.feature.routing.RoutePickerDialog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -88,7 +87,7 @@ fun LoginScreen(onBack: (() -> Unit)? = null) {
             else -> LoginForm(onBack, { page = "register" }, { page = "forgot" }, { network = true })
         }
     }
-    if (network) RoutePickerDialog(RouteKind.Api, onDismiss = { network = false })
+    if (network) RoutePickerDialog(onDismiss = { network = false })
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)

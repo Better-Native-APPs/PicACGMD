@@ -7,9 +7,8 @@ import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.HorizontalDivider
 import app.picacgmd.feature.comics.LayoutMenuItems
-import app.picacgmd.feature.routing.RouteKind
 import app.picacgmd.feature.routing.RouteMenuButton
-import app.picacgmd.feature.routing.RouteMenuItems
+import app.picacgmd.feature.routing.RouteMenuItem
 import app.picacgmd.feature.routing.RoutePickerDialog
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -449,14 +448,14 @@ private fun SearchFilterSheet(
 @Composable
 private fun SearchOverflowMenu(layout: ListLayout, onLayout: (ListLayout) -> Unit) {
     var open by remember { mutableStateOf(false) }
-    var picker by remember { mutableStateOf<RouteKind?>(null) }
+    var picker by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) { Icon(Icons.Outlined.MoreVert, stringResource(R.string.routes_more_options)) }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }, properties = securePopupProperties(focusable = true)) {
             LayoutMenuItems(layout) { open = false; onLayout(it) }
             HorizontalDivider(Modifier.padding(vertical = 4.dp))
-            RouteMenuItems { open = false; picker = it }
+            RouteMenuItem { open = false; picker = true }
         }
     }
-    picker?.let { RoutePickerDialog(it) { picker = null } }
+    if (picker) RoutePickerDialog { picker = false }
 }

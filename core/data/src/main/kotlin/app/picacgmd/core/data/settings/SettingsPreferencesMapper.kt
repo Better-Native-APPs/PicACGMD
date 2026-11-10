@@ -14,26 +14,15 @@ internal object SettingsPreferencesMapper {
         val maximum = preferences.readFloat(Keys.maxZoom, d.maxZoom, 2f..5f)
         val doubleTap = preferences.readFloat(Keys.doubleTapZoom, d.doubleTapZoom, 1.5f..3f)
         val validZoom = minimum <= doubleTap && doubleTap <= maximum
+        val syncedApiAddresses = preferences.readList(Keys.syncedApiAddresses, emptyList())
         return AppSettings(
             accountEmail = preferences[Keys.accountEmail] ?: d.accountEmail,
             authToken = token,
             authTokenUpdatedAt = if (token != null) preferences[Keys.authTokenUpdatedAt] else null,
-            apiRouteAddress = if (preferences[Keys.apiRouteAddress] != null) {
-                preferences[Keys.apiRouteAddress]?.takeIf(String::isNotEmpty)
-            } else {
-                when (preferences.readEnum(Keys.apiRoutingMode, RoutingMode.ROUTE_1)) {
-                    RoutingMode.NONE -> null
-                    RoutingMode.ROUTE_1 -> defaultApiAddresses[0]
-                    RoutingMode.ROUTE_2 -> defaultApiAddresses[1]
-                    RoutingMode.ROUTE_3 -> defaultApiAddresses[2]
-                    RoutingMode.CUSTOM -> preferences[Keys.customApiIp]?.trim().orEmpty()
-                }
-            },
-            customApiIp = preferences[Keys.customApiIp] ?: d.customApiIp,
-            syncedApiAddresses = preferences.readList(Keys.syncedApiAddresses, emptyList()),
+            apiRouteAddress = preferences.readApiRouteAddress(syncedApiAddresses, d.apiRouteAddress),
+            syncedApiAddresses = syncedApiAddresses,
             apiRoutesSyncedAt = preferences[Keys.apiRoutesSyncedAt],
             imageRoutingMode = preferences.readEnum(Keys.imageRoutingMode, d.imageRoutingMode),
-            customImageHost = preferences[Keys.customImageHost] ?: d.customImageHost,
             proxyUrl = preferences[Keys.proxyUrl] ?: d.proxyUrl,
             imageQuality = preferences.readEnum(Keys.imageQuality, d.imageQuality),
             connectTimeoutSeconds = preferences.readInt(Keys.connectTimeoutSeconds, d.connectTimeoutSeconds, SettingsValidation::isTimeout),
@@ -115,6 +104,24 @@ internal object SettingsPreferencesMapper {
             recordDetailViews = preferences[Keys.recordDetailViews] ?: d.recordDetailViews,
             autoCleanCacheInterval = preferences.readEnum(Keys.autoCleanCacheInterval, d.autoCleanCacheInterval),
         )
+    }
+
+    /**
+     * Custom routes are gone. Installs that still have one selected fall back to the default route,
+     * as do the legacy and image modes stored as CUSTOM (an unknown enum name reads as the default).
+     * Addresses that the synced or built-in list still offer stay selected.
+     */
+    private fun Preferences.readApiRouteAddress(synced: List<String>, default: String?): String? {
+        val stored = this[Keys.apiRouteAddress]
+            ?: return when (readEnum(Keys.apiRoutingMode, RoutingMode.ROUTE_1)) {
+                RoutingMode.NONE -> null
+                RoutingMode.ROUTE_1 -> defaultApiAddresses[0]
+                RoutingMode.ROUTE_2 -> defaultApiAddresses[1]
+                RoutingMode.ROUTE_3 -> defaultApiAddresses[2]
+            }
+        if (stored.isEmpty()) return null
+        val removedCustom = stored == this[Keys.legacyCustomApiIp]?.trim() && stored !in synced && stored !in defaultApiAddresses
+        return if (removedCustom) default else stored
     }
 
     private inline fun <reified T : Enum<T>> Preferences.readEnum(key: Preferences.Key<String>, default: T): T =

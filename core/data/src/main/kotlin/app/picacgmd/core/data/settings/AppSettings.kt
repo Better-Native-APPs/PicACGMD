@@ -1,6 +1,6 @@
 package app.picacgmd.core.data.settings
 
-enum class RoutingMode { NONE, ROUTE_1, ROUTE_2, ROUTE_3, CUSTOM }
+enum class RoutingMode { NONE, ROUTE_1, ROUTE_2, ROUTE_3 }
 
 val defaultApiAddresses: List<String> = listOf("172.67.7.24", "104.20.180.50", "172.67.208.169")
 enum class ImageQuality { ORIGINAL, LOW, MEDIUM, HIGH }
@@ -50,13 +50,11 @@ data class AppSettings(
     val authTokenUpdatedAt: Long? = null,
     /** Null uses system DNS; address identity is independent of the current list order. */
     val apiRouteAddress: String? = defaultApiAddresses.first(),
-    val customApiIp: String = "",
     val syncedApiAddresses: List<String> = emptyList(),
     val apiRoutesSyncedAt: Long? = null,
     // Original file servers by default: with a working proxy they are the fastest and most reliable;
     // the image 分流 hosts stay available in 设置 › 网络 for networks where the originals are blocked.
     val imageRoutingMode: RoutingMode = RoutingMode.NONE,
-    val customImageHost: String = "",
     val proxyUrl: String = "",
     val imageQuality: ImageQuality = ImageQuality.ORIGINAL,
     val connectTimeoutSeconds: Int = 15,

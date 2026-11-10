@@ -32,7 +32,6 @@ import app.picacgmd.core.network.PicaImage
 import app.picacgmd.core.network.PicaTransportException
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.comics.readMarkText
-import app.picacgmd.feature.routing.RouteKind
 import app.picacgmd.feature.routing.RoutePickerDialog
 import java.io.IOException
 import java.util.Locale
@@ -105,7 +104,7 @@ internal fun LoadFailure(failure: LoadState.Failed, onRetry: () -> Unit, modifie
     } else {
         ErrorState(onRetry = onRetry, modifier = modifier, description = failure.message)
     }
-    if (showRoutes) RoutePickerDialog(RouteKind.Api) { showRoutes = false }
+    if (showRoutes) RoutePickerDialog { showRoutes = false }
 }
 
 /**
