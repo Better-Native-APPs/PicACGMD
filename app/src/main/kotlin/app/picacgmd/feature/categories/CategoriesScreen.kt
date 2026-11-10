@@ -26,7 +26,6 @@ import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -61,6 +60,7 @@ import androidx.lifecycle.viewModelScope
 import coil3.compose.AsyncImage
 import app.picacgmd.R
 import app.picacgmd.core.data.settings.AppSettings
+import app.picacgmd.core.designsystem.component.AppSwitch
 import app.picacgmd.core.designsystem.component.LoadingState
 import app.picacgmd.core.designsystem.component.SectionHeader
 import app.picacgmd.core.domain.di.AppContainer
@@ -224,7 +224,7 @@ private fun ManageContent(
                 CategoryRow(category = category, handle = handle, dimmed = key in hiddenKeys) {
                     PinToggle(pinned = key in pinnedKeys, name = category.title, onPin = onPin)
                     val showLabel = stringResource(R.string.categories_show_on_home, category.title)
-                    Switch(
+                    AppSwitch(
                         checked = key !in hiddenKeys,
                         onCheckedChange = { onVisible(category.title, it) },
                         modifier = Modifier.semantics { contentDescription = showLabel },

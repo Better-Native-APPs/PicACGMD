@@ -1,5 +1,6 @@
 package app.picacgmd.feature.me
 
+import app.picacgmd.core.designsystem.component.AppSwitch
 import app.picacgmd.core.designsystem.window.secureDialogProperties
 
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -52,7 +53,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -476,7 +476,7 @@ private fun PunchCard(
             }
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("打开应用时自动打卡", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                Switch(checked = autoPunchIn, onCheckedChange = onAutoPunchIn)
+                AppSwitch(checked = autoPunchIn, onCheckedChange = onAutoPunchIn)
             }
         }
     }
