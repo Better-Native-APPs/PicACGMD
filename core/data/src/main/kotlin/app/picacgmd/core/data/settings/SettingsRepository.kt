@@ -43,14 +43,6 @@ class SettingsRepository(
         set(Keys.apiRouteAddress, address.orEmpty())
     }
 
-    suspend fun setCustomApiRoute(ip: String) {
-        require(ip.isNotBlank()) { "请填写分流 IP 地址" }
-        dataStore.edit { preferences ->
-            preferences[Keys.apiRouteAddress] = ip
-            preferences[Keys.customApiIp] = ip
-        }
-    }
-
     suspend fun setSyncedApiAddresses(addresses: List<String>, syncedAt: Long) {
         require(addresses.isNotEmpty() && addresses.all(String::isNotBlank)) { "未获取到分流地址" }
         dataStore.edit { preferences ->
@@ -59,22 +51,7 @@ class SettingsRepository(
         }
     }
 
-    suspend fun resetApiRoutes() {
-        dataStore.edit { preferences ->
-            preferences.remove(Keys.syncedApiAddresses)
-            preferences.remove(Keys.apiRoutesSyncedAt)
-        }
-    }
-
-    suspend fun setImageRouting(mode: RoutingMode, customHost: String? = null) {
-        dataStore.edit { preferences ->
-            require(mode != RoutingMode.CUSTOM || !(customHost ?: preferences[Keys.customImageHost]).isNullOrBlank()) {
-                "Custom image routing requires a host"
-            }
-            preferences[Keys.imageRoutingMode] = mode.name
-            if (customHost != null) preferences[Keys.customImageHost] = customHost
-        }
-    }
+    suspend fun setImageRouting(mode: RoutingMode) = setEnum(Keys.imageRoutingMode, mode)
 
     /** Empty disables the proxy; supported URL validation/testing belongs to the network/settings UI. */
     suspend fun setProxyUrl(value: String) = set(Keys.proxyUrl, value)

@@ -65,7 +65,7 @@ enum class SettingsPage(val title: String, val summary: String) {
     Browsing("列表与浏览", "加载方式、列数、封印、首页分类、功能入口"),
     Reading("阅读", "默认模式、操控、音量键、缩放、电子墨水屏"),
     Downloads("下载", "线程数 1–16、自动下载、仅 Wi-Fi"),
-    Network("网络", "分流、图片分流、分流同步、代理、超时"),
+    Network("网络", "分流、图片分流、代理、超时"),
     Privacy("隐私与安全", "应用锁、防截屏、浏览记录"),
     Data("数据与存储", "存储占用、清理缓存、自动清理"),
     About("关于", "版本、开源许可、隐私说明、使用说明"),
@@ -177,8 +177,7 @@ private val SearchIndex: List<SettingsEntry> = buildList {
     )
     add(
         SettingsPage.Network, "分流",
-        "分流" to "切换分流、测速、自定义 IP", "图片分流" to "切换图片服务器、测速、自定义地址",
-        "分流同步" to "获取最新分流地址、恢复内置分流", "用 API 加载图片" to "图片分流不可用时启用",
+        "分流" to "切换分流和图片分流、测速、从官方同步", "用 API 加载图片" to "图片分流不可用时启用",
     )
     add(
         SettingsPage.Network, "代理服务器",

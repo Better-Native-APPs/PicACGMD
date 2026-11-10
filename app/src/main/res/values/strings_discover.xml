@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Home quick route entry -->
-    <string name="discover_route">分流</string>
     <string name="discover_route_switch">切换分流</string>
-    <string name="discover_route_current">当前分流：%1$s，点按切换</string>
 
     <!-- 发现：状态 -->
     <string name="discover_state_offline_banner">网络不可用，显示上次内容</string>

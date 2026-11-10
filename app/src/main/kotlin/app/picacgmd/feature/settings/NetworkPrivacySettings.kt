@@ -13,14 +13,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
-import androidx.compose.material.icons.outlined.Dns
-import androidx.compose.material.icons.outlined.Image
-import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material3.Icon
-import app.picacgmd.feature.routing.RouteKind
 import app.picacgmd.feature.routing.RoutePickerDialog
-import app.picacgmd.feature.routing.RouteSyncDialog
-import app.picacgmd.feature.routing.formatSyncTime
 import app.picacgmd.feature.routing.rememberRouteSummary
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -54,7 +49,7 @@ private enum class NetworkDialog { Proxy, Quality, ConnectTimeout, ReadTimeout, 
 private val Timeouts = listOf(10, 15, 30, 60)
 
 /**
- * Board 27 网络: route pickers (分流 / 图片分流 / 分流同步), proxy, image quality,
+ * Board 27 网络: the route picker (分流 and 图片分流 together, with the official sync), proxy, image quality,
  * timeouts and time offset. A configured proxy carries every request, so routing no longer applies.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -66,8 +61,7 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val writer = remember(container) { SettingsWriter(container.settingsRepository, scope, snackbar) }
     val settings = rememberAppSettings()
     val routes = rememberRouteSummary()
-    var picker by rememberSaveable { mutableStateOf<RouteKind?>(null) }
-    var syncing by rememberSaveable { mutableStateOf(false) }
+    var picker by rememberSaveable { mutableStateOf(false) }
     var dialog by rememberSaveable { mutableStateOf<NetworkDialog?>(null) }
 
     SettingsPageScaffold(SettingsPage.Network.title, onBack, snackbar, modifier) {
@@ -86,26 +80,9 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
             SettingsGroup("分流") {
                 row { shapes ->
                     SettingsNavRow(
-                        shapes, "分流", { picker = RouteKind.Api },
-                        summary = routes?.apiAddress ?: "直连哔咔服务器",
-                        value = routes?.apiLabel,
-                        leading = { Icon(Icons.Outlined.Dns, contentDescription = null) },
-                    )
-                }
-                row { shapes ->
-                    SettingsNavRow(
-                        shapes, "图片分流", { picker = RouteKind.Image },
-                        summary = routes?.imageAddress?.removePrefix("https://"),
-                        value = routes?.imageLabel,
-                        leading = { Icon(Icons.Outlined.Image, contentDescription = null) },
-                    )
-                }
-                row { shapes ->
-                    SettingsNavRow(
-                        shapes, "分流同步", { syncing = true },
-                        summary = routes?.lastSyncedAtMillis?.let { "上次同步：${formatSyncTime(it)}" }
-                            ?: "使用内置分流列表",
-                        leading = { Icon(Icons.Outlined.Sync, contentDescription = null) },
+                        shapes, "分流", { picker = true },
+                        summary = routes?.line ?: "分流和图片分流",
+                        leading = { Icon(Icons.Outlined.Route, contentDescription = null) },
                     )
                 }
                 row { shapes ->
@@ -173,8 +150,7 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
         )
         null -> Unit
     }
-    picker?.let { RoutePickerDialog(it) { picker = null } }
-    if (syncing) RouteSyncDialog(onDismiss = { syncing = false })
+    if (picker) RoutePickerDialog { picker = false }
 }
 
 private fun offsetLabel(hours: Int) = if (hours > 0) "+$hours 小时" else "$hours 小时"

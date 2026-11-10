@@ -38,73 +38,59 @@ class RoutingRepositoryTest {
     }
 
     @Test
-    fun customIsItsOwnOptionAndMissingSyncedSelectionIsRetained() {
-        val settings = AppSettings(apiRouteAddress = "203.0.113.9", customApiIp = "203.0.113.8")
+    fun selectionMissingFromTheListIsRetainedAsItsOwnOption() {
+        val settings = AppSettings(apiRouteAddress = "203.0.113.9")
         val state = apiRouteState(settings)
         assertEquals(RouteSource.SAVED, state.selected.source)
         assertEquals("203.0.113.9", state.selected.address)
-        assertEquals("自定义", state.options.last().label)
-        assertEquals(RouteSource.CUSTOM, state.options.last().source)
-        assertEquals("203.0.113.8", state.customIp)
-        assertEquals(RouteSource.CUSTOM, apiRouteState(settings.copy(apiRouteAddress = "203.0.113.8")).selected.source)
+        assertEquals("分流 4", state.selected.label)
+        assertEquals(state.options.size, state.options.map { it.value }.distinct().size)
         assertEquals(ApiRoute.None, apiRouteState(settings.copy(apiRouteAddress = null)).selected.value)
     }
 
     @Test
-    fun customAddressMatchingACatalogueEntryHasOnlyOneProbeAndRow() {
-        val address = defaultApiAddresses.first()
-        val state = apiRouteState(AppSettings(
-            apiRouteAddress = address, customApiIp = address, syncedApiAddresses = listOf(address),
-        ))
-        assertEquals(state.options.size, state.options.map { it.value }.distinct().size)
-        assertEquals(RouteSource.CUSTOM, state.selected.source)
-        assertEquals("自定义", state.selected.label)
-    }
-
-    @Test
     fun imageOptionsHaveTheSameShapeAndKeepTheFixedOrder() {
-        assertEquals(4, imageRouteState(AppSettings.DEFAULT).options.size)
-        val state = imageRouteState(AppSettings(customImageHost = "images.example.com"))
-        assertEquals(listOf(ImageServer.Original, ImageServer.Split1, ImageServer.Split2, ImageServer.Split3, ImageServer.Custom("https://images.example.com")), state.options.map { it.value })
-        assertEquals(listOf("不分流", "分流 1", "分流 2", "分流 3", "自定义"), state.options.map { it.label })
+        val state = imageRouteState(AppSettings.DEFAULT)
+        assertEquals(listOf(ImageServer.Original, ImageServer.Split1, ImageServer.Split2, ImageServer.Split3), state.options.map { it.value })
+        assertEquals(listOf("不分流", "分流 1", "分流 2", "分流 3"), state.options.map { it.label })
+        assertEquals(listOf(RouteSource.SYSTEM, RouteSource.BUILT_IN, RouteSource.BUILT_IN, RouteSource.BUILT_IN), state.options.map { it.source })
         assertEquals("https://storage1.picacomic.com", state.selected.address)
         assertEquals(ImageServer.Original, state.selected.value)
+        assertEquals(ImageServer.Split2, imageRouteState(AppSettings(imageRoutingMode = RoutingMode.ROUTE_2)).selected.value)
     }
 
     @Test
-    fun blankPersistedCustomImageHostResolvesToOriginalWithoutPlaceholder() {
-        val settings = AppSettings(imageRoutingMode = RoutingMode.CUSTOM, customImageHost = "  ")
-        assertEquals(ImageServer.Original, settings.toImageServer())
-        assertEquals(ImageServer.Original, NetworkConfiguration.from(settings).imageServer)
-        val state = imageRouteState(settings)
-        assertEquals(4, state.options.size)
-        assertEquals(ImageServer.Original, state.selected.value)
-    }
-
-    @Test
-    fun syncPassesProxyPersistsValidAddressesAndResetDoesNotMoveSelection() = runTest {
+    fun syncPassesProxyPersistsValidAddressesAndALaterSyncDoesNotMoveSelection() = runTest {
         val settings = SettingsRepository(RouteMemoryStore())
         val provider = NetworkConfigProvider(settings.settings, backgroundScope)
         try {
             settings.setProxyUrl("http://127.0.0.1:8888")
             var receivedProxy: String? = null
+            var served = listOf("104.19.53.76", "invalid", "104.19.53.76", defaultApiAddresses[0])
+            var now = 456L
             val repository = RoutingRepository(settings, provider, fetchAddresses = {
                 receivedProxy = it
-                listOf("104.19.53.76", "invalid", "104.19.53.76", defaultApiAddresses[0])
-            }, nowMillis = { 456L })
+                served
+            }, nowMillis = { now })
             repository.syncApiRoutes()
             assertEquals("http://127.0.0.1:8888", receivedProxy)
             assertEquals(listOf("104.19.53.76", "172.67.7.24"), settings.settings.first().syncedApiAddresses)
             assertEquals(456L, repository.apiRoutes.first().lastSyncedAtMillis)
             repository.selectApiRoute(ApiRoute.Address("104.19.53.76"))
-            repository.resetApiRoutes()
+            assertEquals(RouteSource.SERVER, repository.apiRoutes.first().selected.source)
+            // The server stops listing the selected address: it stays selected until the user moves on.
+            served = listOf(defaultApiAddresses[1])
+            now = 789L
+            repository.syncApiRoutes()
             val state = repository.apiRoutes.first()
-            assertNull(state.lastSyncedAtMillis)
+            assertEquals(789L, state.lastSyncedAtMillis)
             assertEquals("104.19.53.76", state.selected.address)
             assertEquals(RouteSource.SAVED, state.selected.source)
-            assertEquals(emptyList(), settings.settings.first().syncedApiAddresses)
             repository.selectApiRoute(ApiRoute.Address(defaultApiAddresses[0]))
-            assertEquals(defaultApiAddresses, repository.apiRoutes.first().options.mapNotNull { it.address })
+            assertEquals(
+                listOf(defaultApiAddresses[1], defaultApiAddresses[0], defaultApiAddresses[2]),
+                repository.apiRoutes.first().options.mapNotNull { it.address },
+            )
         } finally {
             provider.close()
         }
@@ -130,27 +116,24 @@ class RoutingRepositoryTest {
     }
 
     @Test
-    fun customValidationAndSelectionsUseTheSameValuesAsTransports() = runTest {
+    fun selectionsAreValidatedAndUseTheSameValuesAsTransports() = runTest {
         val settings = SettingsRepository(RouteMemoryStore())
         val provider = NetworkConfigProvider(settings.settings, backgroundScope)
         val repository = RoutingRepository(settings, provider)
         try {
             val before = settings.settings.first()
-            assertFailsWith<IllegalArgumentException> { repository.setCustomApiRoute("example.com") }
-            assertFailsWith<IllegalArgumentException> { repository.setCustomImageHost("https://user:pass@images.example.com") }
+            assertFailsWith<IllegalArgumentException> { repository.selectApiRoute(ApiRoute.Address("example.com")) }
             assertEquals(before, settings.settings.first())
-            repository.setCustomApiRoute(" 203.0.113.8 ")
-            assertEquals("203.0.113.8", repository.apiRoutes.first().selected.address)
+            repository.selectApiRoute(ApiRoute.Address(" 104.20.180.50 "))
+            assertEquals("104.20.180.50", repository.apiRoutes.first().selected.address)
+            assertEquals(ApiRoute.Address("104.20.180.50"), NetworkConfiguration.from(settings.settings.first()).networkConfig.apiRoute)
             repository.selectApiRoute(ApiRoute.None)
-            assertEquals("203.0.113.8", repository.apiRoutes.first().customIp)
             assertEquals(ApiRoute.None, NetworkConfiguration.from(settings.settings.first()).networkConfig.apiRoute)
-            repository.setCustomImageHost("images.example.com")
-            val custom = ImageServer.Custom("https://images.example.com")
-            assertEquals(custom, repository.imageRoutes.first().selected.value)
-            assertEquals(custom, NetworkConfiguration.from(settings.settings.first()).imageServer)
             repository.selectImageRoute(ImageServer.Split3)
             assertEquals(ImageServer.Split3, repository.imageRoutes.first().selected.value)
-            assertEquals("https://images.example.com", repository.imageRoutes.first().customHost)
+            assertEquals(ImageServer.Split3, NetworkConfiguration.from(settings.settings.first()).imageServer)
+            repository.selectImageRoute(ImageServer.Original)
+            assertEquals(ImageServer.Original, NetworkConfiguration.from(settings.settings.first()).imageServer)
         } finally {
             provider.close()
         }
@@ -166,12 +149,13 @@ class RoutingRepositoryTest {
     }
 
     @Test
-    fun failedApiSelectionFallsBackToFastestReachableWithoutChangingRememberedCustomRoute() = runTest {
+    fun failedApiSelectionFallsBackToFastestReachableAndDropsTheUnlistedAddress() = runTest {
         val settings = SettingsRepository(RouteMemoryStore())
         val provider = NetworkConfigProvider(settings.settings, backgroundScope)
         val repository = RoutingRepository(settings, provider)
         try {
-            repository.setCustomApiRoute("203.0.113.8")
+            repository.selectApiRoute(ApiRoute.Address("203.0.113.8"))
+            assertEquals(RouteSource.SAVED, repository.apiRoutes.first().selected.source)
             val fastest = ApiRoute.Address(defaultApiAddresses[1])
             val result = repository.fallbackApiRoute(mapOf(
                 ApiRoute.Address("203.0.113.8") to null,
@@ -181,7 +165,7 @@ class RoutingRepositoryTest {
             ))
             assertEquals(fastest, result?.value)
             assertEquals(fastest, repository.apiRoutes.first().selected.value)
-            assertEquals("203.0.113.8", repository.apiRoutes.first().customIp)
+            assertEquals(defaultApiAddresses, repository.apiRoutes.first().options.mapNotNull { it.address })
         } finally {
             provider.close()
         }
