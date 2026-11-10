@@ -43,7 +43,7 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import app.picacgmd.core.designsystem.component.ExpressivePullToRefreshBox
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -78,7 +78,6 @@ import kotlinx.coroutines.delay
 private val ShelfBottomPadding = PaddingValues(bottom = 112.dp)
 
 /** 收藏: server favourites, newest/oldest sort, no page cap (board 21). */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun OnlineFavouritesView(
     viewModel: BookshelfViewModel,
@@ -89,67 +88,57 @@ internal fun OnlineFavouritesView(
 ) {
     val state by viewModel.onlinePager.state.collectAsStateWithLifecycle()
     val sort by viewModel.sort.collectAsStateWithLifecycle()
-    var refreshing by remember { mutableStateOf(false) }
-    if (refreshing && !state.loading) refreshing = false
-    PullToRefreshBox(
-        isRefreshing = refreshing && state.loading,
-        onRefresh = {
-            refreshing = true
-            viewModel.onlinePager.reload()
-        },
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        ComicResults(
-            state = state,
-            layout = settings.listLayout,
-            columnCount = settings.listColumnCount,
-            paginationMode = settings.paginationMode,
-            selection = selection,
-            onSelectionChange = onSelectionChange,
-            onComicClick = onOpenComic,
-            onLoadNext = viewModel.onlinePager::loadNext,
-            onRetryAppend = viewModel.onlinePager::retryAppend,
-            onRetry = viewModel.onlinePager::reload,
-            onJumpTo = viewModel.onlinePager::jumpTo,
-            contentPadding = ShelfBottomPadding,
-            emptyTitle = "还没有收藏",
-            emptyDescription = "收藏会同步到哔咔账号",
-            header = {
-                Row(
-                    Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        if (state.total > 0) "共 ${state.total} 本" else "",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f),
-                    )
-                    var menu by remember { mutableStateOf(false) }
-                    Box {
-                        TextButton(onClick = { menu = true }) {
-                            Icon(Icons.AutoMirrored.Outlined.Sort, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(if (sort == ComicSort.OLDEST) "旧到新" else "新到旧")
-                        }
-                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, properties = securePopupProperties(focusable = true)) {
-                            listOf(ComicSort.NEWEST to "新到旧", ComicSort.OLDEST to "旧到新").forEach { (value, label) ->
-                                DropdownMenuItem(
-                                    text = { Text(label) },
-                                    onClick = { menu = false; viewModel.setSort(value) },
-                                    trailingIcon = if (value == sort) {
-                                        { Icon(Icons.Outlined.Check, contentDescription = "当前排序") }
-                                    } else {
-                                        null
-                                    },
-                                )
-                            }
+    // ComicResults owns the pull to refresh; wrapping it in a second one drew two indicators.
+    ComicResults(
+        state = state,
+        layout = settings.listLayout,
+        columnCount = settings.listColumnCount,
+        paginationMode = settings.paginationMode,
+        selection = selection,
+        onSelectionChange = onSelectionChange,
+        onComicClick = onOpenComic,
+        onLoadNext = viewModel.onlinePager::loadNext,
+        onRetryAppend = viewModel.onlinePager::retryAppend,
+        onRetry = viewModel.onlinePager::reload,
+        onJumpTo = viewModel.onlinePager::jumpTo,
+        contentPadding = ShelfBottomPadding,
+        emptyTitle = "还没有收藏",
+        emptyDescription = "收藏会同步到哔咔账号",
+        header = {
+            Row(
+                Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    if (state.total > 0) "共 ${state.total} 本" else "",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                var menu by remember { mutableStateOf(false) }
+                Box {
+                    TextButton(onClick = { menu = true }) {
+                        Icon(Icons.AutoMirrored.Outlined.Sort, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(if (sort == ComicSort.OLDEST) "旧到新" else "新到旧")
+                    }
+                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, properties = securePopupProperties(focusable = true)) {
+                        listOf(ComicSort.NEWEST to "新到旧", ComicSort.OLDEST to "旧到新").forEach { (value, label) ->
+                            DropdownMenuItem(
+                                text = { Text(label) },
+                                onClick = { menu = false; viewModel.setSort(value) },
+                                trailingIcon = if (value == sort) {
+                                    { Icon(Icons.Outlined.Check, contentDescription = "当前排序") }
+                                } else {
+                                    null
+                                },
+                            )
                         }
                     }
                 }
-            },
-        )
-    }
+            }
+        },
+    )
 }
 
 /** 追更: updated first with 「新 N 话」; pull to check every subscription (board 22). */
@@ -166,7 +155,7 @@ internal fun FollowView(
     val sorted = remember(subscriptions) {
         subscriptions.orEmpty().sortedWith(compareByDescending<Subscription> { it.unseen }.thenByDescending { it.updatedAt })
     }
-    PullToRefreshBox(isRefreshing = false, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
+    ExpressivePullToRefreshBox(isRefreshing = false, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = ShelfBottomPadding) {
             item {
                 FollowHeader(sorted = sorted, onRefresh = onRefresh)

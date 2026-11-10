@@ -31,7 +31,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import app.picacgmd.core.designsystem.component.ExpressivePullToRefreshBox
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -147,7 +147,7 @@ fun RankingsScreen(
         Column(Modifier.padding(padding).fillMaxSize()) {
             RangeSelector(selected = viewModel.tab, onSelect = viewModel::select)
             val tab = viewModel.tab
-            PullToRefreshBox(
+            ExpressivePullToRefreshBox(
                 isRefreshing = viewModel.refreshingTab == tab,
                 onRefresh = viewModel::refresh,
                 modifier = Modifier.weight(1f).fillMaxWidth(),

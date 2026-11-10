@@ -18,7 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import app.picacgmd.core.designsystem.component.ExpressivePullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,7 +60,8 @@ abstract class ReloadableViewModel<T> : ViewModel() {
         if (job?.isActive == true) return
         isPulling = pull
         isReloading = true
-        if (state !is LoadState.Ready) state = LoadState.Loading
+        // A pull shows its own indicator over whatever is on screen, so it never adds the loading pane.
+        if (state !is LoadState.Ready && !pull) state = LoadState.Loading
         job = viewModelScope.launch {
             val result = loadCatching { fetch(force) }
             if (result is LoadState.Ready || state !is LoadState.Ready) state = result
@@ -107,7 +108,7 @@ fun RandomScreen(
             )
         },
     ) { padding ->
-        PullToRefreshBox(
+        ExpressivePullToRefreshBox(
             isRefreshing = viewModel.isPulling,
             onRefresh = { viewModel.load(force = true, pull = true) },
             modifier = Modifier.padding(padding).fillMaxSize(),
