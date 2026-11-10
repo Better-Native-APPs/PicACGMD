@@ -19,6 +19,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import app.picacgmd.core.designsystem.component.ExpressivePullToRefreshBox
+import app.picacgmd.core.designsystem.component.rememberCoverListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -120,7 +121,7 @@ fun RandomScreen(
                     ScrollableStatus { EmptyState(title = stringResource(R.string.random_empty)) }
                 } else {
                     val readMarks = rememberReadMarks(remember(state.data.items) { state.data.items.map(ComicSimple::id) })
-                    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 96.dp)) {
+                    LazyColumn(Modifier.fillMaxSize(), state = rememberCoverListState(), contentPadding = PaddingValues(bottom = 96.dp)) {
                         items(state.data.items, key = { it.id }) { comic ->
                             ComicSimpleRow(
                                 comic = comic,

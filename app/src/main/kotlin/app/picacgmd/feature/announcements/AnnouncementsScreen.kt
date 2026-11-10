@@ -42,12 +42,11 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
+import app.picacgmd.core.designsystem.component.TonalAsyncImage
 import app.picacgmd.core.designsystem.component.EmptyState
 import app.picacgmd.core.designsystem.component.ErrorState
 import app.picacgmd.core.network.Announcement
@@ -232,10 +231,9 @@ private fun AnnouncementCard(announcement: Announcement, onClick: () -> Unit) {
                 }
             }
             if (thumb != null) {
-                AsyncImage(
+                TonalAsyncImage(
                     model = thumb,
                     contentDescription = null,
-                    contentScale = ContentScale.Crop,
                     modifier = Modifier.size(72.dp).clip(MaterialTheme.shapes.medium),
                 )
             }
@@ -263,10 +261,9 @@ private fun AnnouncementDetail(announcement: Announcement, onBack: () -> Unit) {
                 Text(it, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))
             }
             if (thumb != null) {
-                AsyncImage(
+                TonalAsyncImage(
                     model = thumb,
                     contentDescription = null,
-                    contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .padding(top = 16.dp)
                         .fillMaxWidth()

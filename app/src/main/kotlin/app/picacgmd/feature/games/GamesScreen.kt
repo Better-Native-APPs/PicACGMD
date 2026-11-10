@@ -52,7 +52,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import coil3.compose.AsyncImage
+import app.picacgmd.core.designsystem.component.TonalAsyncImage
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.data.settings.PaginationMode
 import app.picacgmd.core.designsystem.component.StatusPane
@@ -182,9 +182,7 @@ internal fun rememberGameImageUrl(image: PicaImage?): String? {
 @Composable
 internal fun GameImage(image: PicaImage?, description: String?, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Crop) {
     val url = rememberGameImageUrl(image)
-    Surface(modifier, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-        AsyncImage(model = url, contentDescription = description, modifier = Modifier.fillMaxSize(), contentScale = contentScale)
-    }
+    TonalAsyncImage(model = url, contentDescription = description, modifier = modifier, contentScale = contentScale)
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)

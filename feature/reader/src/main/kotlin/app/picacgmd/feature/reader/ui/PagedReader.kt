@@ -270,6 +270,7 @@ internal fun PagedReader(
             size = preloadSize,
             skip = slots.pagesAround(currentSlot, PAGES_BEYOND_VIEWPORT),
             reloads = host.reloads,
+            loadProgress = host.loadProgress,
             pagesPerSlot = slots.perSlot,
         )
         if (upcomingPages != null && memoryBudget.preloadNextChapterImages) {

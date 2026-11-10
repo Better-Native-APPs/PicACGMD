@@ -44,6 +44,7 @@ import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import app.picacgmd.core.designsystem.component.ExpressivePullToRefreshBox
+import app.picacgmd.core.designsystem.component.rememberCoverListState
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -156,7 +157,7 @@ internal fun FollowView(
         subscriptions.orEmpty().sortedWith(compareByDescending<Subscription> { it.unseen }.thenByDescending { it.updatedAt })
     }
     ExpressivePullToRefreshBox(isRefreshing = false, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = ShelfBottomPadding) {
+        LazyColumn(Modifier.fillMaxSize(), state = rememberCoverListState(), contentPadding = ShelfBottomPadding) {
             item {
                 FollowHeader(sorted = sorted, onRefresh = onRefresh)
             }

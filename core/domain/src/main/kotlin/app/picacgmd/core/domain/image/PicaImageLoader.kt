@@ -5,6 +5,7 @@ import android.content.pm.ApplicationInfo
 import coil3.ImageLoader
 import coil3.disk.DiskCache
 import coil3.map.Mapper
+import coil3.network.DeDupeConcurrentRequestStrategy
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.Options
 import coil3.request.allowHardware
@@ -37,7 +38,15 @@ fun createImageLoader(
         .apply { if (debuggable) logger(DebugLogger()) }
         .components {
             add(PicaImageMapper(networkConfigProvider))
-            add(OkHttpNetworkFetcherFactory(callFactory = { imageCalls }))
+            add(
+                OkHttpNetworkFetcherFactory(
+                    callFactory = { imageCalls },
+                    // Two requests for one picture share one download: the second waits for the first
+                    // and reads its result from the disk cache. A page or cover that is already being
+                    // fetched ahead is therefore never downloaded twice when it comes on screen.
+                    concurrentRequestStrategy = { DeDupeConcurrentRequestStrategy() },
+                ),
+            )
         }
         .diskCache {
             DiskCache.Builder()

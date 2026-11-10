@@ -32,6 +32,29 @@ class PageMathTest {
     }
 
     @Test
+    fun preloadsLeavingTheWindowAreCancelled() {
+        // Reading moved from page 5 to page 9: nothing loaded around page 5 is needed any more.
+        val wanted = preloadOrder(current = 9, pageCount = 20, ahead = 2, behind = 1)
+        assertEquals(listOf(5, 6, 7, 4), preloadsToCancel(listOf(5, 6, 7, 4), wanted - 9, onScreen = 9..9))
+    }
+
+    @Test
+    fun aPreloadWhosePageCameOnScreenIsHandedOverNotCancelled() {
+        // Page 6 was loading in the background when the reader turned to it. It is no longer wanted
+        // (it is on screen and loads itself), but its download carries on for the page to pick up.
+        val inflight = listOf(5, 6, 7, 4)
+        val wanted = preloadOrder(current = 6, pageCount = 20, ahead = 2, behind = 1).filter { it !in 5..7 }
+        assertEquals(listOf(8), wanted)
+        assertEquals(listOf(4), preloadsToCancel(inflight, wanted, onScreen = 5..7))
+    }
+
+    @Test
+    fun nothingIsCancelledWhileEverythingIsStillWanted() {
+        assertEquals(emptyList(), preloadsToCancel(listOf(6, 7, 4), listOf(6, 7, 4), onScreen = 5..5))
+        assertEquals(emptyList(), preloadsToCancel(emptyList(), listOf(6, 7), onScreen = IntRange.EMPTY))
+    }
+
+    @Test
     fun stripCurrentPageIsTheItemUnderTheProbeLine() {
         val items = listOf(StripItem(3, -400, 600), StripItem(4, 200, 900), StripItem(5, 1100, 900))
         assertEquals(4, stripCurrentPage(items, viewportSize = 1600, atStart = false, atEnd = false))

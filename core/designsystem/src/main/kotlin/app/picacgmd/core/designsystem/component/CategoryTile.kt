@@ -46,7 +46,8 @@ private val CategoryScrim = Brush.verticalGradient(
 /**
  * Category tile of the discover grid (board 04): the category thumbnail behind a bottom scrim with
  * the name in the lower-left corner. Without a thumbnail it falls back to a tonal container color
- * picked from the name, with the name in the matching on-container color.
+ * picked from the name, with the name in the matching on-container color; while the thumbnail is on
+ * its way the [loadingSheen] passes over that color.
  *
  * Width comes from the grid cell; height defaults to [CategoryTileDefaults.Height] unless
  * [modifier] sets one.
@@ -60,6 +61,7 @@ fun CategoryTile(
     modifier: Modifier = Modifier,
 ) {
     var loaded by remember(imageUrl) { mutableStateOf(false) }
+    var failed by remember(imageUrl) { mutableStateOf(false) }
     val tonal = tonalPairFor(name)
     val effects = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
     val scrimAlpha by animateFloatAsState(if (loaded) 1f else 0f, effects, label = "categoryScrim")
@@ -73,6 +75,10 @@ fun CategoryTile(
             .height(CategoryTileDefaults.Height)
             .clip(MaterialTheme.shapes.largeIncreased)
             .background(tonal.container)
+            .loadingSheen(
+                active = !imageUrl.isNullOrEmpty() && !loaded && !failed,
+                highlight = tonal.content.copy(alpha = 0.10f),
+            )
             .clickable(onClick = onClick, role = Role.Button),
     ) {
         if (!imageUrl.isNullOrEmpty()) {
@@ -80,8 +86,8 @@ fun CategoryTile(
                 model = imageUrl,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                onSuccess = { loaded = true },
-                onError = { loaded = false },
+                onSuccess = { loaded = true; failed = false },
+                onError = { loaded = false; failed = true },
                 modifier = Modifier.matchParentSize(),
             )
         }

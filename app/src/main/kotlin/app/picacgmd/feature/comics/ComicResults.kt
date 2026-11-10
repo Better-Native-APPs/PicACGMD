@@ -27,7 +27,6 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -70,6 +69,7 @@ import app.picacgmd.core.designsystem.component.ComicListItem
 import app.picacgmd.core.designsystem.component.EmptyState
 import app.picacgmd.core.designsystem.component.ErrorState
 import app.picacgmd.core.designsystem.component.SkeletonBlock
+import app.picacgmd.core.designsystem.component.rememberCoverGridState
 import app.picacgmd.core.designsystem.component.StatusPane
 import app.picacgmd.core.network.ComicSimple
 import app.picacgmd.core.network.ComicSort
@@ -133,7 +133,7 @@ fun ComicResults(
     onRetry: () -> Unit,
     onJumpTo: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    gridState: LazyGridState = rememberLazyGridState(),
+    gridState: LazyGridState = rememberCoverGridState(),
     contentPadding: PaddingValues = PaddingValues(bottom = 16.dp),
     emptyTitle: String = stringResource(R.string.comics_empty_title),
     emptyDescription: String? = null,
