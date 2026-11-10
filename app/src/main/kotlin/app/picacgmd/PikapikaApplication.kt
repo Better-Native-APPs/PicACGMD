@@ -25,7 +25,8 @@ class PikapikaApplication : Application(), DownloadManagerOwner {
             imageUrlProvider = appContainer.networkConfigProvider::imageUrl,
         )
     }
-    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    /** Outlives every screen; use for work that must finish even if the UI is swapped out (e.g. by the app lock). */
+    internal val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
         super.onCreate()
