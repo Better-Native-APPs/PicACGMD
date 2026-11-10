@@ -28,7 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import app.picacgmd.core.designsystem.component.ExpressivePullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -123,7 +123,7 @@ fun DiscoverScreen(
             actionLabel = stringResource(R.string.discover_state_retry),
             onAction = onRetry,
         )
-        PullToRefreshBox(
+        ExpressivePullToRefreshBox(
             isRefreshing = isRefreshing,
             onRefresh = onRefresh,
             modifier = Modifier.weight(1f).fillMaxWidth(),
