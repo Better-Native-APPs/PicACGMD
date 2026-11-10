@@ -36,6 +36,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -532,15 +533,24 @@ fun ReaderScreen(
                 ),
             )
 
-            // Full-screen reading can hide the tools, but never the way back out of the page.
-            if (!controlsShown) {
-                Surface(
-                    modifier = Modifier.align(Alignment.TopStart)
-                        .windowInsetsPadding(chromeInsets.only(WindowInsetsSides.Top + WindowInsetsSides.Start))
-                        .padding(start = 12.dp, top = TopCapsuleGap),
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                ) { BackButton(onBack) }
+            // 全屏 shows the pages and nothing over them (2026-11-10): no back button. The system back
+            // gesture still leaves the reader, and bringing the controls back brings their back button.
+            // Only a chapter that is slow to arrive gets one after a moment, because an empty screen
+            // has nothing to tap for the controls; it goes again as soon as the pages are there.
+            if (!controlsShown && ready == null) {
+                val waitedLong by produceState(false) {
+                    delay(FULLSCREEN_LOADING_BACK_DELAY_MILLIS)
+                    value = true
+                }
+                if (waitedLong) {
+                    Surface(
+                        modifier = Modifier.align(Alignment.TopStart)
+                            .windowInsetsPadding(chromeInsets.only(WindowInsetsSides.Top + WindowInsetsSides.Start))
+                            .padding(start = 12.dp, top = TopCapsuleGap),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    ) { BackButton(onBack) }
+                }
             }
 
             TapZoneOverlay(
@@ -642,6 +652,9 @@ fun ReaderScreen(
         }
     }
 }
+
+/** How long a chapter may stay loading in 全屏 before the lone back button is offered. */
+private const val FULLSCREEN_LOADING_BACK_DELAY_MILLIS = 1_500L
 
 /** Below the top capsule while it is on screen; otherwise [resting] below the top of the screen. */
 private fun hintTopPadding(controlsShown: Boolean, resting: Dp): Dp =
