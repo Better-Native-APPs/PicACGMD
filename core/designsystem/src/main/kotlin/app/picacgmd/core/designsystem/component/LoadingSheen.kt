@@ -12,6 +12,7 @@ import androidx.compose.ui.node.DrawModifierNode
 import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.node.invalidateDraw
 import androidx.compose.ui.platform.InspectorInfo
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -50,6 +51,18 @@ internal fun sheenSweep(frameMillis: Long): Float? {
 internal fun sheenAppear(waitedMillis: Float): Float =
     ((waitedMillis - SheenDelayMillis) / SheenFadeInMillis).coerceIn(0f, 1f)
 
+/**
+ * How long nothing has to be drawn from [frameMillis] on, for a placeholder that has waited
+ * [waitedMillis]: until it may first appear, or until the next sweep starts. 0 while the band is
+ * on screen.
+ */
+internal fun sheenIdleMillis(frameMillis: Long, waitedMillis: Float): Long {
+    if (waitedMillis <= SheenDelayMillis) return (SheenDelayMillis - waitedMillis).toLong() + 1
+    if (sheenSweep(frameMillis) != null) return 0
+    val cycle = SheenSweepMillis + SheenRestMillis
+    return cycle - Math.floorMod(frameMillis, cycle)
+}
+
 private data class LoadingSheenElement(val highlight: Color) : ModifierNodeElement<LoadingSheenNode>() {
     override fun create() = LoadingSheenNode(highlight)
 
@@ -81,11 +94,14 @@ private class LoadingSheenNode(var highlight: Color) : Modifier.Node(), DrawModi
                     if (attachedAtNanos == Long.MIN_VALUE) attachedAtNanos = now
                     frameNanos = now
                 }
-                val visible = sheenAppear((frameNanos - attachedAtNanos) / 1e6f) > 0f &&
-                    sheenSweep(frameNanos / 1_000_000) != null
-                // One more frame after the band left wipes it; the rest draws nothing.
+                val waited = (frameNanos - attachedAtNanos) / 1e6f
+                val idle = sheenIdleMillis(frameNanos / 1_000_000, waited)
+                val visible = idle == 0L
+                // One more frame after the band left wipes it.
                 if (visible || drawn) invalidateDraw()
                 drawn = visible
+                // Asleep until there is something to draw again: no frame is asked for meanwhile.
+                if (!visible) delay(idle)
             }
         }
     }

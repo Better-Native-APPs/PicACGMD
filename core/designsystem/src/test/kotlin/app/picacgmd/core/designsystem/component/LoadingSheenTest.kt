@@ -46,4 +46,17 @@ class LoadingSheenTest {
         assertEquals(1f, sheenAppear(SheenDelayMillis + SheenFadeInMillis))
         assertEquals(1f, sheenAppear(60_000f))
     }
+
+    @Test
+    fun nothingIsDrawnBeforeTheDelayOrBetweenSweeps() {
+        // Not yet due: asleep until the delay has passed, wherever the shared sweep is.
+        assertEquals(SheenDelayMillis.toLong() + 1, sheenIdleMillis(frameMillis = 300, waitedMillis = 0f))
+        assertEquals(21, sheenIdleMillis(frameMillis = 300, waitedMillis = 200f))
+        // Due and mid-sweep: draw every frame.
+        assertEquals(0, sheenIdleMillis(frameMillis = 300, waitedMillis = 5_000f))
+        // Due but resting: asleep exactly until the next sweep starts.
+        assertEquals(SheenRestMillis, sheenIdleMillis(frameMillis = SheenSweepMillis, waitedMillis = 5_000f))
+        assertEquals(1, sheenIdleMillis(frameMillis = cycle - 1, waitedMillis = 5_000f))
+        assertEquals(0, sheenIdleMillis(frameMillis = cycle, waitedMillis = 5_000f))
+    }
 }
