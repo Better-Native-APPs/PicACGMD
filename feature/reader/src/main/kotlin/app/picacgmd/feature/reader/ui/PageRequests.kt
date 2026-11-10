@@ -21,8 +21,10 @@ import coil3.size.Scale
 import app.picacgmd.feature.reader.PageImage
 import app.picacgmd.feature.reader.ReaderPage
 import app.picacgmd.feature.reader.logic.preloadOrder
+import app.picacgmd.feature.reader.logic.preloadsToCancel
 import app.picacgmd.feature.reader.logic.rememberReaderMemoryBudget
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import coil3.size.Size as CoilSize
 
@@ -89,11 +91,16 @@ internal fun rememberPagePainter(
  * Keeps the pages around [current] loading in the background: the current page, [ahead] pages after
  * it and [behind] pages before it. Requests that fall out of the window are cancelled.
  *
- * Pages in [skip] are on screen (or about to be) and load through their own painters; Coil does not
- * share a download between two requests, so preloading them too would fetch them twice. Pages
- * waiting for a reload are skipped as well: the caches still hold what the reader wants replaced.
- * Low-RAM requests are capped to one slot ahead and one page behind; [nextChapter] image requests
- * are disabled. [pagesPerSlot] keeps the cap aligned with two-page spreads.
+ * Pages in [skip] are on screen (or about to be) and load through their own painters, so no
+ * background load is started for them. One that was already running when its page came on screen is
+ * left to finish (see [preloadsToCancel]): the image loader lets the page's own request wait for the
+ * same download instead of starting a second one, so what was fetched ahead is never thrown away.
+ * [loadProgress] is told about every page fetched ahead, so that such a page can show how far its
+ * download already is the moment it appears.
+ *
+ * Pages waiting for a reload are skipped as well: the caches still hold what the reader wants
+ * replaced. Low-RAM requests are capped to one slot ahead and one page behind; [nextChapter] image
+ * requests are disabled. [pagesPerSlot] keeps the cap aligned with two-page spreads.
  */
 @Composable
 internal fun PreloadPages(
@@ -106,6 +113,7 @@ internal fun PreloadPages(
     reloads: PageReloadState? = null,
     pagesPerSlot: Int = 1,
     nextChapter: Boolean = false,
+    loadProgress: ((url: String) -> StateFlow<Float?>?)? = null,
 ) {
     val memoryBudget = rememberReaderMemoryBudget()
     if (nextChapter && !memoryBudget.preloadNextChapterImages) return
@@ -127,11 +135,13 @@ internal fun PreloadPages(
     LaunchedEffect(inflight, current, window, skip) {
         val wanted = preloadOrder(current, pages.size, window.ahead, window.behind)
             .filter { it !in skip && reloads?.needsFresh(it) != true }
-        val stale = inflight.keys.filter { it !in wanted }
-        for (index in stale) inflight.remove(index)?.cancel()
+        for (index in preloadsToCancel(inflight.keys, wanted, onScreen = skip)) inflight.remove(index)?.cancel()
         for (index in wanted) {
             if (index !in inflight) {
-                val request = pageRequest(context, pages[index].image, size)
+                val image = pages[index].image
+                // Registered before the download starts, or its progress could not be followed later.
+                if (image is PageImage.Remote) loadProgress?.invoke(image.url)
+                val request = pageRequest(context, image, size)
                 inflight[index] = scope.launch { loader.execute(request) }
             }
         }

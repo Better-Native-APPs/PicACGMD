@@ -101,8 +101,9 @@ private const val MarkStampAfterNanos = 600_000_000L
  * A comic cover image with plain rounded corners (never a decorative shape).
  *
  * Sized by [modifier]; when only the width is constrained the height follows
- * [ComicCoverAspectRatio]. While the image loads the tile shows `surfaceContainerHigh`; a missing or
- * broken image shows a quiet book / broken-image glyph instead.
+ * [ComicCoverAspectRatio]. While the image loads the tile shows `surfaceContainerHigh` with the
+ * [loadingSheen] passing over it; a missing or broken image shows a quiet book / broken-image glyph
+ * instead, and a broken one can be loaded again ([reloadFailedImage]).
  *
  * @param progressLabel the read mark in the top-left corner, e.g. 「已读」 (board 08); see [ComicReadMark].
  *   A mark known when the cover appears just shows; one that turns up while the cover has been in
@@ -123,14 +124,17 @@ fun ComicCover(
     progressDetailShort: String? = null,
 ) {
     var failed by remember(coverUrl) { mutableStateOf(false) }
+    var loaded by remember(coverUrl) { mutableStateOf(false) }
     var attempt by remember(coverUrl) { mutableStateOf(0) }
+    val loading = !coverUrl.isNullOrEmpty() && !failed && !loaded
     val composedAt = remember { System.nanoTime() }
     Box(
         modifier = modifier
             .aspectRatio(ComicCoverAspectRatio)
             .clip(shape)
-            .then(if (failed) Modifier.reloadFailedImage { failed = false; attempt++ } else Modifier)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            .then(if (failed) Modifier.reloadFailedImage { failed = false; loaded = false; attempt++ } else Modifier)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .loadingSheen(loading, MaterialTheme.colorScheme.surfaceBright),
     ) {
         if (coverUrl.isNullOrEmpty() || failed) {
             Icon(
@@ -148,8 +152,8 @@ fun ComicCover(
                 model = coverUrl,
                 contentDescription = contentDescription,
                 contentScale = ContentScale.Crop,
-                onSuccess = { failed = false },
-                onError = { failed = true },
+                onSuccess = { failed = false; loaded = true },
+                onError = { failed = true; loaded = false },
                 modifier = Modifier.fillMaxSize(),
             )
             }

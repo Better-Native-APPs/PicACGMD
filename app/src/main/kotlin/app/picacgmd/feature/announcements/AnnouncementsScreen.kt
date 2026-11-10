@@ -29,7 +29,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import app.picacgmd.core.designsystem.component.ExpressivePullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -42,12 +42,11 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
+import app.picacgmd.core.designsystem.component.TonalAsyncImage
 import app.picacgmd.core.designsystem.component.EmptyState
 import app.picacgmd.core.designsystem.component.ErrorState
 import app.picacgmd.core.network.Announcement
@@ -155,13 +154,16 @@ fun AnnouncementsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             return@PredictiveBackContent
         }
         Scaffold(topBar = { TopAppBar(title = { Text("公告") }, navigationIcon = { BackButton(onBack) }) }) { padding ->
-            PullToRefreshBox(
+            ExpressivePullToRefreshBox(
                 isRefreshing = refreshing,
                 onRefresh = { refreshing = true; load(1) },
                 modifier = Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()),
             ) {
                 when {
-                    state.items.isEmpty() && state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LoadingIndicator() }
+                    // A pulled refresh already shows its own indicator.
+                    state.items.isEmpty() && state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        if (!refreshing) LoadingIndicator()
+                    }
                     state.items.isEmpty() && state.error != null -> ErrorState(onRetry = { load(1) }, description = state.error, modifier = Modifier.fillMaxSize())
                     state.items.isEmpty() -> EmptyState(
                         title = "暂无公告",
@@ -181,6 +183,7 @@ fun AnnouncementsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                         item {
                             Box(Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
                                 when {
+                                    refreshing -> Unit
                                     state.loading -> LoadingIndicator(Modifier.size(40.dp))
                                     state.error != null -> TextButton(onClick = { load(state.page + 1) }) { Text("加载失败，重试") }
                                     state.page >= state.pages -> Text(
@@ -228,10 +231,9 @@ private fun AnnouncementCard(announcement: Announcement, onClick: () -> Unit) {
                 }
             }
             if (thumb != null) {
-                AsyncImage(
+                TonalAsyncImage(
                     model = thumb,
                     contentDescription = null,
-                    contentScale = ContentScale.Crop,
                     modifier = Modifier.size(72.dp).clip(MaterialTheme.shapes.medium),
                 )
             }
@@ -259,10 +261,9 @@ private fun AnnouncementDetail(announcement: Announcement, onBack: () -> Unit) {
                 Text(it, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))
             }
             if (thumb != null) {
-                AsyncImage(
+                TonalAsyncImage(
                     model = thumb,
                     contentDescription = null,
-                    contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .padding(top = 16.dp)
                         .fillMaxWidth()

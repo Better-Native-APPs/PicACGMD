@@ -21,6 +21,17 @@ internal fun preloadOrder(current: Int, pageCount: Int, ahead: Int, behind: Int)
     return result
 }
 
+/**
+ * Background loads to give up, out of the pages in [inflight]: those that are no longer [wanted]
+ * and are not [onScreen] either.
+ *
+ * A page that came on screen while its background load was still running keeps that load: the page
+ * waits for it and shows the result, where cancelling would throw the downloaded part away and start
+ * the same download again from nothing.
+ */
+internal fun preloadsToCancel(inflight: Collection<Int>, wanted: Collection<Int>, onScreen: IntRange): List<Int> =
+    inflight.filter { it !in wanted && it !in onScreen }
+
 /** Main-axis position of one laid-out strip item, relative to the start of the viewport. */
 internal data class StripItem(val index: Int, val offset: Int, val size: Int)
 

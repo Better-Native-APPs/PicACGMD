@@ -278,6 +278,7 @@ internal fun StripReader(
             size = requestSize,
             skip = visiblePages,
             reloads = host.reloads,
+            loadProgress = host.loadProgress,
         )
         if (upcomingPages != null && memoryBudget.preloadNextChapterImages) {
             PreloadPages(

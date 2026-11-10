@@ -18,6 +18,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -127,15 +128,17 @@ private val LoadingRingSize = 48.dp
 private val LoadingRingStroke = 4.dp
 
 /**
- * Loading block: keeps the page's height and shows 「第 N 页」 under a single ring.
+ * Loading block: keeps the page's height and shows 「第 N 页」 under a single indicator.
  *
- * - Size known: the ring fills to the downloaded share and the label becomes 「第 N 页 · 62%」. It
+ * - Size known: a ring fills to the downloaded share and the label becomes 「第 N 页 · 62%」. It
  *   steps in whole percents with no easing, so it only redraws when the number changes.
- * - Size unknown (or the source cannot tell): the same ring spins; with [reduceMotion] it stays an
- *   empty track instead.
+ * - Size unknown (still connecting, or the source cannot tell): the expressive loading indicator
+ *   morphs in the same spot, never a plain spinning ring (2026-11-10); with [reduceMotion] it holds
+ *   its first shape.
  *
- * The ring keeps its size and place across all three, so nothing jumps when the size arrives.
+ * Both are the same size in the same place, so nothing jumps when the size arrives.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun PageLoadingBlock(
     pageNumber: Int,
@@ -157,19 +160,12 @@ internal fun PageLoadingBlock(
                     strokeWidth = LoadingRingStroke,
                     trackColor = ReaderDarkScheme.secondaryContainer,
                 )
-                reduceMotion -> CircularProgressIndicator(
+                reduceMotion -> LoadingIndicator(
                     progress = { 0f },
                     modifier = ringModifier,
                     color = ReaderDarkScheme.primary,
-                    strokeWidth = LoadingRingStroke,
-                    trackColor = ReaderDarkScheme.secondaryContainer,
                 )
-                else -> CircularProgressIndicator(
-                    modifier = ringModifier,
-                    color = ReaderDarkScheme.primary,
-                    strokeWidth = LoadingRingStroke,
-                    trackColor = ReaderDarkScheme.secondaryContainer,
-                )
+                else -> LoadingIndicator(modifier = ringModifier, color = ReaderDarkScheme.primary)
             }
             Spacer(Modifier.height(14.dp))
             Text(

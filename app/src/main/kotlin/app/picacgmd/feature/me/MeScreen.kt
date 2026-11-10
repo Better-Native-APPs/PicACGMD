@@ -56,7 +56,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import app.picacgmd.core.designsystem.component.ExpressivePullToRefreshBox
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -214,7 +214,7 @@ fun MeScreen(
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        PullToRefreshBox(
+        ExpressivePullToRefreshBox(
             isRefreshing = loading && profile != null,
             onRefresh = { if (signedIn) reload() },
             modifier = Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()),

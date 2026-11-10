@@ -27,7 +27,6 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -38,7 +37,7 @@ import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import app.picacgmd.core.designsystem.component.ExpressivePullToRefreshBox
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
@@ -70,6 +69,7 @@ import app.picacgmd.core.designsystem.component.ComicListItem
 import app.picacgmd.core.designsystem.component.EmptyState
 import app.picacgmd.core.designsystem.component.ErrorState
 import app.picacgmd.core.designsystem.component.SkeletonBlock
+import app.picacgmd.core.designsystem.component.rememberCoverGridState
 import app.picacgmd.core.designsystem.component.StatusPane
 import app.picacgmd.core.network.ComicSimple
 import app.picacgmd.core.network.ComicSort
@@ -133,7 +133,7 @@ fun ComicResults(
     onRetry: () -> Unit,
     onJumpTo: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    gridState: LazyGridState = rememberLazyGridState(),
+    gridState: LazyGridState = rememberCoverGridState(),
     contentPadding: PaddingValues = PaddingValues(bottom = 16.dp),
     emptyTitle: String = stringResource(R.string.comics_empty_title),
     emptyDescription: String? = null,
@@ -160,7 +160,9 @@ fun ComicResults(
         if (paginationMode == PaginationMode.BUTTONS) gridState.scrollToItem(0)
     }
 
-    PullToRefreshBox(
+    // The one sign of a reload over a list that is already there, whether it was pulled, retried or
+    // a page jump: this indicator. Nothing else is drawn for it.
+    ExpressivePullToRefreshBox(
         isRefreshing = state.loading && state.entries.isNotEmpty(),
         onRefresh = { if (state.appendError != null) onRetryAppend() else onRetry() },
         modifier = modifier.fillMaxSize(),
@@ -228,9 +230,6 @@ fun ComicResults(
                     }
                 }
             }
-        }
-        if (state.loading && state.entries.isNotEmpty()) {
-            LoadingIndicator(Modifier.align(Alignment.TopCenter).padding(top = 24.dp))
         }
         if (paginationMode == PaginationMode.BUTTONS && state.pages > 0) {
             PageBar(

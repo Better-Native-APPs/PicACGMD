@@ -240,13 +240,7 @@ private fun TopCapsule(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            IconButton(onClick = actions.onOpenChapters, modifier = Modifier.size(ChromeIconButtonSize)) {
-                Icon(
-                    imageVector = Icons.Rounded.FormatListNumbered,
-                    contentDescription = stringResource(R.string.reader_chapters),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            // 目录 lives in the bottom toolbar only (2026-11-10); the capsule keeps one button a side.
             MoreMenu(actions, canReload)
         }
     }

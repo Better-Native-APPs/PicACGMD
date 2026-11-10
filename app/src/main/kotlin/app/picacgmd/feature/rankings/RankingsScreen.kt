@@ -31,7 +31,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import app.picacgmd.core.designsystem.component.ExpressivePullToRefreshBox
+import app.picacgmd.core.designsystem.component.rememberCoverListState
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -147,7 +148,7 @@ fun RankingsScreen(
         Column(Modifier.padding(padding).fillMaxSize()) {
             RangeSelector(selected = viewModel.tab, onSelect = viewModel::select)
             val tab = viewModel.tab
-            PullToRefreshBox(
+            ExpressivePullToRefreshBox(
                 isRefreshing = viewModel.refreshingTab == tab,
                 onRefresh = viewModel::refresh,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -198,7 +199,7 @@ private fun ComicRanking(data: RankingData.Comics, onOpenComic: (String) -> Unit
         return
     }
     val readMarks = rememberReadMarks(remember(data.items) { data.items.map(ComicSimple::id) })
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), state = rememberCoverListState(), contentPadding = PaddingValues(bottom = 16.dp)) {
         itemsIndexed(data.items, key = { _, comic -> comic.id }) { index, comic ->
             ComicSimpleRow(
                 comic = comic,
