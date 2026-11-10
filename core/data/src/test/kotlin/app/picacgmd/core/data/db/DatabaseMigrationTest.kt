@@ -44,6 +44,22 @@ class DatabaseMigrationTest {
         assertTrue(createdTables.none { "`local_favourites`" in it || "`local_favourite_folders`" in it })
     }
 
+    @Test
+    fun versionThreeUpgradeOnlyDropsTheRemovedLocalLibraryTables() {
+        val migration = PikapikaDatabase_AutoMigration_3_4_Impl()
+        assertEquals(3, migration.startVersion)
+        assertEquals(4, migration.endVersion)
+        val statements = recordStatements { migration.migrate(it) }
+
+        val droppedTables = statements.filter { it.startsWith("DROP TABLE") }.map {
+            it.replace("`", "").removePrefix("DROP TABLE IF EXISTS ").removePrefix("DROP TABLE ").trimEnd(';')
+        }
+        assertEquals(setOf("local_folder_entries", "local_folders"), droppedTables.toSet())
+        assertEquals(2, droppedTables.size)
+        val dataWrite = Regex("^(CREATE|ALTER|INSERT|UPDATE|DELETE|REPLACE)\\b", RegexOption.IGNORE_CASE)
+        assertTrue(statements.none { dataWrite.containsMatchIn(it.trim()) }, "Remaining tables must not be rewritten")
+    }
+
     private fun recordStatements(migrate: (SQLiteConnection) -> Unit): List<String> {
         val statements = mutableListOf<String>()
         val connection = Proxy.newProxyInstance(

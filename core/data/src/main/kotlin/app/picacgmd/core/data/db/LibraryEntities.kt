@@ -1,7 +1,6 @@
 package app.picacgmd.core.data.db
 
 import androidx.room.Entity
-import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
@@ -33,48 +32,6 @@ data class TagFavourite(
     @PrimaryKey val tag: String,
     val sortOrder: Int = 0,
     val createdAt: Long = System.currentTimeMillis(),
-)
-
-/** New table names keep the retired version-one tables separate from the on-device library. */
-@Entity(tableName = "local_folders", indices = [Index(value = ["sortOrder"])])
-data class LocalFavouriteFolder(
-    @PrimaryKey val folderId: String,
-    val name: String,
-    val sortOrder: Int = 0,
-    val createdAt: Long = System.currentTimeMillis(),
-    val lastSelectedAt: Long = 0,
-) {
-    companion object {
-        const val DEFAULT_ID = "default"
-        const val DEFAULT_NAME = "默认收藏夹"
-    }
-}
-
-/** One folder per comic, with a complete snapshot for browsing without a network request. */
-@Entity(
-    tableName = "local_folder_entries",
-    primaryKeys = ["comicId"],
-    foreignKeys = [ForeignKey(
-        entity = LocalFavouriteFolder::class,
-        parentColumns = ["folderId"],
-        childColumns = ["folderId"],
-        onDelete = ForeignKey.CASCADE,
-    )],
-    indices = [Index(value = ["folderId"]), Index(value = ["addedAt"])],
-)
-data class LocalFavouriteEntry(
-    val folderId: String,
-    val comicId: String,
-    val title: String,
-    val author: String = "",
-    val coverUrl: String = "",
-    val thumbFileServer: String = "",
-    val thumbPath: String = "",
-    val categoriesJson: String = "[]",
-    val pagesCount: Int = 0,
-    val epsCount: Int = 0,
-    val finished: Boolean = false,
-    val addedAt: Long = System.currentTimeMillis(),
 )
 
 @Entity(tableName = "subscriptions", indices = [Index(value = ["unseen", "updatedAt"])])
