@@ -12,7 +12,12 @@ val database = PikapikaDatabase.create(applicationContext)
 val settingsRepository = SettingsRepository.create(applicationContext)
 ```
 
-应用生命周期内保留一个数据库实例；退出时可 `close()`。数据库名为 `pikapika.db`，版本 2，使用 WAL，不启用破坏性迁移。1 → 2 使用 `DropObsoleteFoldersSpec` 自动迁移，只删除废弃的收藏和文件夹表，保留浏览记录、阅读进度和下载。KSP 将当前 schema 导出至 `core/data/schemas/app.picacgmd.core.data.db.PikapikaDatabase/2.json`；版本 1 的 schema 保留用于升级。
+应用生命周期内保留一个数据库实例；退出时可 `close()`。数据库名为 `pikapika.db`，版本 4，使用 WAL，不启用破坏性迁移。自动迁移链完整覆盖版本升级：
+- 1 → 2：使用 `DropObsoleteFoldersSpec` 移除历史废弃的旧收藏与文件夹表；
+- 2 → 3：自动为下载表追加 `storageRoot` 字段；
+- 3 → 4：使用 `DropLocalLibrarySpec` 完全移除本地书架与本地文件夹表（`local_folders` 与 `local_folder_entries`），仅保留浏览记录、阅读进度、下载、订阅追更与缓存。
+
+KSP 将当前 schema 导出至 `core/data/schemas/app.picacgmd.core.data.db.PikapikaDatabase/4.json`；版本 1–3 的 schema 完整保留用于单元测试与升级校验。
 
 `SettingsRepository.create` 使用共享的 `app_settings` Preferences DataStore；测试或注入也可使用 `SettingsRepository(dataStore: DataStore<Preferences>)`。读取入口是 `val settings: Flow<AppSettings>`。所有 setter 返回 `Unit`，读写失败直接传播。
 
@@ -185,8 +190,9 @@ suspend fun clear()
 ```kotlin
 setAccountEmail(value: String)
 setAuthToken(token: String?, updatedAt: Long = System.currentTimeMillis())
-setApiRouting(mode: RoutingMode, customIp: String? = null)
-setImageRouting(mode: RoutingMode, customHost: String? = null)
+setApiRouteAddress(address: String?)
+setSyncedApiAddresses(addresses: List<String>, syncedAt: Long)
+setImageRouting(mode: RoutingMode)
 setProxyUrl(value: String)
 setImageQuality(value: ImageQuality)
 setConnectTimeoutSeconds(value: Int)
@@ -201,6 +207,7 @@ setDisplayModeId(value: Int?)
 setFullScreenDisplay(value: FullScreenDisplay)
 setDoubleBackToExit(value: Boolean)
 setStartupImageUri(value: String?)
+setLastSeenAnnouncementId(value: String?)
 setListLayout(value: ListLayout)
 setListColumnCount(value: Int)
 setCategoryColumnCount(value: Int)
@@ -210,6 +217,7 @@ setShieldedCategories(values: List<String>)
 setCategoryShieldMode(value: CategoryShieldMode)
 setHiddenKeywords(values: List<String>)
 setHideViewedComics(value: Boolean)
+setHideAiComics(value: Boolean)
 setHiddenCategories(values: List<String>)
 setCategoryOrder(values: List<String>)
 setPinnedHomeCategories(values: List<String>)
@@ -235,6 +243,12 @@ setReaderScrollMode(value: ReaderScrollMode)
 setScrollScreenFraction(value: Float)
 setReaderSliderPosition(value: ReaderSliderPosition)
 setTwoPagePlacement(value: TwoPagePlacement)
+setTwoPageCoverAlone(value: Boolean)
+setReaderPreloadAhead(value: Int)
+setReaderAutoTurnSeconds(value: Int)
+setReaderAutoScrollSpeed(value: Int)
+setReaderAutoScrollPauseOnTouch(value: Boolean)
+setReaderAutoNextChapter(value: Boolean)
 setGestureSpeed(value: Float)
 setReaderZoom(minimum: Float, maximum: Float, doubleTap: Float)
 setLockDragBounds(value: Boolean)
@@ -244,6 +258,8 @@ setEInkScrollAmount(value: Float)
 setEInkTriggerDistanceCm(value: Float)
 setDownloadThreads(value: Int)
 setDownloadWifiOnly(value: Boolean)
+setDownloadTreeUri(value: String?)
+clearDownloadTreeUriIfMatches(expected: String)
 setAutoDownloadOnFavourite(value: Boolean)
 setAutoDownloadWifiOnly(value: Boolean)
 setAutoDeleteDownloadOnUnfavourite(value: Boolean)
@@ -258,10 +274,10 @@ setRecordDetailViews(value: Boolean)
 setAutoCleanCacheInterval(value: CacheCleanupInterval)
 ```
 
-- 下载线程 1–16，默认 4；列数 0（自动）或 2–7；连接/读取超时 10/15/30/60 秒；应用锁超时 0/1/10/60/180/600/3600 秒。
+- 下载线程 1–16，默认 4（低内存设备默认 2）；列数 0（自动）或 2–7；连接/读取超时 10/15/30/60 秒；应用锁超时 0/1/10/60/180/600/3600 秒。
 - 默认首页固定分类为有序列表 `["大家都在看", "大濕推薦"]`，可清空。分类字符串保持接口拼写，重复项保留第一次出现的位置；空白项不能写入。
 - 黑/白名单分类、隐藏分类和首页固定分类互不替代。过滤、菜单入口显示、历史记录开关和自动化设置由业务层执行，设置仓库只保存值。
-- 自定义分流地址随模式原子写入，切回内置方案时保留已有自定义值；空地址不能启用自定义模式。地址合法性、代理测试由业务层负责。
+- 分流支持从官方同步并记录同步时间戳；分流选择与测速由上层管理，数据层持久化当前生效地址及同步所得候选地址。
 - 邮箱和 token 可保存；`setAuthToken(null)` 同时删除 token 和时间戳。没有密码字段，代码保留将来使用 EncryptedFile 的 TODO；日志输出不包含 token。
 - 数据存储不包含伪装、导入导出、局域网传输、迁移、文件备份、升级检查、付费或遥测设置。WebDAV 功能留待后续实现。
 
@@ -271,4 +287,4 @@ setAutoCleanCacheInterval(value: CacheCleanupInterval)
 nix develop -c ./gradlew :core:data:assembleDebug :core:data:testDebugUnitTest --no-daemon
 ```
 
-JVM 测试使用纯 Preferences 映射和内存 DataStore，覆盖设置默认值/写入/顺序/范围、旧版废弃偏好的兼容、状态跳转、过期边界、追更累计及过期 claim 结果。升级测试检查 Room 生成的 1 → 2 迁移只删除两张废弃表，不改写其余表。没有新增测试依赖；现有设置不包含 Room 测试 helper、Android 测试 runner 或 JVM SQLite driver，未运行真实 SQLite 数据库升级测试。
+JVM 测试使用纯 Preferences 映射和内存 DataStore，覆盖设置默认值/写入/顺序/范围、旧版废弃偏好的兼容、状态跳转、过期边界、追更累计及过期 claim 结果。升级测试检查 Room 生成的自动迁移：1 → 2 仅删除两张旧表；2 → 3 补全存储字段；3 → 4 移除已废弃的本地书架表且不改写其余表。没有新增测试依赖；现有设置不包含 Room 测试 helper、Android 测试 runner 或 JVM SQLite driver，未运行真实 SQLite 数据库升级测试。
