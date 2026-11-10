@@ -37,7 +37,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ToggleButton
@@ -64,6 +63,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.picacgmd.R
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.data.settings.SettingsRepository
+import app.picacgmd.core.designsystem.component.AppSwitch
+import app.picacgmd.core.designsystem.component.withoutSelectedShape
+import app.picacgmd.core.designsystem.component.withoutSelectedTint
 import app.picacgmd.di.LocalAppContainer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -186,6 +188,10 @@ internal fun SettingsNavRow(
     }
 }
 
+/**
+ * A row that is on looks like its neighbours: the switch (with its check mark) carries the state,
+ * the container keeps the group's colour and corners.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun SettingsSwitchRow(
@@ -198,15 +204,17 @@ internal fun SettingsSwitchRow(
     leading: (@Composable () -> Unit)? = null,
     enabled: Boolean = true,
 ) {
+    val colors = ListItemDefaults.segmentedColors()
     SegmentedListItem(
         checked = checked,
         onCheckedChange = onCheckedChange,
-        shapes = shapes,
+        shapes = remember(shapes) { shapes.withoutSelectedShape() },
         modifier = modifier,
         enabled = enabled,
         leadingContent = leading,
         supportingContent = summary?.let { { Text(it) } },
-        trailingContent = { Switch(checked = checked, onCheckedChange = null, enabled = enabled) },
+        trailingContent = { AppSwitch(checked = checked, onCheckedChange = null, enabled = enabled) },
+        colors = remember(colors) { colors.withoutSelectedTint() },
     ) {
         Text(title)
     }

@@ -1,6 +1,9 @@
 package app.picacgmd.feature.reader.ui
 
 import androidx.compose.runtime.key
+import app.picacgmd.core.designsystem.component.AppSwitch
+import app.picacgmd.core.designsystem.component.withoutSelectedShape
+import app.picacgmd.core.designsystem.component.withoutSelectedTint
 import app.picacgmd.core.designsystem.window.secureModalBottomSheetProperties
 import app.picacgmd.core.designsystem.window.secureWindowPolicy
 
@@ -70,7 +73,6 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderState
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ToggleButton
@@ -694,6 +696,9 @@ private fun SwitchRow(
     onCheckedChange: (Boolean) -> Unit,
     supporting: String? = null,
 ) {
+    val shapes = ListItemDefaults.shapes()
+    val colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+    // The switch carries the state; a row that is on keeps the sheet's own surface and shape.
     ListItem(
         checked = checked,
         onCheckedChange = onCheckedChange,
@@ -705,8 +710,9 @@ private fun SwitchRow(
                 Spacer(Modifier.size(24.dp))
             }
         },
-        trailingContent = { Switch(checked = checked, onCheckedChange = null) },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        trailingContent = { AppSwitch(checked = checked, onCheckedChange = null) },
+        shapes = remember(shapes) { shapes.withoutSelectedShape() },
+        colors = remember(colors) { colors.withoutSelectedTint() },
     ) {
         Text(title)
     }

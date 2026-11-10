@@ -14,7 +14,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.State
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -34,6 +36,7 @@ import androidx.navigation.toRoute
 import app.picacgmd.R
 import app.picacgmd.core.designsystem.component.HomeChannel
 import app.picacgmd.core.designsystem.component.BackPreviewFrame
+import app.picacgmd.core.designsystem.component.BackPreviewState
 import app.picacgmd.core.designsystem.component.predictiveBackExit
 import app.picacgmd.core.domain.download.DownloadManagerOwner
 import app.picacgmd.feature.bookshelf.BookshelfScreen
@@ -63,7 +66,7 @@ import kotlinx.coroutines.launch
 /**
  * App navigation graph. Motion follows board 01b: tabs crossfade, forward navigation slides in a
  * little from the end edge, and back (including the predictive back gesture) shrinks the leaving
- * page toward 90 % while the previous page comes back in.
+ * page toward 90 % over the dimmed previous page, which is already in place underneath.
  *
  * @param compactNavigation true when the phone navigation bar is in use: 「我的」 is then reached
  * from the discover avatar and gets a back button.
@@ -94,44 +97,51 @@ fun PikapikaNavHost(
     val snackbar = remember { SnackbarHostState() }
     val downloads = remember(downloadManager, scope, snackbar) { DownloadActions(downloadManager, scope, snackbar) }
     val onReaderMessage: (String) -> Unit = { message -> scope.launch { snackbar.showSnackbar(message) } }
+    // The exit specs below say whether a transition is a pop, so only a popped page and the one it
+    // uncovers get the back preview; in every other transition the frames stay idle.
+    val backPreview = remember { BackPreviewState() }
 
     Box(modifier.fillMaxSize()) {
-        NavHost(
-            navController = navController,
-            startDestination = DiscoverGraph,
-            modifier = Modifier.fillMaxSize(),
-            enterTransition = {
-                if (isTabSwitch()) {
-                    fadeIn(fadeSpec)
-                } else {
-                    slideInHorizontally(slideSpec) { it / 8 } + fadeIn(fadeSpec)
-                }
-            },
-            exitTransition = {
-                if (isTabSwitch()) {
-                    fadeOut(fastFadeSpec)
-                } else {
-                    slideOutHorizontally(slideSpec) { -it / 16 } + fadeOut(fastFadeSpec)
-                }
-            },
-            popEnterTransition = {
-                if (isTabSwitch()) {
-                    fadeIn(fadeSpec)
-                } else {
-                    EnterTransition.None
-                }
-            },
-            popExitTransition = {
-                if (isTabSwitch()) {
-                    fadeOut(fastFadeSpec)
-                } else {
-                    predictiveBackExit()
-                }
-            },
-            sizeTransform = null,
-        ) {
-            topLevelGraphs(navController, compact, rootBack)
-            sharedDestinations(navController, externalId, externalExit, downloads, onReaderMessage)
+        CompositionLocalProvider(LocalBackPreview provides backPreview) {
+            NavHost(
+                navController = navController,
+                startDestination = DiscoverGraph,
+                modifier = Modifier.fillMaxSize(),
+                enterTransition = {
+                    if (isTabSwitch()) {
+                        fadeIn(fadeSpec)
+                    } else {
+                        slideInHorizontally(slideSpec) { it / 8 } + fadeIn(fadeSpec)
+                    }
+                },
+                exitTransition = {
+                    backPreview.popping = false
+                    if (isTabSwitch()) {
+                        fadeOut(fastFadeSpec)
+                    } else {
+                        slideOutHorizontally(slideSpec) { -it / 16 } + fadeOut(fastFadeSpec)
+                    }
+                },
+                popEnterTransition = {
+                    if (isTabSwitch()) {
+                        fadeIn(fadeSpec)
+                    } else {
+                        EnterTransition.None
+                    }
+                },
+                popExitTransition = {
+                    backPreview.popping = !isTabSwitch()
+                    if (isTabSwitch()) {
+                        fadeOut(fastFadeSpec)
+                    } else {
+                        predictiveBackExit()
+                    }
+                },
+                sizeTransform = null,
+            ) {
+                topLevelGraphs(navController, compact, rootBack)
+                sharedDestinations(navController, externalId, externalExit, downloads, onReaderMessage)
+            }
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
     }
@@ -149,12 +159,14 @@ private fun NavHostController.backAction(): () -> Unit = dropUnlessResumed {
     if (!popBackStack()) navigate(DiscoverGraph) { launchSingleTop = true }
 }
 
-/** Every destination, including the reader, clips its own predictive back preview. */
+private val LocalBackPreview = staticCompositionLocalOf<BackPreviewState> { error("No back preview state") }
+
+/** Every destination, including the reader, carries its own predictive back preview frame. */
 private inline fun <reified T : Any> NavGraphBuilder.page(
     noinline content: @Composable AnimatedContentScope.(NavBackStackEntry) -> Unit,
 ) {
     composable<T> { entry ->
-        BackPreviewFrame(roundCorners = !entry.destination.isTopLevelStart()) { content(entry) }
+        BackPreviewFrame(LocalBackPreview.current) { content(entry) }
     }
 }
 
