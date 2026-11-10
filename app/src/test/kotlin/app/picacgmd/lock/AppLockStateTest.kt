@@ -73,6 +73,70 @@ class AppLockStateTest {
         assertTrue(state.isLocked)
     }
 
+    @Test
+    fun appLaunchedActivityRoundTripDoesNotRelock() {
+        val state = unlockedState()
+        state.onExternalActivityLaunch()
+        state.onBackground(5_000, authenticating = false)
+        state.onForeground(65_000, timeoutSeconds = 0)
+        assertFalse(state.isLocked)
+    }
+
+    @Test
+    fun exemptionCoversOnlyOneRoundTrip() {
+        val state = unlockedState()
+        state.onExternalActivityLaunch()
+        state.onBackground(5_000, authenticating = false)
+        state.onForeground(6_000, timeoutSeconds = 0)
+        assertFalse(state.isLocked)
+        state.onBackground(7_000, authenticating = false)
+        state.onForeground(7_000, timeoutSeconds = 0)
+        assertTrue(state.isLocked, "A later home/recents leave must lock as before")
+    }
+
+    @Test
+    fun staleLaunchMarkerIsClearedOnResume() {
+        val state = unlockedState()
+        // e.g. a translucent activity that never stopped us
+        state.onExternalActivityLaunch()
+        state.onResumed()
+        state.onBackground(5_000, authenticating = false)
+        state.onForeground(5_000, timeoutSeconds = 0)
+        assertTrue(state.isLocked)
+    }
+
+    @Test
+    fun failedLaunchDoesNotExemptTheNextLeave() {
+        val state = unlockedState()
+        state.onExternalActivityLaunch()
+        state.onExternalActivityLaunchFailed()
+        state.onBackground(5_000, authenticating = false)
+        state.onForeground(5_000, timeoutSeconds = 0)
+        assertTrue(state.isLocked)
+    }
+
+    @Test
+    fun longStayInExternalActivityFallsBackToTheTimeout() {
+        val cap = AppLockState.EXTERNAL_ACTIVITY_GRACE_MILLIS
+        val justUnder = unlockedState()
+        justUnder.onExternalActivityLaunch()
+        justUnder.onBackground(5_000, authenticating = false)
+        justUnder.onForeground(5_000 + cap - 1, timeoutSeconds = 0)
+        assertFalse(justUnder.isLocked)
+
+        val atCap = unlockedState()
+        atCap.onExternalActivityLaunch()
+        atCap.onBackground(5_000, authenticating = false)
+        atCap.onForeground(5_000 + cap, timeoutSeconds = 0)
+        assertTrue(atCap.isLocked)
+
+        val longTimeout = unlockedState()
+        longTimeout.onExternalActivityLaunch()
+        longTimeout.onBackground(5_000, authenticating = false)
+        longTimeout.onForeground(5_000 + cap, timeoutSeconds = 3_600)
+        assertFalse(longTimeout.isLocked, "Past the cap the regular timeout still decides")
+    }
+
     private fun unlockedState() = AppLockState().apply {
         configure(enabled = true, deviceSecure = true)
         unlock()

@@ -2,6 +2,7 @@ package app.picacgmd
 
 import android.Manifest
 import android.content.Intent
+import android.content.IntentSender
 import android.content.pm.PackageManager
 import android.content.pm.ActivityInfo
 import android.graphics.Color
@@ -208,8 +209,43 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Every ActivityResult launcher (ComponentActivity's ActivityResultRegistry) ends up here, so pickers the
+    // app opens itself (download folder, avatar, startup image, credential screen) don't relock on return.
+    @Deprecated("Deprecated in Java")
+    @Suppress("DEPRECATION")
+    override fun startActivityForResult(intent: Intent, requestCode: Int, options: Bundle?) {
+        lockState.onExternalActivityLaunch()
+        try {
+            super.startActivityForResult(intent, requestCode, options)
+        } catch (exception: RuntimeException) {
+            lockState.onExternalActivityLaunchFailed()
+            throw exception
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    @Suppress("DEPRECATION")
+    override fun startIntentSenderForResult(
+        intent: IntentSender,
+        requestCode: Int,
+        fillInIntent: Intent?,
+        flagsMask: Int,
+        flagsValues: Int,
+        extraFlags: Int,
+        options: Bundle?,
+    ) {
+        lockState.onExternalActivityLaunch()
+        try {
+            super.startIntentSenderForResult(intent, requestCode, fillInIntent, flagsMask, flagsValues, extraFlags, options)
+        } catch (exception: Exception) {
+            lockState.onExternalActivityLaunchFailed()
+            throw exception
+        }
+    }
+
     override fun onResume() {
         super.onResume()
+        lockState.onResumed()
         obscureForRecents = false
         updateLockWindow()
     }
