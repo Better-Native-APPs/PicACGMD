@@ -498,7 +498,7 @@ internal fun AboutSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier
         AboutDialog.Privacy -> InfoDialog("隐私说明", onDismiss = { dialog = null }) {
             Text(
                 "不收集、不上传使用数据，无统计和广告。\n\n" +
-                    "仅连接哔咔接口、图片服务器和已设置的代理；账号密码经系统密钥库加密，仅保存在本机。\n\n" +
+                    "仅连接哔咔接口、图片服务器和已设置的代理；仅在你手动点按「检查更新」时连接 GitHub，不做后台检查。账号密码经系统密钥库加密，仅保存在本机。\n\n" +
                     "浏览记录、收藏、下载和设置仅保存在本机，卸载后会一并删除。",
                 style = MaterialTheme.typography.bodyMedium,
             )
