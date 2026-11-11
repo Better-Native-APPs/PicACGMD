@@ -7,6 +7,7 @@ import android.annotation.SuppressLint
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -196,6 +197,7 @@ fun DownloadsScreen(
         query = ""
     }
 
+    val motion = MaterialTheme.motionScheme
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -206,7 +208,10 @@ fun DownloadsScreen(
                     searching -> 1
                     else -> 0
                 },
-                transitionSpec = { fadeIn() togetherWith fadeOut() },
+                transitionSpec = {
+                    (fadeIn(motion.fastEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec()))
+                        .using(SizeTransform { _, _ -> motion.defaultSpatialSpec() })
+                },
                 label = "downloadsTopBar",
             ) { mode ->
                 when (mode) {

@@ -36,7 +36,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBox
@@ -203,6 +203,7 @@ internal fun FollowView(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun FollowHeader(sorted: List<Subscription>, onRefresh: () -> Unit) {
     val container = LocalAppContainer.current
@@ -235,9 +236,10 @@ private fun FollowHeader(sorted: List<Subscription>, onRefresh: () -> Unit) {
         TextButton(onClick = onRefresh, enabled = sorted.isNotEmpty() && !checking) { Text("检查更新") }
     }
     if (checkState is SubscriptionCheckState.Checking && checkState.total > 0) {
-        LinearProgressIndicator(
+        LinearWavyProgressIndicator(
             progress = { checkState.completed.toFloat() / checkState.total },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
+            waveSpeed = 0.dp,
         )
     }
 }
@@ -369,7 +371,7 @@ private fun ContinueCard(
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             ComicCover(coverUrl = coverUrl, contentDescription = null, modifier = Modifier.width(76.dp), shape = MaterialTheme.shapes.large)
             Column(Modifier.weight(1f).padding(start = 16.dp)) {
-                Text("接着读", style = MaterialTheme.typography.labelLarge, color = colors.primary)
+                Text("接着读", style = MaterialTheme.typography.labelLarge, color = colors.onPrimaryContainer)
                 Text(
                     history.title,
                     style = MaterialTheme.typography.titleLarge,

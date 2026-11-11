@@ -6,6 +6,7 @@ import app.picacgmd.core.designsystem.window.securePopupProperties
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -214,11 +215,19 @@ fun BookshelfScreen(
         return
     }
 
+    val motion = MaterialTheme.motionScheme
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            AnimatedContent(targetState = selecting, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "shelfTopBar") { selectMode ->
+            AnimatedContent(
+                targetState = selecting,
+                transitionSpec = {
+                    (fadeIn(motion.fastEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec()))
+                        .using(SizeTransform { _, _ -> motion.defaultSpatialSpec() })
+                },
+                label = "shelfTopBar",
+            ) { selectMode ->
                 if (selectMode) {
                     TopAppBar(
                         title = { Text("已选 ${selection.size} 本") },
@@ -280,7 +289,10 @@ fun BookshelfScreen(
                 }
                 AnimatedContent(
                     targetState = view,
-                    transitionSpec = { fadeIn() togetherWith fadeOut() },
+                    transitionSpec = {
+                        (fadeIn(motion.defaultEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec()))
+                            .using(SizeTransform { _, _ -> motion.defaultSpatialSpec() })
+                    },
                     label = "shelfView",
                     modifier = Modifier.weight(1f),
                 ) { shown ->
@@ -327,13 +339,17 @@ fun BookshelfScreen(
                     .padding(bottom = padding.calculateBottomPadding() + 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                AnimatedVisibility(visible = batch != null, enter = fadeIn(), exit = fadeOut()) {
+                AnimatedVisibility(
+                    visible = batch != null,
+                    enter = fadeIn(motion.fastEffectsSpec()),
+                    exit = fadeOut(motion.fastEffectsSpec()),
+                ) {
                     batch?.let { BatchCard(it, Modifier.padding(bottom = 12.dp)) }
                 }
                 AnimatedVisibility(
                     visible = selecting,
-                    enter = slideInVertically { it } + fadeIn(),
-                    exit = slideOutVertically { it } + fadeOut(),
+                    enter = slideInVertically(motion.defaultSpatialSpec()) { it } + fadeIn(motion.fastEffectsSpec()),
+                    exit = slideOutVertically(motion.defaultSpatialSpec()) { it } + fadeOut(motion.fastEffectsSpec()),
                 ) {
                     HorizontalFloatingToolbar(expanded = true) {
                         ToolbarAction(Icons.Outlined.Download, "下载") {

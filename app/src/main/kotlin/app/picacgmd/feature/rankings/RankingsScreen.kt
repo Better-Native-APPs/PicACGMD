@@ -1,9 +1,7 @@
 package app.picacgmd.feature.rankings
 
 import app.picacgmd.feature.routing.RouteMenuButton
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -31,6 +29,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import app.picacgmd.core.designsystem.component.ExpressivePullToRefreshBox
 import app.picacgmd.core.designsystem.component.rememberCoverListState
 import androidx.compose.material3.toShape
@@ -42,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -135,13 +135,15 @@ fun RankingsScreen(
     modifier: Modifier = Modifier,
 ) {
     val viewModel = appViewModel { RankingsViewModel(it) }
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.rankings_title)) },
                 navigationIcon = { BackButton(onBack) },
                 actions = { RouteMenuButton() },
+                scrollBehavior = scrollBehavior,
             )
         },
     ) { padding ->
@@ -224,10 +226,8 @@ private fun KnightRanking(knights: List<Knight>, onOpenKnight: (String, String) 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         itemsIndexed(knights, key = { index, knight -> knight.id.ifEmpty { "knight-$index" } }) { index, knight ->
             ListItem(
-                modifier = Modifier
-                    .padding(horizontal = 8.dp)
-                    .clip(MaterialTheme.shapes.large)
-                    .clickable { onOpenKnight(knight.id, knight.name) },
+                onClick = { onOpenKnight(knight.id, knight.name) },
+                modifier = Modifier.padding(horizontal = 8.dp),
                 colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
                 leadingContent = {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -235,7 +235,7 @@ private fun KnightRanking(knights: List<Knight>, onOpenKnight: (String, String) 
                         KnightAvatar(knight)
                     }
                 },
-                headlineContent = { Text(knight.name, maxLines = 1) },
+                content = { Text(knight.name, maxLines = 1) },
                 supportingContent = {
                     val title = knight.title.ifBlank { null }
                     Text(

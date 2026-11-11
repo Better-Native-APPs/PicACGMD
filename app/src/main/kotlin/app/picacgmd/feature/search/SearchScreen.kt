@@ -14,8 +14,6 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -29,6 +27,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.rememberScrollState
@@ -303,7 +302,7 @@ fun SearchScreen(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SearchSuggestions(
     history: List<String>,
@@ -330,11 +329,13 @@ private fun SearchSuggestions(
                         onClick = { onPick(query) },
                         label = { Text(query) },
                         trailingIcon = {
-                            Icon(
-                                Icons.Outlined.Close,
-                                stringResource(R.string.search_delete_history, query),
-                                modifier = Modifier.combinedClickable(onClick = { onDelete(query) }),
-                            )
+                            IconButton(onClick = { onDelete(query) }, modifier = Modifier.size(48.dp)) {
+                                Icon(
+                                    Icons.Outlined.Close,
+                                    stringResource(R.string.search_delete_history, query),
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
                         },
                     )
                 }

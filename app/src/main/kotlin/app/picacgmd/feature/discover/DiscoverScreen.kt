@@ -188,6 +188,7 @@ internal fun categoryColumns(preferred: Int, widthDp: Float): Int = when {
 }
 
 /** Category grid placeholders shown on the very first load. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun DiscoverSkeleton(columns: Int) {
     Column(Modifier.fillMaxWidth()) {
@@ -197,7 +198,7 @@ private fun DiscoverSkeleton(columns: Int) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 repeat(columns) {
-                    SkeletonBlock(Modifier.weight(1f).height(88.dp), MaterialTheme.shapes.large)
+                    SkeletonBlock(Modifier.weight(1f).height(88.dp), MaterialTheme.shapes.largeIncreased)
                 }
             }
         }
