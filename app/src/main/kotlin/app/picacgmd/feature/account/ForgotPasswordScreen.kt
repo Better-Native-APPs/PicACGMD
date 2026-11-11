@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -32,6 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import app.picacgmd.core.designsystem.component.AppButton
 import app.picacgmd.di.LocalAppContainer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -81,7 +81,7 @@ internal fun ForgotPasswordScreen(onBack: () -> Unit) {
             }
         }
         error?.let { AccountError(it) }
-        Button(
+        AppButton(
             onClick = {
                 if (newPassword != null) onBack() else {
                     busy = true

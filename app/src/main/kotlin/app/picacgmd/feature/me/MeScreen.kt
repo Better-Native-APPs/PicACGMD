@@ -37,15 +37,12 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
@@ -54,7 +51,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import app.picacgmd.core.designsystem.component.ExpressivePullToRefreshBox
@@ -80,6 +76,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import app.picacgmd.core.designsystem.component.AppButton
+import app.picacgmd.core.designsystem.component.AppFilledTonalButton
+import app.picacgmd.core.designsystem.component.AppIconButton
+import app.picacgmd.core.designsystem.component.AppTextButton
+import app.picacgmd.core.designsystem.component.LoadingState
 import app.picacgmd.core.domain.session.PunchInState
 import app.picacgmd.core.domain.session.SessionState
 import app.picacgmd.core.network.UserProfile
@@ -210,7 +211,7 @@ fun MeScreen(
                 title = { Text("我的") },
                 navigationIcon = { if (onBack != null) BackButton(onBack) },
                 actions = {
-                    IconButton(onClick = onOpenSettings) { Icon(Icons.Outlined.Settings, contentDescription = "设置") }
+                    AppIconButton(onClick = onOpenSettings) { Icon(Icons.Outlined.Settings, contentDescription = "设置") }
                 },
                 scrollBehavior = scrollBehavior,
             )
@@ -236,7 +237,7 @@ fun MeScreen(
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                         )
                         loadError != null -> ProfileError(loadError!!, ::reload, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-                        else -> Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) { LoadingIndicator() }
+                        else -> Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) { LoadingState() }
                     }
                 }
                 if (signedIn) {
@@ -340,7 +341,7 @@ fun MeScreen(
             title = { Text("退出登录？") },
             text = { Text("浏览记录和下载会保留在本机") },
             confirmButton = {
-                Button(
+                AppButton(
                     onClick = {
                         dialog = null
                         act("退出失败", null) {
@@ -354,7 +355,7 @@ fun MeScreen(
                     ),
                 ) { Text("退出登录") }
             },
-            dismissButton = { TextButton(onClick = { dialog = null }) { Text("取消") } },
+            dismissButton = { AppTextButton(onClick = { dialog = null }) { Text("取消") } },
         )
         null -> Unit
     }
@@ -398,7 +399,7 @@ private fun ProfileCard(
                         }
                     }
                     if (uploading) LoadingIndicator(color = colors.onPrimary)
-                    IconButton(
+                    AppIconButton(
                         onClick = onChangeAvatar,
                         enabled = !uploading,
                         modifier = Modifier.align(Alignment.BottomEnd).size(48.dp),
@@ -447,7 +448,7 @@ private fun ProfileError(message: String, onRetry: () -> Unit, modifier: Modifie
     ) {
         Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(message, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            TextButton(onClick = onRetry) { Text("重试") }
+            AppTextButton(onClick = onRetry) { Text("重试") }
         }
     }
 }
@@ -481,10 +482,9 @@ private fun PunchCard(
                 }
                 when {
                     punching -> LoadingIndicator(Modifier.size(40.dp))
-                    !punched -> FilledTonalButton(
+                    !punched -> AppFilledTonalButton(
                         onClick = onPunch,
                         modifier = Modifier.height(ButtonDefaults.LargeContainerHeight),
-                        shapes = ButtonDefaults.shapesFor(ButtonDefaults.LargeContainerHeight),
                         contentPadding = ButtonDefaults.contentPaddingFor(ButtonDefaults.LargeContainerHeight),
                     ) {
                         Text("打卡", style = ButtonDefaults.textStyleFor(ButtonDefaults.LargeContainerHeight))
@@ -531,7 +531,7 @@ private fun PasswordDialog(onSave: (String, String) -> Unit, onDismiss: () -> Un
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         trailingIcon = if (index == 0) {
                             {
-                                IconButton(onClick = { visible = !visible }) {
+                                AppIconButton(onClick = { visible = !visible }) {
                                     Icon(
                                         if (visible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
                                         contentDescription = if (visible) "隐藏密码" else "显示密码",
@@ -553,7 +553,7 @@ private fun PasswordDialog(onSave: (String, String) -> Unit, onDismiss: () -> Un
             }
         },
         confirmButton = {
-            TextButton(
+            AppTextButton(
                 enabled = old.isNotEmpty() && new.length >= 8 && confirm == new,
                 onClick = {
                     onSave(old, new)
@@ -561,6 +561,6 @@ private fun PasswordDialog(onSave: (String, String) -> Unit, onDismiss: () -> Un
                 },
             ) { Text("保存") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        dismissButton = { AppTextButton(onClick = onDismiss) { Text("取消") } },
     )
 }

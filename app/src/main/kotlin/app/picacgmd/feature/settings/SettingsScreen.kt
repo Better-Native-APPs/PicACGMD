@@ -28,7 +28,6 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
@@ -54,6 +53,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.graphics.shapes.RoundedPolygon
 import app.picacgmd.R
+import app.picacgmd.core.designsystem.component.AppIconButton
 import app.picacgmd.core.designsystem.component.PredictiveBackContent
 
 /**
@@ -265,7 +265,7 @@ fun SettingsScreen(
                     leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
                     trailingIcon = if (query.isNotEmpty()) {
                         {
-                            IconButton(onClick = { query = ""; searching = false }) {
+                            AppIconButton(onClick = { query = ""; searching = false }) {
                                 Icon(Icons.Outlined.Close, contentDescription = "清除")
                             }
                         }

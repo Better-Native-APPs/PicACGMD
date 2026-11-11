@@ -172,7 +172,7 @@ class MainActivity : ComponentActivity() {
                             )
                             settings == null -> Box(
                                 Modifier.fillMaxSize(), contentAlignment = Alignment.Center,
-                            ) { LoadingIndicator() }
+                            ) { app.picacgmd.core.designsystem.component.LoadingState() }
                             locked -> AppLockScreen(authenticationError, ::unlock, ::finish)
                             showStartupImage -> AsyncImage(
                                 model = preferences.startupImageUri,

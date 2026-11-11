@@ -6,7 +6,6 @@ import app.picacgmd.core.designsystem.window.secureDialogProperties
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -14,10 +13,8 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,6 +26,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.picacgmd.core.designsystem.component.AppButton
+import app.picacgmd.core.designsystem.component.AppOutlinedButton
+import app.picacgmd.core.designsystem.component.AppTextButton
 import app.picacgmd.core.network.PicaException
 import app.picacgmd.core.network.RegisterDto
 import app.picacgmd.core.designsystem.component.PredictiveBackContent
@@ -78,7 +78,7 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: (String) -> Unit) 
                 Text("请返回登录，输入密码后即可使用")
                 Text("请妥善保存安全问题和答案")
                 error?.let { AccountError(it) }
-                Button(onBack, Modifier.fillMaxWidth(), enabled = !busy) { Text("返回登录") }
+                AppButton(onBack, Modifier.fillMaxWidth(), enabled = !busy) { Text("返回登录") }
             } else {
                 Text("第 $shownStep 步，共 2 步", style = MaterialTheme.typography.titleMedium)
                 LinearWavyProgressIndicator(progress = { shownStep / 2f }, modifier = Modifier.fillMaxWidth(), waveSpeed = 0.dp)
@@ -100,11 +100,11 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: (String) -> Unit) 
                             FilterChip(gender == value, { gender = value }, label = { Text(label) })
                         }
                     }
-                    OutlinedButton({ birthdayPicker = true }, Modifier.fillMaxWidth()) {
+                    AppOutlinedButton({ birthdayPicker = true }, Modifier.fillMaxWidth()) {
                         Text(if (birthday.isBlank()) "选择生日" else "生日：$birthday")
                     }
                     error?.let { AccountError(it) }
-                    Button({
+                    AppButton({
                         error = when {
                             email.isBlank() -> "请输入账号"
                             !accountPattern.matches(email.trim()) -> ACCOUNT_RULE_MESSAGE
@@ -123,7 +123,7 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: (String) -> Unit) 
                         OutlinedTextField(answers[index], { answers[index] = it }, Modifier.fillMaxWidth(), label = { Text("回答 ${index + 1}") }, enabled = !busy)
                     }
                     error?.let { AccountError(it) }
-                    Button(
+                    AppButton(
                         onClick = {
                             val registration = RegisterDto(
                                 email = email.trim(),
@@ -181,7 +181,7 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: (String) -> Unit) 
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !busy && questions.all(String::isNotBlank) && answers.all(String::isNotBlank),
                     ) { Text(if (busy) "正在注册" else "注册") }
-                    TextButton({ step = 1; error = null }, enabled = !busy) { Text("上一步") }
+                    AppTextButton({ step = 1; error = null }, enabled = !busy) { Text("上一步") }
                 }
             }
         }
@@ -195,11 +195,11 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: (String) -> Unit) 
         DatePickerDialog(
             properties = secureDialogProperties(usePlatformDefaultWidth = false),
             onDismissRequest = { birthdayPicker = false },
-            confirmButton = { TextButton({
+            confirmButton = { AppTextButton({
                 picker.selectedDateMillis?.let { birthday = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate().toString() }
                 birthdayPicker = false
             }) { Text("确定") } },
-            dismissButton = { TextButton({ birthdayPicker = false }) { Text("取消") } },
+            dismissButton = { AppTextButton({ birthdayPicker = false }) { Text("取消") } },
         ) { DatePicker(picker) }
     }
 }

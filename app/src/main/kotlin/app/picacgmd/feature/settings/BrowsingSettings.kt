@@ -22,14 +22,12 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -51,6 +49,8 @@ import app.picacgmd.core.data.settings.CategoryShieldMode
 import app.picacgmd.core.data.settings.FailedReloadAction
 import app.picacgmd.core.data.settings.ListLayout
 import app.picacgmd.core.data.settings.PaginationMode
+import app.picacgmd.core.designsystem.component.AppIconButton
+import app.picacgmd.core.designsystem.component.AppTextButton
 import app.picacgmd.core.designsystem.component.ErrorState
 import app.picacgmd.core.designsystem.component.LoadingState
 import app.picacgmd.core.designsystem.component.PredictiveBackContent
@@ -281,7 +281,7 @@ private fun CopyTemplateDialog(initial: String, onSave: (String) -> Unit, onDism
             }
         },
         confirmButton = {
-            TextButton(
+            AppTextButton(
                 enabled = value.text.isNotBlank(),
                 onClick = {
                     onSave(value.text)
@@ -291,8 +291,8 @@ private fun CopyTemplateDialog(initial: String, onSave: (String) -> Unit, onDism
         },
         dismissButton = {
             Row {
-                TextButton(onClick = { value = TextFieldValue("[{author}] {title}") }) { Text("恢复默认") }
-                TextButton(onClick = onDismiss) { Text("取消") }
+                AppTextButton(onClick = { value = TextFieldValue("[{author}] {title}") }) { Text("恢复默认") }
+                AppTextButton(onClick = onDismiss) { Text("取消") }
             }
         },
     )
@@ -433,7 +433,7 @@ private fun HiddenKeywordsGroup(keywords: List<String>, snackbar: SnackbarHostSt
                             isError = draftError != null,
                             supportingText = draftError?.let { message -> { Text(message) } },
                             trailingIcon = {
-                                IconButton(onClick = add) { Icon(Icons.Outlined.Add, contentDescription = "添加关键词") }
+                                AppIconButton(onClick = add) { Icon(Icons.Outlined.Add, contentDescription = "添加关键词") }
                             },
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                             keyboardActions = KeyboardActions(onDone = { add() }),
@@ -544,7 +544,7 @@ private fun PresetDialog(
             }
         },
         confirmButton = {
-            TextButton(
+            AppTextButton(
                 onClick = {
                     if (removing) {
                         val next = keywords.minusKeywords(preset.keywords)
@@ -556,6 +556,6 @@ private fun PresetDialog(
                 },
             ) { Text(if (removing) "移除" else "添加") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        dismissButton = { AppTextButton(onClick = onDismiss) { Text("取消") } },
     )
 }

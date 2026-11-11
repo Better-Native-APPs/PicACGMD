@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import app.picacgmd.R
+import app.picacgmd.core.designsystem.component.AppButton
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -60,7 +60,7 @@ internal fun AppLockScreen(error: String?, onUnlock: () -> Unit, onExit: () -> U
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (error == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
                 )
-                Button(onClick = onUnlock, modifier = Modifier.fillMaxWidth()) { Text("解锁") }
+                AppButton(onClick = onUnlock, modifier = Modifier.fillMaxWidth()) { Text("解锁") }
             }
         }
     }
