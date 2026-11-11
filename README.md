@@ -1,45 +1,55 @@
 # PicACGMD
 
+> **PicACGMD** 是哔咔漫画（PicACG）的第三方 Android 客户端，使用 Kotlin 与 Jetpack Compose（Material 3 Expressive）原生编写，支持 Android 8.0 及以上。
+
 [![Android CI](https://github.com/Better-Native-APPs/PicACGMD/actions/workflows/android.yml/badge.svg)](https://github.com/Better-Native-APPs/PicACGMD/actions/workflows/android.yml)
+[![License: GPL v3+](https://img.shields.io/badge/License-GPL%20v3%2B-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B-3DDC84.svg)](#系统要求)
+[![Kotlin](https://img.shields.io/badge/Kotlin-Jetpack%20Compose-7F52FF.svg)](#模块)
+[![Material 3](https://img.shields.io/badge/Material%203-Expressive-6750A4.svg)](#功能特性)
 
-哔咔漫画第三方客户端，用 Kotlin + Jetpack Compose（Material 3 Expressive）编写，支持 Android 8.0 及以上。
+---
 
-- 所有功能直接可用，没有付费限制；不含遥测，只连接哔咔官方接口、图片服务器，以及用户自己配置的代理。
-- 下载线程 1–16 可调。
-- 设计稿与规范详见 [design/SPEC.md](design/SPEC.md) 及 [design/index.html](design/index.html)。
-- 更多协议与架构文档参见 [docs/ 目录](docs/README.md)，更新历史见 [CHANGELOG.md](CHANGELOG.md)。
+## 项目简介
 
-## 功能
+PicACGMD 为哔咔漫画提供完整可用的原生 Android 体验：所有功能直接可用，没有付费限制；不含遥测，只连接哔咔官方接口、图片服务器，以及用户自己配置的代理。下载线程 1–16 可调。
 
-- **浏览**：分类（含全分类）、排行榜、随机、搜索、游戏专区、公告；常用分类可固定到首页。
+界面与交互遵循 Material 3 Expressive 设计语言；完整设计稿与规范见 [design/SPEC.md](design/SPEC.md) 与 [design/index.html](design/index.html)。协议与架构文档见 [docs/](docs/README.md)，更新历史见 [CHANGELOG.md](CHANGELOG.md)。
+
+---
+
+## 功能特性
+
+- **浏览与发现**：分类（含全分类）、排行榜、随机、搜索、游戏专区、公告；常用分类可固定到首页。
 - **书架**：在线收藏、追更、浏览记录、标签收藏。
-- **阅读器**：翻页、长条和自由缩放等模式，可自定义点按区域、滤镜和背景，支持墨水屏翻页步长；顶栏控制精简，全屏沉浸阅读。
-- **下载**：章节级管理，可离线阅读；下载位置可选应用内部存储或系统文件夹；支持仅 Wi-Fi 下载、收藏时自动下载。
-- **分流**：接口分流与图片分流同时并发测速，一键自动选择最快线路；支持从官方同步最新分流。
-- **隐私**：应用锁（系统生物识别或锁屏密码）、防止截屏；应用内调用系统选择器不重复触发锁屏。
-- **系统适配**：预测性返回、三种全屏模式、动态取色、深色主题。
+- **阅读器**：翻页（从右到左 / 从左到右）、长条（连续滚动）与自由缩放模式；自定义点按区域、背景与滤镜；墨水屏按屏滚动与残影优化；全屏沉浸阅读与三种全屏模式。
+- **下载**：章节级多线程下载（1–16 线程可调），可选应用内部存储或系统文件夹；支持仅 Wi-Fi 下载与收藏时自动下载；下载内容供应用内离线阅读。
+- **分流**：接口分流与图片分流并发测速，一键自动选择最快线路；支持自定义代理与从官方同步分流。
+- **隐私**：应用锁（系统生物识别或锁屏密码）、防止截屏；不收集使用数据，记录仅保存在本机。
+- **系统适配**：预测性返回、动态取色、深色与纯黑主题。
+- **关于**：内置 GitHub 仓库入口；可手动检查新版本（仅手动触发，不做后台检查）。
+
+---
+
+## 系统要求
+
+| 项目 | 要求 |
+|---|---|
+| 操作系统 | Android 8.0（API 26）及以上 |
+| 构建环境 | JDK 21；Android SDK `platforms;android-37.0` 与 `build-tools;37.0.0`（推荐直接使用 Nix，见下文） |
+
+---
 
 ## 下载安装
 
-- 每次推送到 `main` 都会在 GitHub Actions 自动构建，APK 在对应运行记录的 Artifacts 里。
-- 本项目遵循依次递进的补丁版本号（`1.0.0` → `1.0.1` → `1.0.2` …）。推送 `v` 开头的标签（如 `v1.0.1`，须与 `versionName` 一致）会自动触发 Release 发布并附上打包好的 release APK。
+- 在 [Releases](https://github.com/Better-Native-APPs/PicACGMD/releases) 下载最新 APK；推送 `v` 开头的标签（如 `v1.0.2`，须与 `versionName` 一致）会自动构建并发布 Release。
+- 分支模型：`main` 只保留已发布的版本；开发提交进入 `dev` 分支。
+- 版本号依次递进（`1.0.0` → `1.0.1` → `1.0.2` …）。
+- 日常使用请安装 release 包：它关闭调试，启用代码优化、无用代码与资源压缩，并附带 ART 基线配置，适合低性能手机。
 
-日常使用请安装 release 包：它关闭调试，启用代码优化、无用代码与资源压缩，并附带 ART 基线配置，适合低性能手机。
+---
 
-## 文档导航
-
-| 文档 | 说明 |
-| --- | --- |
-| [README.md](README.md) | 项目简介、快速开始、开发构建与签名说明 |
-| [CHANGELOG.md](CHANGELOG.md) | 版本发布历史与详细变更日志 |
-| [docs/README.md](docs/README.md) | 文档导航索引与整体技术架构概述 |
-| [docs/picacg-protocol.md](docs/picacg-protocol.md) | 哔咔漫画 HTTP 接口协议、请求头与 HMAC-SHA256 签名规范 |
-| [docs/upstream-inventory.md](docs/upstream-inventory.md) | 原始功能与接口清单（页面 56 个、设置 81 项、接口 106 个） |
-| [design/SPEC.md](design/SPEC.md) | 权威设计规范（Material 3 Expressive）、组件映射与历次决策日志 |
-| [design/index.html](design/index.html) | 设计画板总览（01–33 号画板视觉预览与状态说明） |
-| [core/data/README.md](core/data/README.md) | 本地数据层（Room schema v4、DataStore 偏好设置、DAO） |
-
-## 开发环境
+## 构建与运行
 
 推荐使用 Nix：
 
@@ -75,6 +85,22 @@ nix develop   # JDK 21 · Android SDK 37 · Gradle · Kotlin · Node · Python 3
 | `:core:network` | 纯 JVM 的哔咔接口客户端 |
 | `:core:designsystem` | 主题与共用组件 |
 
+---
+
+## 文档索引
+
+| 文档 | 说明 |
+| --- | --- |
+| [CHANGELOG.md](CHANGELOG.md) | 版本发布历史与详细变更日志 |
+| [docs/README.md](docs/README.md) | 文档导航索引与整体技术架构概述 |
+| [docs/picacg-protocol.md](docs/picacg-protocol.md) | 哔咔漫画 HTTP 接口协议、请求头与 HMAC-SHA256 签名规范 |
+| [docs/upstream-inventory.md](docs/upstream-inventory.md) | 原始功能与接口清单（页面 56 个、设置 81 项、接口 106 个） |
+| [design/SPEC.md](design/SPEC.md) | 权威设计规范（Material 3 Expressive）、组件映射与历次决策日志 |
+| [design/index.html](design/index.html) | 设计画板总览（01–33 号画板视觉预览与状态说明） |
+| [core/data/README.md](core/data/README.md) | 本地数据层（Room schema v4、DataStore 偏好设置、DAO） |
+
+---
+
 ## 签名
 
 本地构建默认使用当前开发环境的 debug 密钥签名。保留同一把密钥即可直接覆盖安装，保留数据；`nix develop` 中的密钥位于项目的 `.android/debug.keystore`。新工作树或新机器构建时，需先复制原密钥，否则无法覆盖原安装。
@@ -105,8 +131,16 @@ keyPassword=你的密钥密码
 | `KEY_ALIAS` | 密钥别名 |
 | `KEY_PASSWORD` | 密钥密码 |
 
+---
+
 ## 使用说明与免责声明
 
 - **技术交流**：本项目仅供 Android 原生开发（Kotlin + Jetpack Compose）与网络协议技术学习交流使用。
 - **无内容托管**：本客户端不包含、不托管、亦不分发任何漫画内容；使用过程中产生的所有网络流量与内容均通过官方接口或用户自行配置的节点直接获取。
-- **许可说明**：本项目代码以 GNU GPL-3.0-or-later 许可开源，可自由使用、修改与再分发，完整文本见 [LICENSE](LICENSE)。
+
+---
+
+## 开源许可与版权
+
+- 本项目源码遵循 [GNU General Public License v3.0 或更高版本（GPL-3.0-or-later）](LICENSE)，可自由使用、修改与再分发。
+- 本项目与哔咔漫画官方无隶属关系；漫画内容版权归原作者与平台所有。
