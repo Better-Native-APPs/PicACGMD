@@ -245,6 +245,7 @@ private fun NavGraphBuilder.sharedDestinations(
         SettingsHost(
             onBack = navController.backAction(),
             onOpenDownloads = { navController.navigateToTopLevel(TopLevelDestination.Downloads) },
+            onOpenCategories = { navController.navigate(CategoriesRoute) },
         )
     }
     page<DownloadSettingsRoute> {
