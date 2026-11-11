@@ -41,13 +41,11 @@ import androidx.compose.material.icons.outlined.PrivacyTip
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialShapes
@@ -55,7 +53,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
@@ -79,6 +76,9 @@ import androidx.core.graphics.drawable.toBitmap
 import coil3.ImageLoader
 import app.picacgmd.core.data.db.PikapikaDatabase
 import app.picacgmd.core.data.settings.CacheCleanupInterval
+import app.picacgmd.core.designsystem.component.AppButton
+import app.picacgmd.core.designsystem.component.AppFilledTonalButton
+import app.picacgmd.core.designsystem.component.AppTextButton
 import app.picacgmd.di.LocalAppContainer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -293,12 +293,12 @@ private fun StorageCard(
             }
             Spacer(Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilledTonalButton(onClick = onClean) {
+                AppFilledTonalButton(onClick = onClean) {
                     Icon(Icons.Outlined.CleaningServices, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text("清理缓存")
                 }
-                TextButton(onClick = onManageDownloads) {
+                AppTextButton(onClick = onManageDownloads) {
                     Icon(Icons.Outlined.Download, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text("管理下载")
@@ -333,7 +333,7 @@ private fun CleanCacheSheet(
             CheckRow("图片缓存", "已浏览的封面和图片", usage?.imageCache?.let(context::formatBytes), images) { images = it }
             CheckRow("接口缓存", "列表临时数据", null, api) { api = it }
             CheckRow("浏览记录和阅读进度", "清除后无法恢复", null, history) { history = it }
-            Button(
+            AppButton(
                 onClick = {
                     onClean(images, api, history)
                     scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
@@ -528,16 +528,16 @@ internal fun AboutSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier
                 },
                 confirmButton = {
                     if (result is UpdateCheckResult.Available) {
-                        Button(onClick = {
+                        AppButton(onClick = {
                             updateResult = null
                             openBrowser(LATEST_RELEASE_URL)
                         }) { Text("打开下载页") }
                     } else {
-                        TextButton(onClick = { updateResult = null }) { Text("关闭") }
+                        AppTextButton(onClick = { updateResult = null }) { Text("关闭") }
                     }
                 },
                 dismissButton = if (result is UpdateCheckResult.Available) {
-                    { TextButton(onClick = { updateResult = null }) { Text("关闭") } }
+                    { AppTextButton(onClick = { updateResult = null }) { Text("关闭") } }
                 } else {
                     null
                 },
@@ -587,6 +587,6 @@ private fun InfoDialog(title: String, onDismiss: () -> Unit, content: @Composabl
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = { Column(Modifier.verticalScroll(rememberScrollState())) { content() } },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("关闭") } },
+        confirmButton = { AppTextButton(onClick = onDismiss) { Text("关闭") } },
     )
 }

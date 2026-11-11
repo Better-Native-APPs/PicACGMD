@@ -26,7 +26,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +39,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import app.picacgmd.core.data.settings.ImageQuality
+import app.picacgmd.core.designsystem.component.AppTextButton
 import app.picacgmd.di.LocalAppContainer
 import kotlinx.coroutines.launch
 import java.net.URI
@@ -217,7 +217,7 @@ internal fun TextInputDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            AppTextButton(onClick = {
                 val problem = validate(value)
                 if (problem != null) {
                     error = problem
@@ -227,7 +227,7 @@ internal fun TextInputDialog(
                 }
             }) { Text("保存") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        dismissButton = { AppTextButton(onClick = onDismiss) { Text("取消") } },
     )
 }
 
@@ -275,11 +275,11 @@ private fun ProxyDialog(initial: String, onSave: (String) -> Unit, onDismiss: ()
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            AppTextButton(onClick = {
                 if (type == ProxyType.None) {
                     onSave("")
                     onDismiss()
-                    return@TextButton
+                    return@AppTextButton
                 }
                 val portNumber = port.toIntOrNull()
                 when {
@@ -292,7 +292,7 @@ private fun ProxyDialog(initial: String, onSave: (String) -> Unit, onDismiss: ()
                 }
             }) { Text("保存") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        dismissButton = { AppTextButton(onClick = onDismiss) { Text("取消") } },
     )
 }
 

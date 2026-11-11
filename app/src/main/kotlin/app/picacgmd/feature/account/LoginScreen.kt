@@ -21,21 +21,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
@@ -58,6 +54,10 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.picacgmd.core.data.settings.AppSettings
+import app.picacgmd.core.designsystem.component.AppButton
+import app.picacgmd.core.designsystem.component.AppFilledTonalButton
+import app.picacgmd.core.designsystem.component.AppIconButton
+import app.picacgmd.core.designsystem.component.AppTextButton
 import app.picacgmd.core.designsystem.component.BackButton
 import app.picacgmd.core.designsystem.component.PredictiveBackContent
 import app.picacgmd.core.domain.session.SessionState
@@ -139,7 +139,7 @@ private fun NoticeScreen(onBack: (() -> Unit)?, onContinue: () -> Unit) {
             Checkbox(adult, onCheckedChange = null)
             Text("我已年满 18 岁，并同意遵守当地法律法规", Modifier.weight(1f))
         }
-        Button(onContinue, Modifier.fillMaxWidth(), enabled = adult) { Text("继续") }
+        AppButton(onContinue, Modifier.fillMaxWidth(), enabled = adult) { Text("继续") }
     }
 }
 
@@ -201,9 +201,9 @@ private fun LoginForm(
         }
         error?.let {
             AccountError(it)
-            TextButton(onNetwork) { Text("切换分流") }
+            AppTextButton(onNetwork) { Text("切换分流") }
         }
-        Button(
+        AppButton(
             onClick = {
                 submitting = true
                 error = null
@@ -228,8 +228,8 @@ private fun LoginForm(
             Text(if (busy) "正在登录" else "登录")
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            TextButton(onRegister, enabled = !busy) { Text("注册账号") }
-            TextButton(onForgot, enabled = !busy) { Text("忘记密码") }
+            AppTextButton(onRegister, enabled = !busy) { Text("注册账号") }
+            AppTextButton(onForgot, enabled = !busy) { Text("忘记密码") }
         }
         Card(Modifier.fillMaxWidth()) {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -244,7 +244,7 @@ private fun LoginForm(
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                FilledTonalButton(onNetwork, enabled = !busy) { Text("更改") }
+                AppFilledTonalButton(onNetwork, enabled = !busy) { Text("更改") }
             }
         }
     }
@@ -282,7 +282,7 @@ internal fun PasswordField(value: String, onChange: (String) -> Unit, label: Str
         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         trailingIcon = {
-            IconButton({ visible = !visible }) {
+            AppIconButton({ visible = !visible }) {
                 Icon(if (visible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, if (visible) "隐藏密码" else "显示密码")
             }
         },
