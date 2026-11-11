@@ -2,18 +2,19 @@ package app.picacgmd.feature.account
 
 import android.content.Context
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -49,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -101,7 +103,7 @@ private fun NoticeScreen(onBack: (() -> Unit)?, onContinue: () -> Unit) {
                 .background(MaterialTheme.colorScheme.primaryContainer).padding(24.dp),
             tint = MaterialTheme.colorScheme.onPrimaryContainer,
         )
-        Text("欢迎使用 PicACG", style = MaterialTheme.typography.headlineLarge)
+        Text("欢迎使用 PicACG", style = MaterialTheme.typography.headlineLargeEmphasized)
         Text("使用须知", color = MaterialTheme.colorScheme.onSurfaceVariant)
         Card {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -113,8 +115,12 @@ private fun NoticeScreen(onBack: (() -> Unit)?, onContinue: () -> Unit) {
                 Text("不收集使用数据，记录只保存在本机")
             }
         }
-        Row(Modifier.fillMaxWidth().clickable { adult = !adult }, verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(adult, { adult = it })
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                .toggleable(value = adult, role = Role.Checkbox, onValueChange = { adult = it }),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(adult, onCheckedChange = null)
             Text("我已年满 18 岁，并同意遵守当地法律法规", Modifier.weight(1f))
         }
         Button(onContinue, Modifier.fillMaxWidth(), enabled = adult) { Text("继续") }
@@ -142,7 +148,7 @@ private fun LoginForm(onBack: (() -> Unit)?, onRegister: () -> Unit, onForgot: (
                 .background(MaterialTheme.colorScheme.primary).padding(20.dp),
             tint = MaterialTheme.colorScheme.onPrimary,
         )
-        Text("登录账号", style = MaterialTheme.typography.headlineLarge)
+        Text("登录账号", style = MaterialTheme.typography.headlineLargeEmphasized)
         Text("使用哔咔账号登录", color = MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedTextField(
             account, { account = it; error = null }, Modifier.fillMaxWidth(), label = { Text("账号") },
@@ -150,8 +156,16 @@ private fun LoginForm(onBack: (() -> Unit)?, onRegister: () -> Unit, onForgot: (
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
         )
         PasswordField(password, { password = it; error = null }, enabled = !busy, isError = error != null)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(rememberCredentials, { rememberCredentials = it }, enabled = !busy)
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(
+                value = rememberCredentials,
+                enabled = !busy,
+                role = Role.Checkbox,
+                onValueChange = { rememberCredentials = it },
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(rememberCredentials, onCheckedChange = null, enabled = !busy)
             Text("记住账号和密码（本机加密保存）", style = MaterialTheme.typography.bodyMedium)
         }
         error?.let {

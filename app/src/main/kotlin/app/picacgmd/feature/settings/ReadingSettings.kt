@@ -224,7 +224,6 @@ internal fun SliderRow(
     var local by remember { mutableFloatStateOf(value) }
     val shown = if (dragging) local else value
     SegmentedListItem(
-        onClick = {},
         shapes = shapes,
         enabled = enabled,
         trailingContent = {

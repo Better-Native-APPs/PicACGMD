@@ -29,6 +29,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import app.picacgmd.core.designsystem.component.ExpressivePullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -40,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.picacgmd.core.designsystem.component.EmptyState
@@ -81,6 +83,7 @@ fun MyCommentsScreen(
     var state by remember { mutableStateOf(CommentsState()) }
     var refreshing by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     fun load(page: Int) {
         state = state.copy(loading = true, error = null)
@@ -115,8 +118,14 @@ fun MyCommentsScreen(
     }
 
     Scaffold(
-        modifier = modifier,
-        topBar = { TopAppBar(title = { Text("我的评论") }, navigationIcon = { BackButton(onBack) }) },
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            TopAppBar(
+                title = { Text("我的评论") },
+                navigationIcon = { BackButton(onBack) },
+                scrollBehavior = scrollBehavior,
+            )
+        },
     ) { padding ->
         ExpressivePullToRefreshBox(
             isRefreshing = refreshing,

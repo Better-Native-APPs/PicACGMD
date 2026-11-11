@@ -3,8 +3,10 @@ package app.picacgmd.ui
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.os.SystemClock
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Badge
@@ -12,6 +14,8 @@ import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
@@ -22,8 +26,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.LocalContext
@@ -44,6 +50,7 @@ import app.picacgmd.navigation.currentTopLevelDestination
 import app.picacgmd.navigation.isFullscreen
 import app.picacgmd.navigation.isTopLevelStart
 import app.picacgmd.navigation.navigateToTopLevel
+import kotlinx.coroutines.launch
 
 /** Navigation chrome per window width (board 31). */
 private enum class NavigationLayout {
@@ -95,6 +102,8 @@ fun PikapikaApp(
     var externalComicId by rememberSaveable { mutableStateOf<String?>(null) }
     val preferences by LocalAppContainer.current.settingsRepository.settings.collectAsStateWithLifecycle(null)
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val snackbar = remember { SnackbarHostState() }
     val atRoot = currentDestination?.isTopLevelStart() == true
     val doubleBack = remember(atRoot, currentTab, preferences?.doubleBackToExit) { DoubleBackExit() }
 
@@ -158,20 +167,23 @@ fun PikapikaApp(
             }
         },
     ) {
-        PikapikaNavHost(
-            navController = navController, compactNavigation = !usesRail,
-            externalComicId = externalComicId, onExternalComicExit = onExternalComicExit,
-            rootBackHandler = {
-                // Root callbacks sit after NavHost but before screen-local selection/search handlers.
-                // With the preference off there is no extra callback at all.
-                if (preferences?.doubleBackToExit == true) {
-                    BackHandler(enabled = atRoot) {
-                        if (doubleBack.shouldExit(SystemClock.elapsedRealtime())) (context as? Activity)?.finish()
-                        else Toast.makeText(context, "再按一次退出", Toast.LENGTH_SHORT).show()
+        Box(Modifier.fillMaxSize()) {
+            PikapikaNavHost(
+                navController = navController, compactNavigation = !usesRail,
+                externalComicId = externalComicId, onExternalComicExit = onExternalComicExit,
+                rootBackHandler = {
+                    // Root callbacks sit after NavHost but before screen-local selection/search handlers.
+                    // With the preference off there is no extra callback at all.
+                    if (preferences?.doubleBackToExit == true) {
+                        BackHandler(enabled = atRoot) {
+                            if (doubleBack.shouldExit(SystemClock.elapsedRealtime())) (context as? Activity)?.finish()
+                            else scope.launch { snackbar.showSnackbar("再按一次退出") }
+                        }
                     }
-                }
-            },
-        )
+                },
+            )
+            SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
+        }
     }
     LaunchedEffect(externalNavigation) {
         externalNavigation?.let { target ->
