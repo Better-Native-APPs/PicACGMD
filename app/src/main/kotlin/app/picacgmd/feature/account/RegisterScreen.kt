@@ -81,7 +81,7 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: (String) -> Unit) 
                 if (shownStep == 1) {
                     OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), label = { Text("账号") }, singleLine = true)
                     PasswordField(password, { password = it })
-                    Text("密码至少 8 位，包含大小写字母和数字", style = MaterialTheme.typography.bodySmall)
+                    Text("密码至少 8 位", style = MaterialTheme.typography.bodySmall)
                     OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text("昵称") }, singleLine = true)
                     Text("性别", style = MaterialTheme.typography.titleSmall)
                     Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
@@ -96,7 +96,7 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: (String) -> Unit) 
                     Button({
                         error = when {
                             email.isBlank() -> "请输入账号"
-                            password.length < 8 || password.none(Char::isUpperCase) || password.none(Char::isLowerCase) || password.none(Char::isDigit) -> "密码至少 8 位，包含大小写字母和数字"
+                            password.length < 8 -> "密码至少 8 位"
                             name.trim().length !in 2..50 -> "昵称需为 2–50 字"
                             birthday.isBlank() -> "请选择生日"
                             LocalDate.parse(birthday).isAfter(LocalDate.now().minusYears(18)) -> "注册须年满 18 岁"
