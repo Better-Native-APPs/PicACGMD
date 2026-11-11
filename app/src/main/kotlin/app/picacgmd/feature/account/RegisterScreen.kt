@@ -29,6 +29,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.picacgmd.core.network.PicaException
 import app.picacgmd.core.network.RegisterDto
 import app.picacgmd.core.designsystem.component.PredictiveBackContent
 import app.picacgmd.di.LocalAppContainer
@@ -37,6 +38,9 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+
+private val accountPattern = Regex("""^(?!.*\.\.)(?!.*\.$)[\w][\w.]{0,29}$""")
+private const val ACCOUNT_RULE_MESSAGE = "账号只能用字母、数字、下划线或点（1–30 位），不能使用邮箱"
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -79,7 +83,14 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: (String) -> Unit) 
                 Text("第 $shownStep 步，共 2 步", style = MaterialTheme.typography.titleMedium)
                 LinearWavyProgressIndicator(progress = { shownStep / 2f }, modifier = Modifier.fillMaxWidth(), waveSpeed = 0.dp)
                 if (shownStep == 1) {
-                    OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), label = { Text("账号") }, singleLine = true)
+                    OutlinedTextField(
+                        email,
+                        { email = it },
+                        Modifier.fillMaxWidth(),
+                        label = { Text("账号") },
+                        supportingText = { Text(ACCOUNT_RULE_MESSAGE) },
+                        singleLine = true,
+                    )
                     PasswordField(password, { password = it })
                     Text("密码至少 8 位", style = MaterialTheme.typography.bodySmall)
                     OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text("昵称") }, singleLine = true)
@@ -96,6 +107,7 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: (String) -> Unit) 
                     Button({
                         error = when {
                             email.isBlank() -> "请输入账号"
+                            !accountPattern.matches(email.trim()) -> ACCOUNT_RULE_MESSAGE
                             password.length < 8 -> "密码至少 8 位"
                             name.trim().length !in 2..50 -> "昵称需为 2–50 字"
                             birthday.isBlank() -> "请选择生日"
@@ -142,10 +154,19 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: (String) -> Unit) 
                                     throw exception
                                 } catch (exception: Exception) {
                                     val message = exception.localizedMessage ?: "注册失败"
+                                    val detail = (exception as? PicaException)?.detail?.toString().orEmpty()
                                     error = when {
                                         registered -> "账号已注册，但本机登录信息未能更新：$message"
                                         message.contains("email is already exist", ignoreCase = true) -> "账号已存在，请直接登录或更换账号"
                                         message.contains("name is already exist", ignoreCase = true) -> "昵称已被使用，请换一个昵称"
+                                        message.equals("validation error", ignoreCase = true) -> when {
+                                            detail.contains("email is required", ignoreCase = true) -> "请输入账号"
+                                            detail.contains("email with value", ignoreCase = true) ||
+                                                detail.contains("required pattern", ignoreCase = true) -> ACCOUNT_RULE_MESSAGE
+                                            detail.contains("password length", ignoreCase = true) -> "密码至少 8 位"
+                                            detail.contains("name", ignoreCase = true) -> "昵称不符合要求（2–50 字）"
+                                            else -> message
+                                        }
                                         else -> message
                                     }
                                 } finally {
