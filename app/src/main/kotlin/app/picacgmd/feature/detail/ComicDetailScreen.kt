@@ -64,7 +64,6 @@ import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -73,7 +72,6 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -87,7 +85,6 @@ import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -120,6 +117,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import app.picacgmd.R
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.data.settings.renderCopyName
+import app.picacgmd.core.designsystem.component.AppButton
+import app.picacgmd.core.designsystem.component.AppIconButton
+import app.picacgmd.core.designsystem.component.AppTextButton
 import app.picacgmd.core.designsystem.component.ComicCover
 import app.picacgmd.core.designsystem.component.ComicCoverCard
 import app.picacgmd.core.designsystem.component.ErrorState
@@ -417,7 +417,7 @@ private fun DetailBody(
                         onBack = onBack,
                         solid = false,
                         actions = {
-                            IconButton(onClick = {
+                            AppIconButton(onClick = {
                                 val rendered = renderCopyName(preferences.copyNameTemplate, comic.author, comic.title, comic.id)
                                 if (preferences.confirmCopy) copyConfirmation = rendered
                                 else clipboard.setText(AnnotatedString(rendered))
@@ -447,9 +447,9 @@ private fun DetailBody(
             title = { Text("复制名称") },
             text = { Text(rendered) },
             confirmButton = {
-                TextButton(onClick = { clipboard.setText(AnnotatedString(rendered)); copyConfirmation = null }) { Text("复制") }
+                AppTextButton(onClick = { clipboard.setText(AnnotatedString(rendered)); copyConfirmation = null }) { Text("复制") }
             },
-            dismissButton = { TextButton(onClick = { copyConfirmation = null }) { Text("取消") } },
+            dismissButton = { AppTextButton(onClick = { copyConfirmation = null }) { Text("取消") } },
         )
     }
 }
@@ -928,9 +928,9 @@ private fun LazyListScope.chapters(
     }
     item(key = "eps-actions") {
         Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 4.dp), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = onToggleReversed) { Text(stringResource(R.string.detail_chapters_reverse)) }
+            AppTextButton(onClick = onToggleReversed) { Text(stringResource(R.string.detail_chapters_reverse)) }
             if (ordered.size > COLLAPSED_CHAPTER_COUNT) {
-                TextButton(onClick = onToggleShowAll) {
+                AppTextButton(onClick = onToggleShowAll) {
                     Text(if (showAll) stringResource(R.string.detail_collapse) else stringResource(R.string.detail_chapters_expand, ordered.size))
                 }
             }
@@ -1095,7 +1095,7 @@ private fun DownloadPickerSheet(eps: List<Ep>, onDismiss: () -> Unit, onConfirm:
     ModalBottomSheet(onDismissRequest = onDismiss, properties = secureModalBottomSheetProperties()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.detail_download_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-            TextButton(onClick = { chosen = if (chosen.size == eps.size) emptySet() else eps.map(Ep::id).toSet() }) {
+            AppTextButton(onClick = { chosen = if (chosen.size == eps.size) emptySet() else eps.map(Ep::id).toSet() }) {
                 Text(stringResource(R.string.comics_select_all))
             }
         }
@@ -1108,7 +1108,7 @@ private fun DownloadPickerSheet(eps: List<Ep>, onDismiss: () -> Unit, onConfirm:
                 ) { Text(ep.title.ifBlank { ep.order.toString() }) }
             }
         }
-        Button(
+        AppButton(
             onClick = { onConfirm(eps.filter { it.id in chosen }) },
             enabled = chosen.isNotEmpty(),
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),

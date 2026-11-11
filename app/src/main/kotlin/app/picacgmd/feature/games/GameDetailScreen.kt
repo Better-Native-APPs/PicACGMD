@@ -24,10 +24,8 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LargeFlexibleTopAppBar
@@ -60,6 +58,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import app.picacgmd.core.designsystem.window.secureDialogProperties
 import app.picacgmd.R
+import app.picacgmd.core.designsystem.component.AppButton
+import app.picacgmd.core.designsystem.component.AppFilledIconButton
 import app.picacgmd.core.designsystem.component.SoftBackdrop
 import app.picacgmd.core.network.GameInfo
 import app.picacgmd.core.network.PicaImage
@@ -158,7 +158,7 @@ fun GameDetailScreen(gameId: String, onBack: () -> Unit, onComments: (String) ->
             }
             item {
                 Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Button({ links = true }, Modifier.fillMaxWidth(), enabled = info.androidLinks.isNotEmpty()) {
+                    AppButton({ links = true }, Modifier.fillMaxWidth(), enabled = info.androidLinks.isNotEmpty()) {
                         Text(if (info.androidLinks.isEmpty()) "暂无安卓版" else "获取下载链接")
                     }
                     if (info.androidLinks.isNotEmpty()) Text(
@@ -204,7 +204,7 @@ fun GameDetailScreen(gameId: String, onBack: () -> Unit, onComments: (String) ->
         Dialog(onDismissRequest = { screenshot = null }, properties = secureDialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
             Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainerLowest)) {
                 GameImage(image, "游戏截图", Modifier.fillMaxSize(), ContentScale.Fit)
-                FilledIconButton(
+                AppFilledIconButton(
                     { screenshot = null },
                     Modifier.align(Alignment.TopEnd).padding(24.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(

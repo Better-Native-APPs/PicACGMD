@@ -18,18 +18,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +35,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import app.picacgmd.core.designsystem.component.AppButton
+import app.picacgmd.core.designsystem.component.AppFilledTonalButton
+import app.picacgmd.core.designsystem.component.AppOutlinedButton
+import app.picacgmd.core.designsystem.component.AppTextButton
 import kotlinx.coroutines.launch
 
 /** API-supplied addresses are displayed locally; no third-party requests or redirects are prefetched. */
@@ -60,11 +60,11 @@ internal fun GameLinksSheet(links: List<String>, onDismiss: () -> Unit) {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         SelectionContainer { Text(raw) }
-                        FilledTonalButton({
+                        AppFilledTonalButton({
                             clipboard.setPrimaryClip(ClipData.newPlainText("下载链接", raw))
                             scope.launch { snackbar.showSnackbar("已复制") }
                         }) { Text("复制") }
-                        urls.forEach { url -> OutlinedButton({ opening = url }, Modifier.fillMaxWidth()) { Text("打开 ${Uri.parse(url).host}") } }
+                        urls.forEach { url -> AppOutlinedButton({ opening = url }, Modifier.fillMaxWidth()) { Text("打开 ${Uri.parse(url).host}") } }
                     }
                 }
             }
@@ -84,7 +84,7 @@ internal fun GameLinksSheet(links: List<String>, onDismiss: () -> Unit) {
                     Text("将离开本应用：网站不属于哔咔，可记录 IP 地址，文件未经验证")
                 }
             },
-            confirmButton = { Button({
+            confirmButton = { AppButton({
                 opening = null
                 try {
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE))
@@ -92,7 +92,7 @@ internal fun GameLinksSheet(links: List<String>, onDismiss: () -> Unit) {
                     scope.launch { snackbar.showSnackbar("打开失败：无可用浏览器") }
                 }
             }) { Text("打开") } },
-            dismissButton = { TextButton({ opening = null }) { Text("取消") } },
+            dismissButton = { AppTextButton({ opening = null }) { Text("取消") } },
         )
     }
 }
