@@ -15,11 +15,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialShapes
@@ -27,7 +25,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import app.picacgmd.core.designsystem.component.ExpressivePullToRefreshBox
@@ -50,6 +47,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import coil3.compose.AsyncImage
 import app.picacgmd.R
+import app.picacgmd.core.designsystem.component.ConnectedChoiceGroup
 import app.picacgmd.core.designsystem.component.EmptyState
 import app.picacgmd.core.designsystem.component.LoadingState
 import app.picacgmd.core.domain.di.AppContainer
@@ -66,8 +64,6 @@ import app.picacgmd.feature.discover.loadCatching
 import app.picacgmd.feature.discover.rememberImageUrl
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
 
 enum class RankingTab(val label: Int) {
     H24(R.string.rankings_tab_day),
@@ -171,26 +167,15 @@ fun RankingsScreen(
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun RangeSelector(selected: RankingTab, onSelect: (RankingTab) -> Unit) {
-    val tabs = RankingTab.entries
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
-    ) {
-        tabs.forEachIndexed { index, tab ->
-            ToggleButton(
-                checked = tab == selected,
-                onCheckedChange = { onSelect(tab) },
-                modifier = Modifier.weight(1f).semantics { role = Role.RadioButton },
-                shapes = when (index) {
-                    0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                    tabs.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                },
-                contentPadding = PaddingValues(horizontal = 8.dp),
-            ) {
-                Text(stringResource(tab.label), maxLines = 1)
-            }
-        }
+    ConnectedChoiceGroup(
+        options = RankingTab.entries,
+        selected = selected,
+        onSelect = onSelect,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        role = Role.RadioButton,
+        contentPadding = PaddingValues(horizontal = 8.dp),
+    ) { tab ->
+        Text(stringResource(tab.label), maxLines = 1)
     }
 }
 

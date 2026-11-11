@@ -19,11 +19,8 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Crop
 import androidx.compose.material.icons.rounded.SaveAlt
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
@@ -31,7 +28,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
@@ -60,6 +56,9 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import app.picacgmd.core.designsystem.component.AppButton
+import app.picacgmd.core.designsystem.component.AppFilledTonalButton
+import app.picacgmd.core.designsystem.component.AppFilledTonalIconButton
 import app.picacgmd.core.designsystem.window.secureDialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
@@ -233,7 +232,7 @@ private fun PreviewContent(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            FilledTonalIconButton(onClick = onDismiss) {
+            AppFilledTonalIconButton(onClick = onDismiss) {
                 Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.reader_close))
             }
             HintPill(text = stringResource(R.string.reader_page_number, label.pageNumber))
@@ -245,10 +244,10 @@ private fun PreviewContent(
             .padding(16.dp)
         if (cropping) {
             Row(modifier = barModifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilledTonalButton(onClick = { cropping = false }) {
+                AppFilledTonalButton(onClick = { cropping = false }) {
                     Text(stringResource(R.string.reader_cancel))
                 }
-                FilledTonalButton(
+                AppFilledTonalButton(
                     enabled = !busy,
                     onClick = {
                         busy = true
@@ -261,7 +260,7 @@ private fun PreviewContent(
                 ) {
                     ButtonLabel(Icons.Rounded.Share, stringResource(R.string.reader_action_share))
                 }
-                Button(
+                AppButton(
                     enabled = !busy,
                     onClick = {
                         busy = true
@@ -280,7 +279,7 @@ private fun PreviewContent(
                 }
             }
         } else if (loaded) {
-            FilledTonalButton(
+            AppFilledTonalButton(
                 modifier = barModifier,
                 onClick = {
                     zoom.reset()
