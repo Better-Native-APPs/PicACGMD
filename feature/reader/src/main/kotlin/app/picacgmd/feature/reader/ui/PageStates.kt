@@ -14,7 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BrokenImage
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -125,7 +125,6 @@ internal fun rememberLoadProgress(image: PageImage, host: ReaderPageHost): (() -
 }
 
 private val LoadingRingSize = 48.dp
-private val LoadingRingStroke = 4.dp
 
 /**
  * Loading block: keeps the page's height and shows 「第 N 页」 under a single indicator.
@@ -153,12 +152,12 @@ internal fun PageLoadingBlock(
             val shown = percent
             val ringModifier = Modifier.size(LoadingRingSize)
             when {
-                shown != null -> CircularProgressIndicator(
+                shown != null -> CircularWavyProgressIndicator(
                     progress = { shown / 100f },
                     modifier = ringModifier,
                     color = ReaderDarkScheme.primary,
-                    strokeWidth = LoadingRingStroke,
                     trackColor = ReaderDarkScheme.secondaryContainer,
+                    waveSpeed = 0.dp,
                 )
                 reduceMotion -> LoadingIndicator(
                     progress = { 0f },

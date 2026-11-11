@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -87,14 +88,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.picacgmd.feature.reader.ImageQuality
@@ -180,7 +182,7 @@ internal fun ReaderSettingsSheet(
             ) {
                 Text(
                     text = stringResource(R.string.reader_settings_title),
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.titleLargeEmphasized,
                     modifier = Modifier.weight(1f),
                 )
                 if (onOpenAllSettings != null) {
@@ -439,13 +441,17 @@ private fun AutoScrollSpeedSlider(step: Int, onChange: (Int) -> Unit) {
 }
 
 /** A row that belongs to the setting above it (a switch, or the mode) and only shows while it applies. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ColumnScope.ExpandingRow(visible: Boolean, content: @Composable () -> Unit) {
     val reduceMotion = LocalReaderReduceMotion.current
+    val motion = MaterialTheme.motionScheme
     AnimatedVisibility(
         visible = visible,
-        enter = if (reduceMotion) EnterTransition.None else fadeIn() + expandVertically(),
-        exit = if (reduceMotion) ExitTransition.None else fadeOut() + shrinkVertically(),
+        enter = if (reduceMotion) EnterTransition.None else
+            fadeIn(motion.defaultEffectsSpec()) + expandVertically(motion.defaultSpatialSpec()),
+        exit = if (reduceMotion) ExitTransition.None else
+            fadeOut(motion.fastEffectsSpec()) + shrinkVertically(motion.defaultSpatialSpec()),
     ) {
         content()
     }
@@ -585,24 +591,29 @@ private fun <T> ChoiceGroup(
 @Composable
 private fun BackgroundChoice(selected: ReaderBackground, onSelect: (ReaderBackground) -> Unit) {
     val reduceMotion = LocalReaderReduceMotion.current
+    val density = LocalDensity.current
+    val swatchSize = with(density) { Size(36.dp.toPx(), 36.dp.toPx()) }
     Row(
         modifier = Modifier.selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         ReaderBackground.entries.forEach { background ->
             val isSelected = background == selected
+            val targetShape = if (isSelected) MaterialTheme.shapes.medium else MaterialTheme.shapes.largeIncreased
             val corner by animateDpAsState(
-                targetValue = if (isSelected) 12.dp else 18.dp,
+                targetValue = with(density) { targetShape.topStart.toPx(swatchSize, this).toDp() },
                 animationSpec = if (reduceMotion) snap() else MaterialTheme.motionScheme.fastSpatialSpec(),
                 label = "background shape",
             )
             val shape = RoundedCornerShape(corner)
             Column(
-                modifier = Modifier.selectable(
-                    selected = isSelected,
-                    role = Role.RadioButton,
-                    onClick = { onSelect(background) },
-                ),
+                modifier = Modifier
+                    .widthIn(min = 48.dp)
+                    .selectable(
+                        selected = isSelected,
+                        role = Role.RadioButton,
+                        onClick = { onSelect(background) },
+                    ),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
@@ -702,6 +713,7 @@ private fun SwitchRow(
     ListItem(
         checked = checked,
         onCheckedChange = onCheckedChange,
+        modifier = Modifier.semantics { role = Role.Switch },
         supportingContent = supporting?.let { text -> { Text(text) } },
         leadingContent = {
             if (icon != null) {
