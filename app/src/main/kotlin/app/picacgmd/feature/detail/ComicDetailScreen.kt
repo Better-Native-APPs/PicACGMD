@@ -56,6 +56,7 @@ import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.DownloadDone
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Person
@@ -80,6 +81,8 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SplitButtonDefaults
+import androidx.compose.material3.SplitButtonLayout
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
@@ -430,6 +433,9 @@ private fun DetailBody(
         ReadButton(
             progress = library.progress,
             firstEp = state.eps?.firstOrNull()?.order ?: 1,
+            eps = state.eps.orEmpty(),
+            currentEpPages = library.currentEpPages,
+            downloadedEpIds = library.downloadedEpIds,
             onRead = onRead,
             modifier = Modifier.align(Alignment.BottomCenter),
         )
@@ -998,35 +1004,87 @@ private fun ChapterRow(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ReadButton(
-    progress: app.picacgmd.core.domain.repository.ReadingProgress?,
+    progress: ReadingProgress?,
     firstEp: Int,
+    eps: List<Ep>,
+    currentEpPages: Int?,
+    downloadedEpIds: Set<String>,
     onRead: (Int, Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var chapterPicker by rememberSaveable { mutableStateOf(false) }
+    val buttonHeight = SplitButtonDefaults.MediumContainerHeight
     Column(
         modifier
             .fillMaxWidth()
             .background(Brush.verticalGradient(listOf(Color.Transparent, MaterialTheme.colorScheme.surface)))
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
-        Button(
-            onClick = { if (progress != null) onRead(progress.epOrder, progress.pictureIndex - 1) else onRead(firstEp, 0) },
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
-        ) {
-            Icon(Icons.AutoMirrored.Outlined.MenuBook, null)
-            Spacer(Modifier.width(10.dp))
-            Text(
-                if (progress != null) stringResource(R.string.detail_continue_reading, progress.epTitle.ifBlank { progress.epOrder.toString() })
-                else stringResource(R.string.detail_start_reading),
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        SplitButtonLayout(
+            modifier = Modifier.fillMaxWidth().height(buttonHeight),
+            leadingButton = {
+                SplitButtonDefaults.LeadingButton(
+                    onClick = { if (progress != null) onRead(progress.epOrder, progress.pictureIndex - 1) else onRead(firstEp, 0) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shapes = SplitButtonDefaults.leadingButtonShapesFor(buttonHeight),
+                    contentPadding = SplitButtonDefaults.leadingButtonContentPaddingFor(buttonHeight),
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Outlined.MenuBook,
+                        contentDescription = null,
+                        modifier = Modifier.size(SplitButtonDefaults.leadingButtonIconSizeFor(buttonHeight)),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        if (progress != null) stringResource(R.string.detail_continue_reading, progress.epTitle.ifBlank { progress.epOrder.toString() })
+                        else stringResource(R.string.detail_start_reading),
+                        style = ButtonDefaults.textStyleFor(buttonHeight),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            },
+            trailingButton = {
+                SplitButtonDefaults.TrailingButton(
+                    onClick = { chapterPicker = true },
+                    enabled = eps.isNotEmpty(),
+                    shapes = SplitButtonDefaults.trailingButtonShapesFor(buttonHeight),
+                    contentPadding = SplitButtonDefaults.trailingButtonContentPaddingFor(buttonHeight),
+                ) {
+                    Icon(
+                        Icons.Outlined.ExpandMore,
+                        contentDescription = "选择章节",
+                        modifier = Modifier.size(SplitButtonDefaults.trailingButtonIconSizeFor(buttonHeight)),
+                    )
+                }
+            },
+        )
         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+    }
+    if (chapterPicker) {
+        ModalBottomSheet(onDismissRequest = { chapterPicker = false }, properties = secureModalBottomSheetProperties()) {
+            Text(
+                stringResource(R.string.detail_chapters, eps.size),
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+            )
+            LazyColumn(Modifier.weight(1f, fill = false)) {
+                items(eps, key = { it.id }) { ep ->
+                    ChapterRow(
+                        ep = ep,
+                        progress = progress,
+                        currentEpPages = currentEpPages,
+                        downloaded = ep.id in downloadedEpIds,
+                        showDownloadColumn = downloadedEpIds.isNotEmpty(),
+                        onClick = { onRead(ep.order, 0); chapterPicker = false },
+                    )
+                }
+            }
+            Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+        }
     }
 }
 
