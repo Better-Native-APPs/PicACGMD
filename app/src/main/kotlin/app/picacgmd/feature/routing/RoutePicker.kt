@@ -1,34 +1,24 @@
 package app.picacgmd.feature.routing
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Refresh
@@ -37,15 +27,18 @@ import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.ListItemShapes
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -63,10 +56,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -126,7 +117,7 @@ private data class RouteMessage(val text: String, val tone: RouteTone = RouteTon
  * 分流 and 图片分流 sit in the same dialog; every route is probed as soon as it opens, a tap switches
  * at once and the dialog stays open so both lists can be changed in one visit.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun RoutePickerDialog(onDismiss: () -> Unit) {
     val container = LocalAppContainer.current
@@ -217,6 +208,7 @@ fun RoutePickerDialog(onDismiss: () -> Unit) {
                             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                         )
                     }
+                    if (syncing) LoadingIndicator(Modifier.size(24.dp))
                     IconButton(onClick = { message = null; round++ }, enabled = !syncing) {
                         Icon(Icons.Outlined.Refresh, contentDescription = "重新测速")
                     }
@@ -271,13 +263,7 @@ fun RoutePickerDialog(onDismiss: () -> Unit) {
                             enabled = !syncing,
                             contentPadding = PaddingValues(start = 12.dp, end = 16.dp),
                         ) {
-                            Box(Modifier.size(18.dp), contentAlignment = Alignment.Center) {
-                                if (syncing) {
-                                    CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = LocalContentColor.current)
-                                } else {
-                                    Icon(Icons.Outlined.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
-                                }
-                            }
+                            Icon(Icons.Outlined.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Text("从官方同步")
                         }
@@ -331,7 +317,8 @@ private fun <T> rememberRouteLatencies(
     return latencies
 }
 
-/** A titled two-column grid of routes. The order never changes, so a tile cannot move under the finger. */
+/** A titled list of routes. The order never changes, so a row cannot move under the finger. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun <T> RouteSection(
     title: String,
@@ -355,36 +342,31 @@ private fun <T> RouteSection(
         }
         action?.invoke()
     }
-    Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        options.chunked(2).forEach { pair ->
-            Row(Modifier.height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                pair.forEach { option ->
-                    key(option.value) {
-                        RouteTile(
-                            label = option.label,
-                            outdated = option.source == RouteSource.SAVED,
-                            selected = option == selected,
-                            enabled = enabled,
-                            probing = !latencies.containsKey(option.value),
-                            latency = latencies[option.value],
-                            fastest = option == fastest,
-                            onClick = { onSelect(option) },
-                            modifier = Modifier.weight(1f).fillMaxHeight(),
-                        )
-                    }
-                }
-                if (pair.size == 1) Spacer(Modifier.weight(1f))
+    Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) {
+        options.forEachIndexed { index, option ->
+            key(option.value) {
+                RouteTile(
+                    label = option.label,
+                    outdated = option.source == RouteSource.SAVED,
+                    selected = option == selected,
+                    enabled = enabled,
+                    probing = !latencies.containsKey(option.value),
+                    latency = latencies[option.value],
+                    fastest = option == fastest,
+                    shapes = ListItemDefaults.segmentedShapes(index = index, count = options.size),
+                    onClick = { onSelect(option) },
+                )
             }
         }
     }
 }
 
 /**
- * One route: name and measured latency, never its address. The current route is marked by the radio
- * dot, a primary outline and rounder corners rather than a filled background, so the latency colours
- * read the same on every tile.
+ * One route: name and measured latency, never its address. Built on the library's single-selection
+ * [SegmentedListItem], so the row gets radio semantics, the group's corner rhythm and the pressed
+ * shape morph for free instead of a hand-rolled tile that rebuilt a shape every animation frame.
  */
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun RouteTile(
     label: String,
@@ -394,45 +376,32 @@ private fun RouteTile(
     probing: Boolean,
     latency: Long?,
     fastest: Boolean,
+    shapes: ListItemShapes,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors = MaterialTheme.colorScheme
-    val corner by animateDpAsState(if (selected) 28.dp else 14.dp, label = "route-corner")
-    val outline by animateColorAsState(if (selected) colors.primary else Color.Transparent, label = "route-outline")
-    val shape = RoundedCornerShape(corner)
-    Column(
-        modifier
-            .heightIn(min = 64.dp)
-            .clip(shape)
-            .background(colors.surface)
-            .border(2.dp, outline, shape)
-            .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onClick)
-            .padding(start = 14.dp, end = 12.dp, top = 10.dp, bottom = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
+    SegmentedListItem(
+        selected = selected,
+        onClick = onClick,
+        shapes = shapes,
+        enabled = enabled,
+        modifier = modifier.heightIn(min = 64.dp),
+        trailingContent = { RadioButton(selected = selected, onClick = null, modifier = Modifier.clearAndSetSemantics {}) },
+        supportingContent = {
+            // Tags wrap under the latency on narrow rows or with large fonts instead of being cut off.
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                itemVerticalAlignment = Alignment.CenterVertically,
+            ) {
+                LatencyStatus(probing, latency)
+                if (fastest) RouteTag("最快", warn = false)
+                // The selected address is no longer in the official or built-in list.
+                if (outdated) RouteTag("旧地址", warn = true)
+            }
+        },
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                label,
-                style = MaterialTheme.typography.titleSmall,
-                color = if (selected) colors.primary else colors.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            RadioButton(selected = selected, onClick = null)
-        }
-        // Tags wrap under the latency on narrow tiles or with large fonts instead of being cut off.
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            itemVerticalAlignment = Alignment.CenterVertically,
-        ) {
-            LatencyStatus(probing, latency)
-            if (fastest) RouteTag("最快", warn = false)
-            // The selected address is no longer in the official or built-in list.
-            if (outdated) RouteTag("旧地址", warn = true)
-        }
+        Text(label, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -440,7 +409,7 @@ private fun RouteTile(
 private fun RouteTag(text: String, warn: Boolean) {
     val colors = MaterialTheme.colorScheme
     Surface(
-        shape = RoundedCornerShape(6.dp),
+        shape = MaterialTheme.shapes.small,
         color = if (warn) colors.errorContainer else colors.tertiaryContainer,
         contentColor = if (warn) colors.onErrorContainer else colors.onTertiaryContainer,
     ) {
@@ -450,15 +419,15 @@ private fun RouteTag(text: String, warn: Boolean) {
 
 @Composable
 private fun LatencyStatus(probing: Boolean, latency: Long?) {
+    val fade = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
     AnimatedContent(
         targetState = if (probing) null else routeLatencyGrade(latency) to formatRouteLatency(latency),
-        transitionSpec = { fadeIn() togetherWith fadeOut() },
+        transitionSpec = { fadeIn(fade) togetherWith fadeOut(fade) },
         contentAlignment = Alignment.CenterStart,
         label = "latency",
     ) { result ->
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             if (result == null) {
-                CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 1.5.dp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("测速中", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 val color = latencyColor(result.first)
