@@ -16,6 +16,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -37,6 +38,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -148,6 +150,12 @@ fun <T : Any> PredictiveBackContent(
     val latestBack by rememberUpdatedState(onBack)
     val preview = remember { BackPreviewState() }
     var popping by remember { mutableStateOf(false) }
+    // Forward moves match the nav host: slide a short distance on the spatial spring, fade on the
+    // effects spring (the host's enter/exit specs).
+    val motion = MaterialTheme.motionScheme
+    val slideSpec = motion.defaultSpatialSpec<IntOffset>()
+    val fadeSpec = motion.defaultEffectsSpec<Float>()
+    val fastFadeSpec = motion.fastEffectsSpec<Float>()
 
     LaunchedEffect(current) {
         if (state.currentState != current) {
@@ -188,7 +196,10 @@ fun <T : Any> PredictiveBackContent(
             if (popping) {
                 (EnterTransition.None togetherWith predictiveBackExit()).apply { targetContentZIndex = -1f }.using(null)
             } else {
-                ((slideInHorizontally { it / 8 } + fadeIn()) togetherWith fadeOut()).using(null)
+                (
+                    (slideInHorizontally(slideSpec) { it / 8 } + fadeIn(fadeSpec)) togetherWith
+                        (slideOutHorizontally(slideSpec) { -it / 16 } + fadeOut(fastFadeSpec))
+                    ).using(null)
             }
         },
     ) { page ->

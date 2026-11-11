@@ -54,6 +54,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -277,6 +278,9 @@ private fun MarkSegment(text: String, style: TextStyle, color: Color, background
 /**
  * Grid cell: cover + up to two title lines, with optional author and likes (boards 04 / 08 / 21).
  * Width comes from the grid cell; the cover keeps the 1 : 1.4 ratio.
+ *
+ * @param selectionMode true while the surrounding grid is in multi-select; the card then reports
+ *   [selected] to accessibility services (TalkBack says 「已选中」 / 「未选中」).
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -289,6 +293,8 @@ fun ComicCoverCard(
     progressLabel: String? = null,
     badge: String? = null,
     likes: String? = null,
+    selected: Boolean = false,
+    selectionMode: Boolean = false,
     onLongClick: (() -> Unit)? = null,
     progressDetail: String? = null,
     progressDetailShort: String? = null,
@@ -296,7 +302,11 @@ fun ComicCoverCard(
     Column(
         modifier = modifier
             .clip(MaterialTheme.shapes.medium)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick, role = Role.Button),
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick, role = Role.Button)
+            .then(
+                // In multi-select the tick is decoration; the card itself says whether it is picked.
+                if (selectionMode) Modifier.semantics { this.selected = selected } else Modifier,
+            ),
     ) {
         ComicCover(
             coverUrl = coverUrl,
@@ -309,7 +319,7 @@ fun ComicCoverCard(
         )
         Text(
             text = title,
-            style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.2.sp),
+            style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
