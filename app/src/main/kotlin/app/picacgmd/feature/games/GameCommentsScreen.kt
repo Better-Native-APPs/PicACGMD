@@ -27,15 +27,14 @@ import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,6 +47,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -217,19 +217,16 @@ fun GameCommentsScreen(
         }
     }
     LaunchedEffect(model.page, infinite) { if (!infinite && model.page > 0) list.scrollToItem(0) }
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            Column {
-                TopAppBar(
-                    title = { Text(title) },
-                    navigationIcon = { app.picacgmd.core.designsystem.component.BackButton(onBack) },
-                    actions = { IconButton({ model.load(1, false) }, enabled = !model.loading) { Icon(Icons.Outlined.Refresh, "刷新") } },
-                )
-                if (parentCommentId == null) PrimaryTabRow(selectedTabIndex = 1) {
-                    Tab(false, onBack, text = { Text("详情") })
-                    Tab(true, {}, text = { Text("评论") })
-                }
-            }
+            TopAppBar(
+                title = { Text(title) },
+                navigationIcon = { app.picacgmd.core.designsystem.component.BackButton(onBack) },
+                actions = { IconButton({ model.load(1, false) }, enabled = !model.loading) { Icon(Icons.Outlined.Refresh, "刷新") } },
+                scrollBehavior = scrollBehavior,
+            )
         },
         bottomBar = {
             val length = commentLength(draft)

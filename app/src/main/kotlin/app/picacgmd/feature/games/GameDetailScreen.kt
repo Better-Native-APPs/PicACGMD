@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,24 +18,27 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Comment
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LargeFlexibleTopAppBar
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,6 +52,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -109,24 +114,31 @@ fun GameDetailScreen(gameId: String, onBack: () -> Unit, onComments: (String) ->
             loading = false
         }
     }
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeFlexibleTopAppBar(
                 title = { Text(game?.title ?: "游戏详情") },
                 navigationIcon = { app.picacgmd.core.designsystem.component.BackButton(onBack) },
+                scrollBehavior = scrollBehavior,
             )
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         val info = game
         if (info == null) GameLoadState(loading, error, "游戏不存在", Modifier.padding(padding)) { attempt++ }
-        else LazyColumn(Modifier.fillMaxSize().padding(padding), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        else LazyColumn(
+            Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding()),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
             item {
                 Box {
                     SoftBackdrop(rememberGameImageUrl(info.icon), Modifier.fillMaxWidth().height(180.dp))
                     Box(Modifier.fillMaxWidth().height(180.dp).background(Brush.verticalGradient(listOf(MaterialTheme.colorScheme.surface.copy(alpha = 0.25f), MaterialTheme.colorScheme.surface))))
                     Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        GameImage(info.icon, info.title, Modifier.size(96.dp).clip(RoundedCornerShape(28.dp)))
+                        GameImage(info.icon, info.title, Modifier.size(96.dp).clip(MaterialTheme.shapes.extraLarge))
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(info.publisher, style = MaterialTheme.typography.titleMedium)
                             Text("v${info.version} · ${info.androidSize} MB", style = MaterialTheme.typography.bodySmall)
@@ -156,16 +168,23 @@ fun GameDetailScreen(gameId: String, onBack: () -> Unit, onComments: (String) ->
                 }
             }
             if (info.screenshots.isNotEmpty()) item {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp)) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(horizontal = 20.dp)) {
                     items(info.screenshots) { image ->
-                        GameImage(image, "游戏截图，点击放大", Modifier.size(244.dp, 148.dp).clip(RoundedCornerShape(20.dp)).clickable { screenshot = image })
+                        GameImage(image, "游戏截图，点击放大", Modifier.size(244.dp, 148.dp).clip(MaterialTheme.shapes.largeIncreased).clickable { screenshot = image })
                     }
                 }
             }
-            stickyHeader {
-                PrimaryTabRow(selectedTabIndex = 0) {
-                    Tab(selected = true, onClick = {}, text = { Text("详情") })
-                    Tab(selected = false, onClick = { onComments(info.title) }, text = { Text("评论 ${info.commentsCount}") })
+            // 评论 lives on its own screen, so this is a plain row that navigates there — not a tab.
+            item {
+                ListItem(
+                    onClick = { onComments(info.title) },
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                    leadingContent = { Icon(Icons.AutoMirrored.Outlined.Comment, contentDescription = null) },
+                    trailingContent = { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null) },
+                    colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                    shapes = ListItemDefaults.shapes(shape = MaterialTheme.shapes.large),
+                ) {
+                    Text(if (info.commentsCount > 0) "评论 ${info.commentsCount}" else "评论")
                 }
             }
             item {
@@ -183,9 +202,16 @@ fun GameDetailScreen(gameId: String, onBack: () -> Unit, onComments: (String) ->
     game?.takeIf { links }?.let { GameLinksSheet(it.androidLinks, onDismiss = { links = false }) }
     screenshot?.let { image ->
         Dialog(onDismissRequest = { screenshot = null }, properties = secureDialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-            Box(Modifier.fillMaxSize().background(Color.Black)) {
+            Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainerLowest)) {
                 GameImage(image, "游戏截图", Modifier.fillMaxSize(), ContentScale.Fit)
-                IconButton({ screenshot = null }, Modifier.align(Alignment.TopEnd).padding(24.dp)) { Icon(Icons.Outlined.Close, "关闭", tint = Color.White) }
+                FilledIconButton(
+                    { screenshot = null },
+                    Modifier.align(Alignment.TopEnd).padding(24.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                    ),
+                ) { Icon(Icons.Outlined.Close, "关闭") }
             }
         }
     }

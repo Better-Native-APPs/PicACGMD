@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AlertDialog
@@ -25,6 +24,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -33,6 +33,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,6 +44,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -55,11 +57,14 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import app.picacgmd.core.designsystem.component.TonalAsyncImage
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.data.settings.PaginationMode
+import app.picacgmd.core.designsystem.component.MetaIcons
+import app.picacgmd.core.designsystem.component.MetaInfo
 import app.picacgmd.core.designsystem.component.StatusPane
 import app.picacgmd.core.domain.repository.GameRepository
 import app.picacgmd.core.network.GameSimple
 import app.picacgmd.core.network.PicaImage
 import app.picacgmd.di.LocalAppContainer
+import app.picacgmd.feature.comics.formatCount
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -119,13 +124,18 @@ fun GamesScreen(onBack: () -> Unit, onGameClick: (String) -> Unit) {
         }
     }
     LaunchedEffect(model.page, infinite) { if (!infinite && model.page > 0) list.scrollToItem(0) }
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Column { Text("游戏专区"); if (model.total > 0) Text("共 ${model.total} 款", style = MaterialTheme.typography.bodySmall) } },
-            navigationIcon = { app.picacgmd.core.designsystem.component.BackButton(onBack) },
-            actions = { IconButton({ model.load(1, false) }, enabled = !model.loading) { Icon(Icons.Outlined.Refresh, "刷新") } },
-        )
-    }) { padding ->
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            TopAppBar(
+                title = { Column { Text("游戏专区"); if (model.total > 0) Text("共 ${model.total} 款", style = MaterialTheme.typography.bodySmall) } },
+                navigationIcon = { app.picacgmd.core.designsystem.component.BackButton(onBack) },
+                actions = { IconButton({ model.load(1, false) }, enabled = !model.loading) { Icon(Icons.Outlined.Refresh, "刷新") } },
+                scrollBehavior = scrollBehavior,
+            )
+        },
+    ) { padding ->
         if (model.games.isEmpty()) {
             GameLoadState(model.loading, model.error, "暂无游戏", Modifier.padding(padding)) { model.load(1, false) }
         } else {
@@ -136,21 +146,17 @@ fun GamesScreen(onBack: () -> Unit, onGameClick: (String) -> Unit) {
                 itemsIndexed(model.games, key = { _, game -> game.id }) { index, game ->
                     Surface(
                         onClick = { onGameClick(game.id) },
-                        shape = RoundedCornerShape(
-                            topStart = if (index == 0) 26.dp else 6.dp, topEnd = if (index == 0) 26.dp else 6.dp,
-                            bottomStart = if (index == model.games.lastIndex) 26.dp else 6.dp,
-                            bottomEnd = if (index == model.games.lastIndex) 26.dp else 6.dp,
-                        ),
+                        shape = ListItemDefaults.segmentedShapes(index = index, count = model.games.size).shape,
                         color = MaterialTheme.colorScheme.surfaceContainerLow,
                     ) {
                         Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                            GameImage(game.icon, game.title, Modifier.size(72.dp).clip(RoundedCornerShape(20.dp)))
+                            GameImage(game.icon, game.title, Modifier.size(72.dp).clip(MaterialTheme.shapes.largeIncreased))
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 Text(game.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                 Text(game.publisher, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Text("v${game.version} · ${if (game.android) "安卓版" else "暂无安卓版"}", style = MaterialTheme.typography.bodySmall)
                             }
-                            Text("♥ ${game.likesCount}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                            MetaInfo(MetaIcons.Likes, formatCount(game.likesCount.toLong()))
                         }
                     }
                 }

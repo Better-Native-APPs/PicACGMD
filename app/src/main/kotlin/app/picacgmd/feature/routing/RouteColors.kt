@@ -10,26 +10,21 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
 import app.picacgmd.core.designsystem.theme.PikapikaTheme
 import app.picacgmd.core.domain.session.RouteLatencyGrade
 
 /**
- * Latency tones. Green and orange are the theme's success / warning roles, red is the error role;
- * amber sits between them and is tuned per surface brightness so it keeps text contrast in both
- * light (dark ochre) and dark (soft gold) themes.
+ * Latency tones, all from theme roles: green is the success role, amber the warning role, red the
+ * error role. Each is defined per palette, so they keep text contrast in both light and dark themes.
  */
 @Composable
 @ReadOnlyComposable
-internal fun latencyColor(grade: RouteLatencyGrade): Color {
-    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    return when (grade) {
-        RouteLatencyGrade.GOOD -> PikapikaTheme.extendedColors.success
-        RouteLatencyGrade.OK -> if (dark) Color(0xFFE9C46A) else Color(0xFF735C00)
-        RouteLatencyGrade.SLOW -> PikapikaTheme.extendedColors.warning
-        RouteLatencyGrade.FAILED -> MaterialTheme.colorScheme.error
-    }
+internal fun latencyColor(grade: RouteLatencyGrade): Color = when (grade) {
+    RouteLatencyGrade.GOOD -> PikapikaTheme.extendedColors.success
+    // Both mid grades use the single warning role; the signal bars carry the finer distinction.
+    RouteLatencyGrade.OK, RouteLatencyGrade.SLOW -> PikapikaTheme.extendedColors.warning
+    RouteLatencyGrade.FAILED -> MaterialTheme.colorScheme.error
 }
 
 /** Three signal bars, filled by grade, so the result never relies on colour alone. */
