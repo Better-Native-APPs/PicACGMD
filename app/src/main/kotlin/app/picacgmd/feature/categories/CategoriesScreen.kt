@@ -6,7 +6,6 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,22 +15,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -60,7 +54,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
@@ -73,7 +66,9 @@ import androidx.lifecycle.viewModelScope
 import coil3.compose.AsyncImage
 import app.picacgmd.R
 import app.picacgmd.core.data.settings.AppSettings
+import app.picacgmd.core.designsystem.component.AppIconToggleButton
 import app.picacgmd.core.designsystem.component.AppSwitch
+import app.picacgmd.core.designsystem.component.ConnectedChoiceGroup
 import app.picacgmd.core.designsystem.component.LoadingState
 import app.picacgmd.core.designsystem.component.SectionHeader
 import app.picacgmd.core.domain.di.AppContainer
@@ -207,11 +202,23 @@ private fun ManageContent(
         SectionHeader(title = stringResource(R.string.categories_columns_title))
         Caption(stringResource(R.string.categories_columns_hint))
         SectionCard {
-            ColumnCountGroup(
+            ConnectedChoiceGroup(
+                options = ColumnCountOptions,
                 selected = settings.categoryColumnCount,
                 onSelect = onColumnCount,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            )
+                role = Role.RadioButton,
+            ) { value ->
+                Text(
+                    text = if (value == 0) {
+                        stringResource(R.string.categories_columns_auto)
+                    } else {
+                        stringResource(R.string.categories_columns_count, value)
+                    },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         SectionHeader(title = stringResource(R.string.categories_pinned_title))
         Caption(stringResource(R.string.categories_pinned_hint))
@@ -269,40 +276,6 @@ private fun ManageContent(
     }
 }
 
-/** Connected single-choice ButtonGroup (M3 Expressive): 自动 / 3 / 4 / 5 columns for the grid. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun ColumnCountGroup(selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier.fillMaxWidth().selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
-    ) {
-        ColumnCountOptions.forEachIndexed { index, value ->
-            ToggleButton(
-                checked = value == selected,
-                onCheckedChange = { onSelect(value) },
-                modifier = Modifier.weight(1f).semantics { role = Role.RadioButton },
-                shapes = when (index) {
-                    0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                    ColumnCountOptions.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                },
-                contentPadding = PaddingValues(horizontal = 8.dp),
-            ) {
-                Text(
-                    text = if (value == 0) {
-                        stringResource(R.string.categories_columns_auto)
-                    } else {
-                        stringResource(R.string.categories_columns_count, value)
-                    },
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-    }
-}
-
 @Composable
 private fun Caption(text: String) {
     Text(
@@ -330,7 +303,7 @@ private fun PinToggle(pinned: Boolean, name: String, onPin: (String, Boolean) ->
         if (pinned) R.string.categories_unpin else R.string.categories_pin,
         name,
     )
-    IconToggleButton(checked = pinned, onCheckedChange = { onPin(name, it) }) {
+    AppIconToggleButton(checked = pinned, onCheckedChange = { onPin(name, it) }) {
         Icon(
             imageVector = if (pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
             contentDescription = label,

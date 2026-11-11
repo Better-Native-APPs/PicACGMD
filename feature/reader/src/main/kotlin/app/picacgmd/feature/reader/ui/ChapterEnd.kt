@@ -35,17 +35,13 @@ import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.SwipeLeft
 import androidx.compose.material.icons.rounded.SwipeRight
 import androidx.compose.material.icons.rounded.SwipeUp
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -69,6 +65,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import app.picacgmd.core.designsystem.component.AppButton
+import app.picacgmd.core.designsystem.component.AppFilledTonalButton
+import app.picacgmd.core.designsystem.component.AppOutlinedButton
+import app.picacgmd.core.designsystem.component.AppTextButton
 import app.picacgmd.core.designsystem.window.secureDialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import coil3.compose.LocalPlatformContext
@@ -142,9 +142,8 @@ internal fun ChapterEndBlock(
                 Spacer(Modifier.height(8.dp))
                 NextChapterRow(info)
                 Spacer(Modifier.height(16.dp))
-                Button(
+                AppButton(
                     onClick = onNext,
-                    shapes = ButtonDefaults.shapes(),
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = ButtonDefaults.MediumContainerHeight),
@@ -164,7 +163,7 @@ internal fun ChapterEndBlock(
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (onComments != null) {
-                        FilledTonalButton(onClick = onComments, modifier = Modifier.weight(1f)) {
+                        AppFilledTonalButton(onClick = onComments, modifier = Modifier.weight(1f)) {
                             Icon(
                                 imageVector = Icons.Rounded.Forum,
                                 contentDescription = null,
@@ -179,7 +178,7 @@ internal fun ChapterEndBlock(
                             )
                         }
                     }
-                    OutlinedButton(onClick = onFinish, modifier = Modifier.weight(1f)) {
+                    AppOutlinedButton(onClick = onFinish, modifier = Modifier.weight(1f)) {
                         Text(stringResource(R.string.reader_finish), maxLines = 1)
                     }
                 }
@@ -355,9 +354,8 @@ internal fun AllReadDialog(
                     textAlign = TextAlign.Center,
                 )
                 Spacer(Modifier.height(20.dp))
-                Button(
+                AppButton(
                     onClick = onBackToDetails,
-                    shapes = ButtonDefaults.shapes(),
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = ButtonDefaults.MediumContainerHeight),
@@ -372,10 +370,10 @@ internal fun AllReadDialog(
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (onComments != null) {
-                            TextButton(onClick = onComments) { Text(stringResource(R.string.reader_see_comments)) }
+                            AppTextButton(onClick = onComments) { Text(stringResource(R.string.reader_see_comments)) }
                         }
                         if (onRelated != null) {
-                            TextButton(onClick = onRelated) { Text(stringResource(R.string.reader_related)) }
+                            AppTextButton(onClick = onRelated) { Text(stringResource(R.string.reader_related)) }
                         }
                     }
                 }

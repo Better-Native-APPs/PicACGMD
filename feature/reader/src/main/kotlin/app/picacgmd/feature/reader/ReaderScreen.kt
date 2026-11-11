@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
@@ -68,6 +67,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.picacgmd.core.designsystem.component.AppFilledTonalButton
 import app.picacgmd.core.designsystem.component.BackButton
 import app.picacgmd.feature.reader.logic.AutoScrollSpeed
 import app.picacgmd.feature.reader.logic.PagingAxis
@@ -815,7 +815,7 @@ private fun ChapterMessage(
                 )
             }
             Spacer(Modifier.height(20.dp))
-            FilledTonalButton(onClick = onAction) { Text(actionLabel) }
+            AppFilledTonalButton(onClick = onAction) { Text(actionLabel) }
         }
     }
 }

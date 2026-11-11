@@ -12,11 +12,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BrokenImage
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialShapes
@@ -41,6 +39,8 @@ import androidx.compose.ui.unit.dp
 import app.picacgmd.feature.reader.PageImage
 import app.picacgmd.feature.reader.R
 import app.picacgmd.feature.reader.logic.loadPercent
+import app.picacgmd.core.designsystem.component.AppButton
+import app.picacgmd.core.designsystem.component.AppFilledTonalButton
 import app.picacgmd.core.designsystem.component.ImageFailureReloadAction
 import app.picacgmd.core.designsystem.component.LocalImageFailureReloadAction
 import app.picacgmd.core.designsystem.component.reloadFailedImage
@@ -235,7 +235,7 @@ internal fun PageFailureBlock(
                 Spacer(Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (onSwitchServer != null) {
-                        FilledTonalButton(
+                        AppFilledTonalButton(
                             onClick = onSwitchServer,
                             modifier = Modifier.heightIn(min = ButtonDefaults.ExtraSmallContainerHeight),
                             contentPadding = ButtonDefaults.ExtraSmallContentPadding,
@@ -246,7 +246,7 @@ internal fun PageFailureBlock(
                             )
                         }
                     }
-                    if (tapToRetry) Button(
+                    if (tapToRetry) AppButton(
                         onClick = onRetry,
                         modifier = Modifier.heightIn(min = ButtonDefaults.ExtraSmallContainerHeight),
                         contentPadding = ButtonDefaults.ExtraSmallContentPadding,
