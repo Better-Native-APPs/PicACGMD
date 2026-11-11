@@ -28,13 +28,20 @@
 
     <!-- 排序与隐藏 -->
     <string name="categories_title">分类管理</string>
+    <string name="categories_columns_title">每行列数</string>
+    <string name="categories_columns_hint">分类网格每行显示几列</string>
+    <string name="categories_columns_auto">自动</string>
+    <string name="categories_columns_count">%1$d 列</string>
     <string name="categories_pinned_title">固定到首页</string>
     <string name="categories_pinned_hint">拖动把手调整顺序</string>
     <string name="categories_pinned_empty">暂无固定分类，点图钉添加</string>
     <string name="categories_all_title">全部分类</string>
-    <string name="categories_all_hint">全分类固定在首位，其余分类可拖动排序或隐藏</string>
+    <string name="categories_all_hint">全分类固定在首位，其余分类可拖动排序或隐藏；隐藏仅影响分类网格、保留固定入口</string>
     <string name="categories_show_on_home">在首页显示「%1$s」</string>
     <string name="categories_pin">固定「%1$s」到首页</string>
     <string name="categories_unpin">取消固定「%1$s」</string>
     <string name="categories_drag">拖动调整「%1$s」顺序</string>
+    <string name="categories_position">第 %1$d 项，共 %2$d 项</string>
+    <string name="categories_move_up">上移</string>
+    <string name="categories_move_down">下移</string>
 </resources>

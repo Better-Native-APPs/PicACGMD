@@ -14,13 +14,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.ArrowDownward
-import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -28,7 +23,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -45,7 +39,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -54,7 +47,6 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
-import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.data.settings.CategoryShieldMode
 import app.picacgmd.core.data.settings.FailedReloadAction
 import app.picacgmd.core.data.settings.ListLayout
@@ -73,15 +65,19 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
-private enum class BrowsingSub { Shield, HomeCategories }
+private enum class BrowsingSub { Shield }
 private enum class BrowsingDialog { Layout, ListColumns, CategoryColumns, FailedReload, CopyTemplate }
 
 private val ColumnOptions = listOf(0, 2, 3, 4, 5, 6, 7)
 private fun columnLabel(value: Int) = if (value == 0) "自动" else "$value 列"
 
-/** Board 26 列表与浏览: list behaviour, shielding entry points, home categories and feature switches. */
+/** Board 26 列表与浏览: list behaviour, shielding entry points, category management and feature switches. */
 @Composable
-internal fun BrowsingSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
+internal fun BrowsingSettingsPage(
+    onBack: () -> Unit,
+    onOpenCategories: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     var sub by rememberSaveable { mutableStateOf<BrowsingSub?>(null) }
     PredictiveBackContent(
         current = sub?.name ?: "root",
@@ -92,15 +88,19 @@ internal fun BrowsingSettingsPage(onBack: () -> Unit, modifier: Modifier = Modif
     ) { page, back ->
         when (page) {
             BrowsingSub.Shield.name -> ShieldSettingsPage(onBack = back)
-            BrowsingSub.HomeCategories.name -> HomeCategoriesPage(onBack = back)
-            else -> BrowsingRoot(onBack, onOpen = { sub = it }, Modifier)
+            else -> BrowsingRoot(onBack, onOpen = { sub = it }, onOpenCategories = onOpenCategories, Modifier)
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun BrowsingRoot(onBack: () -> Unit, onOpen: (BrowsingSub) -> Unit, modifier: Modifier) {
+private fun BrowsingRoot(
+    onBack: () -> Unit,
+    onOpen: (BrowsingSub) -> Unit,
+    onOpenCategories: () -> Unit,
+    modifier: Modifier,
+) {
     val container = LocalAppContainer.current
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -170,7 +170,7 @@ private fun BrowsingRoot(onBack: () -> Unit, onOpen: (BrowsingSub) -> Unit, modi
             SettingsGroup("首页") {
                 row { shapes ->
                     SettingsNavRow(
-                        shapes, "分类排序与隐藏", onClick = { onOpen(BrowsingSub.HomeCategories) },
+                        shapes, "分类排序与隐藏", onClick = onOpenCategories,
                         summary = "固定、排序和隐藏分类",
                         value = "固定 ${settings.pinnedHomeCategories.size} 个",
                     )
@@ -298,7 +298,7 @@ private fun CopyTemplateDialog(initial: String, onSave: (String) -> Unit, onDism
     )
 }
 
-/** Loads the server category list once (from cache when possible) for the shield and order pages. */
+/** Loads the server category list once (from cache when possible) for the shield page. */
 @Composable
 private fun rememberCategories(): Triple<List<Category>?, String?, () -> Unit> {
     val container = LocalAppContainer.current
@@ -558,130 +558,4 @@ private fun PresetDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
     )
-}
-
-/** Pins (ordered shortcuts after 排行榜 / 随机 / 游戏专区), grid order and hidden categories. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun HomeCategoriesPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
-    val container = LocalAppContainer.current
-    val snackbar = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
-    val writer = remember(container) { SettingsWriter(container.settingsRepository, scope, snackbar) }
-    val settings = rememberAppSettings()
-    val (categories, error, retry) = rememberCategories()
-
-    SettingsPageScaffold("分类排序与隐藏", onBack, snackbar, modifier) {
-        if (settings == null) return@SettingsPageScaffold
-        item {
-            SettingsGroup("固定到首页") {
-                if (settings.pinnedHomeCategories.isEmpty()) {
-                    row { shapes ->
-                        SettingsNoteRow(shapes, "暂无固定分类，点图钉添加", Icons.Outlined.PushPin)
-                    }
-                }
-                settings.pinnedHomeCategories.forEachIndexed { index, name ->
-                    row { shapes ->
-                        SegmentedListItem(
-                            shapes = shapes,
-                            leadingContent = { Icon(Icons.Outlined.PushPin, contentDescription = null) },
-                            trailingContent = {
-                                Row {
-                                    MoveButtons(
-                                        index = index,
-                                        count = settings.pinnedHomeCategories.size,
-                                        onMove = { to -> writer.update { setPinnedHomeCategories(settings.pinnedHomeCategories.move(index, to)) } },
-                                    )
-                                    IconButton(onClick = { writer.update { setPinnedHomeCategories(settings.pinnedHomeCategories - name) } }) {
-                                        Icon(Icons.Outlined.Close, contentDescription = "取消固定「$name」")
-                                    }
-                                }
-                            },
-                        ) { Text(name) }
-                    }
-                }
-            }
-        }
-        item {
-            Text(
-                "隐藏仅影响分类网格，保留固定入口",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-            )
-        }
-        item {
-            when {
-                categories != null -> {
-                    val ordered = orderedNames(categories.map { it.title }, settings)
-                    SettingsGroup("全部分类") {
-                        ordered.forEachIndexed { index, name ->
-                            row { shapes ->
-                                val hidden = name in settings.hiddenCategories
-                                val pinned = name in settings.pinnedHomeCategories
-                                SegmentedListItem(
-                                    shapes = shapes,
-                                    trailingContent = {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            MoveButtons(index, ordered.size) { to ->
-                                                writer.update { setCategoryOrder(ordered.move(index, to)) }
-                                            }
-                                            IconToggleButton(
-                                                checked = pinned,
-                                                onCheckedChange = {
-                                                    val next = if (pinned) settings.pinnedHomeCategories - name else settings.pinnedHomeCategories + name
-                                                    writer.update { setPinnedHomeCategories(next) }
-                                                },
-                                            ) {
-                                                Icon(Icons.Outlined.PushPin, contentDescription = if (pinned) "取消固定「$name」" else "固定「$name」到首页")
-                                            }
-                                            IconToggleButton(
-                                                checked = !hidden,
-                                                onCheckedChange = {
-                                                    val next = if (hidden) settings.hiddenCategories - name else settings.hiddenCategories + name
-                                                    writer.update { setHiddenCategories(next) }
-                                                },
-                                            ) {
-                                                Icon(
-                                                    if (hidden) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                                                    contentDescription = if (hidden) "显示「$name」" else "隐藏「$name」",
-                                                )
-                                            }
-                                        }
-                                    },
-                                ) {
-                                    Text(
-                                        name,
-                                        color = if (hidden) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                error != null -> ErrorState(onRetry = retry, description = error)
-                else -> LoadingState()
-            }
-        }
-    }
-}
-
-@Composable
-private fun MoveButtons(index: Int, count: Int, onMove: (Int) -> Unit) {
-    IconButton(onClick = { onMove(index - 1) }, enabled = index > 0) {
-        Icon(Icons.Outlined.ArrowUpward, contentDescription = "上移")
-    }
-    IconButton(onClick = { onMove(index + 1) }, enabled = index < count - 1) {
-        Icon(Icons.Outlined.ArrowDownward, contentDescription = "下移")
-    }
-}
-
-private fun orderedNames(names: List<String>, settings: AppSettings): List<String> {
-    val order = settings.categoryOrder.withIndex().associate { it.value to it.index }
-    return names.distinct().sortedBy { order[it] ?: Int.MAX_VALUE }
-}
-
-private fun <T> List<T>.move(from: Int, to: Int): List<T> {
-    if (to !in indices) return this
-    return toMutableList().apply { add(to, removeAt(from)) }
 }
