@@ -26,13 +26,10 @@ import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.BasicAlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.ListItemShapes
 import androidx.compose.material3.LoadingIndicator
@@ -41,7 +38,6 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
@@ -62,6 +58,10 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.picacgmd.core.designsystem.component.AppButton
+import app.picacgmd.core.designsystem.component.AppFilledTonalButton
+import app.picacgmd.core.designsystem.component.AppIconButton
+import app.picacgmd.core.designsystem.component.AppTextButton
 import app.picacgmd.core.designsystem.window.secureDialogProperties
 import app.picacgmd.core.domain.session.RouteLatencyGrade
 import app.picacgmd.core.domain.session.RouteOption
@@ -209,7 +209,7 @@ fun RoutePickerDialog(onDismiss: () -> Unit) {
                         )
                     }
                     if (syncing) LoadingIndicator(Modifier.size(24.dp))
-                    IconButton(onClick = { message = null; round++ }, enabled = !syncing) {
+                    AppIconButton(onClick = { message = null; round++ }, enabled = !syncing) {
                         Icon(Icons.Outlined.Refresh, contentDescription = "重新测速")
                     }
                 }
@@ -219,7 +219,7 @@ fun RoutePickerDialog(onDismiss: () -> Unit) {
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp),
                 ) {
-                    Button(
+                    AppButton(
                         onClick = {
                             perform(RouteWork.Switching, "切换失败") {
                                 val changed = buildList {
@@ -252,7 +252,7 @@ fun RoutePickerDialog(onDismiss: () -> Unit) {
                         enabled = !syncing,
                         onSelect = { option -> perform(RouteWork.Switching, "切换失败") { routing.selectApiRoute(option.value); null } },
                     ) {
-                        FilledTonalButton(
+                        AppFilledTonalButton(
                             onClick = {
                                 perform(RouteWork.Syncing, "同步失败") {
                                     routing.syncApiRoutes()
@@ -280,7 +280,7 @@ fun RoutePickerDialog(onDismiss: () -> Unit) {
                     )
                 }
                 Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onDismiss) { Text("完成") }
+                    AppTextButton(onClick = onDismiss) { Text("完成") }
                 }
             }
         }
@@ -442,7 +442,7 @@ private fun LatencyStatus(probing: Boolean, latency: Long?) {
 @Composable
 fun RouteMenuButton(modifier: Modifier = Modifier) {
     var open by remember { mutableStateOf(false) }
-    IconButton(onClick = { open = true }, modifier = modifier) { Icon(Icons.Outlined.Route, contentDescription = "切换分流") }
+    AppIconButton(onClick = { open = true }, modifier = modifier) { Icon(Icons.Outlined.Route, contentDescription = "切换分流") }
     if (open) RoutePickerDialog { open = false }
 }
 

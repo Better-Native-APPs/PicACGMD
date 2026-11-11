@@ -45,18 +45,14 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
@@ -81,6 +77,10 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.picacgmd.R
 import app.picacgmd.core.data.settings.AppSettings
+import app.picacgmd.core.designsystem.component.AppButton
+import app.picacgmd.core.designsystem.component.AppIconButton
+import app.picacgmd.core.designsystem.component.AppOutlinedButton
+import app.picacgmd.core.designsystem.component.AppTextButton
 import app.picacgmd.core.domain.di.AppContainer
 import app.picacgmd.core.domain.repository.FilteredPage
 import app.picacgmd.core.network.ComicSimple
@@ -228,7 +228,7 @@ fun SearchScreen(
                         leadingIcon = { Icon(Icons.Outlined.Search, null) },
                         trailingIcon = if (text.isNotEmpty()) {
                             {
-                                IconButton(onClick = { text = ""; viewModel.clearKeyword(); focus.requestFocus() }) {
+                                AppIconButton(onClick = { text = ""; viewModel.clearKeyword(); focus.requestFocus() }) {
                                     Icon(Icons.Outlined.Close, stringResource(R.string.search_clear))
                                 }
                             }
@@ -245,7 +245,7 @@ fun SearchScreen(
                         keyboardActions = KeyboardActions(onSearch = { submit(text) }),
                     )
                     BadgedBox(badge = { if (filter.isActive) Badge() }) {
-                        IconButton(onClick = { showFilter = true }) { Icon(Icons.Outlined.Tune, stringResource(R.string.search_filter)) }
+                        AppIconButton(onClick = { showFilter = true }) { Icon(Icons.Outlined.Tune, stringResource(R.string.search_filter)) }
                     }
                     // Field + filter leave room for one more action: results fold layout and routes into one overflow.
                     if (keyword != null) SearchOverflowMenu(settings.listLayout, viewModel::setLayout) else RouteMenuButton()
@@ -320,7 +320,7 @@ private fun SearchSuggestions(
     ) {
         if (history.isNotEmpty()) {
             SuggestionHeader(Icons.Outlined.History, stringResource(R.string.search_history)) {
-                TextButton(onClick = onClear) { Text(stringResource(R.string.search_clear_history)) }
+                AppTextButton(onClick = onClear) { Text(stringResource(R.string.search_clear_history)) }
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 history.take(30).forEach { query ->
@@ -329,7 +329,7 @@ private fun SearchSuggestions(
                         onClick = { onPick(query) },
                         label = { Text(query) },
                         trailingIcon = {
-                            IconButton(onClick = { onDelete(query) }, modifier = Modifier.size(48.dp)) {
+                            AppIconButton(onClick = { onDelete(query) }, modifier = Modifier.size(48.dp)) {
                                 Icon(
                                     Icons.Outlined.Close,
                                     stringResource(R.string.search_delete_history, query),
@@ -434,10 +434,10 @@ private fun SearchFilterSheet(
                     Modifier.fillMaxWidth().padding(vertical = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
                 ) {
-                    OutlinedButton(onClick = { sort = ComicSort.DEFAULT; chosen = emptySet() }) {
+                    AppOutlinedButton(onClick = { sort = ComicSort.DEFAULT; chosen = emptySet() }) {
                         Text(stringResource(R.string.search_filter_reset))
                     }
-                    Button(onClick = { onApply(SearchFilter(sort, categories.filter { it in chosen })) }) {
+                    AppButton(onClick = { onApply(SearchFilter(sort, categories.filter { it in chosen })) }) {
                         Text(stringResource(R.string.search_filter_apply))
                     }
                 }
@@ -451,7 +451,7 @@ private fun SearchOverflowMenu(layout: ListLayout, onLayout: (ListLayout) -> Uni
     var open by remember { mutableStateOf(false) }
     var picker by remember { mutableStateOf(false) }
     Box {
-        IconButton(onClick = { open = true }) { Icon(Icons.Outlined.MoreVert, stringResource(R.string.routes_more_options)) }
+        AppIconButton(onClick = { open = true }) { Icon(Icons.Outlined.MoreVert, stringResource(R.string.routes_more_options)) }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }, properties = securePopupProperties(focusable = true)) {
             LayoutMenuItems(layout) { open = false; onLayout(it) }
             HorizontalDivider(Modifier.padding(vertical = 4.dp))
