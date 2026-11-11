@@ -2,10 +2,8 @@ package app.picacgmd.feature.reader.ui
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -146,6 +144,7 @@ internal fun ChapterEndBlock(
                 Spacer(Modifier.height(16.dp))
                 Button(
                     onClick = onNext,
+                    shapes = ButtonDefaults.shapes(),
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = ButtonDefaults.MediumContainerHeight),
@@ -272,21 +271,23 @@ private fun ChapterCover(cover: PageImage) {
 }
 
 /** 「继续上滑直接进入下一话」; follows the finger, then says when letting go will leave the chapter. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun PullHint(pull: ChapterPullState, swipe: ForwardSwipe, muted: Color) {
     val density = LocalDensity.current
     val travel = with(density) { 10.dp.toPx() }
     val armed by remember(pull) { derivedStateOf { pull.armed } }
     val reduceMotion = LocalReaderReduceMotion.current
+    val motion = MaterialTheme.motionScheme
     // Follows the finger closely and settles back when a pull is let go without leaving.
     val shift by animateFloatAsState(
         targetValue = pull.progress,
-        animationSpec = if (reduceMotion) snap() else spring(stiffness = Spring.StiffnessHigh),
+        animationSpec = if (reduceMotion) snap() else motion.fastSpatialSpec(),
         label = "pull hint travel",
     )
     val color by animateColorAsState(
         targetValue = if (armed) MaterialTheme.colorScheme.primary else muted,
-        animationSpec = if (reduceMotion) snap() else spring(stiffness = Spring.StiffnessMediumLow),
+        animationSpec = if (reduceMotion) snap() else motion.fastEffectsSpec(),
         label = "pull hint",
     )
     val (icon: ImageVector, text: Int) = when (swipe) {
@@ -356,6 +357,7 @@ internal fun AllReadDialog(
                 Spacer(Modifier.height(20.dp))
                 Button(
                     onClick = onBackToDetails,
+                    shapes = ButtonDefaults.shapes(),
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = ButtonDefaults.MediumContainerHeight),

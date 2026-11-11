@@ -386,7 +386,7 @@ private fun BottomSlider(page: () -> Int, pageCount: Int, rightToLeft: Boolean, 
     val label = stringResource(R.string.reader_slider)
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shadowElevation = CapsuleShadow,
     ) {
@@ -423,7 +423,7 @@ private fun SideSlider(page: () -> Int, pageCount: Int, onSeek: (Int) -> Unit) {
             .width(44.dp)
             .heightIn(max = SideSliderMaxHeight)
             .fillMaxHeight(),
-        shape = RoundedCornerShape(22.dp),
+        shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shadowElevation = CapsuleShadow,
     ) {
