@@ -21,9 +21,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
@@ -46,6 +43,7 @@ import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.data.settings.AppTheme
 import app.picacgmd.core.data.settings.AppOrientation
 import app.picacgmd.core.data.settings.FailedReloadAction
+import app.picacgmd.core.designsystem.component.AppButton
 import app.picacgmd.core.designsystem.component.ImageFailureReloadAction
 import app.picacgmd.core.designsystem.component.LocalImageFailureReloadAction
 import app.picacgmd.core.designsystem.component.StatusPane
@@ -85,7 +83,6 @@ class MainActivity : ComponentActivity() {
     private lateinit var authenticator: AppLockAuthenticator
     private var obscureForRecents = false
 
-    @OptIn(ExperimentalMaterial3ExpressiveApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         val splash = installSplashScreen()
         super.onCreate(savedInstanceState)
@@ -168,7 +165,7 @@ class MainActivity : ComponentActivity() {
                             settingsError != null -> StatusPane(
                                 title = "读取设置失败",
                                 description = settingsError,
-                                actions = { Button(onClick = ::observeSettings) { Text("重试") } },
+                                actions = { AppButton(onClick = ::observeSettings) { Text("重试") } },
                             )
                             settings == null -> Box(
                                 Modifier.fillMaxSize(), contentAlignment = Alignment.Center,
@@ -184,7 +181,7 @@ class MainActivity : ComponentActivity() {
                             )
                             session == SessionState.Initializing -> Box(
                                 Modifier.fillMaxSize(), contentAlignment = Alignment.Center,
-                            ) { LoadingIndicator() }
+                            ) { app.picacgmd.core.designsystem.component.LoadingState() }
                             session is SessionState.SignedIn -> unlockedContent.SaveableStateProvider("app") {
                                 PikapikaApp(
                                     externalNavigation = pendingNavigation,
