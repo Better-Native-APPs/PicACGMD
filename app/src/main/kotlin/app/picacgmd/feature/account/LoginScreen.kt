@@ -40,6 +40,7 @@ import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -71,6 +72,9 @@ fun LoginScreen(onBack: (() -> Unit)? = null) {
     val onboarding = remember(context) { context.getSharedPreferences("onboarding", Context.MODE_PRIVATE) }
     var page by rememberSaveable { mutableStateOf(if (onboarding.getBoolean("notice_accepted", false)) "login" else "notice") }
     var network by rememberSaveable { mutableStateOf(false) }
+    // A completed form must not be restored when starting another registration.
+    var registrationAttempt by rememberSaveable { mutableStateOf(0) }
+    var registeredAccount by rememberSaveable { mutableStateOf<String?>(null) }
     PredictiveBackContent(
         current = page,
         previous = "login",
@@ -82,9 +86,21 @@ fun LoginScreen(onBack: (() -> Unit)? = null) {
                 onboarding.edit().putBoolean("notice_accepted", true).apply()
                 page = "login"
             }
-            "register" -> RegisterScreen(onBack = back, onRegistered = { page = "login" })
+            "register" -> key(registrationAttempt) {
+                RegisterScreen(onBack = back, onRegistered = { registeredAccount = it })
+            }
             "forgot" -> ForgotPasswordScreen(onBack = back)
-            else -> LoginForm(onBack, { page = "register" }, { page = "forgot" }, { network = true })
+            else -> LoginForm(
+                onBack = onBack,
+                onRegister = {
+                    registrationAttempt++
+                    page = "register"
+                },
+                onForgot = { page = "forgot" },
+                onNetwork = { network = true },
+                registeredAccount = registeredAccount,
+                onRegisteredAccountConsumed = { registeredAccount = null },
+            )
         }
     }
     if (network) RoutePickerDialog(onDismiss = { network = false })
@@ -123,7 +139,14 @@ private fun NoticeScreen(onBack: (() -> Unit)?, onContinue: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun LoginForm(onBack: (() -> Unit)?, onRegister: () -> Unit, onForgot: () -> Unit, onNetwork: () -> Unit) {
+private fun LoginForm(
+    onBack: (() -> Unit)?,
+    onRegister: () -> Unit,
+    onForgot: () -> Unit,
+    onNetwork: () -> Unit,
+    registeredAccount: String?,
+    onRegisteredAccountConsumed: () -> Unit,
+) {
     val container = LocalAppContainer.current
     val settings by container.settingsRepository.settings.collectAsStateWithLifecycle(AppSettings.DEFAULT)
     val session by container.sessionManager.state.collectAsStateWithLifecycle()
@@ -135,6 +158,14 @@ private fun LoginForm(onBack: (() -> Unit)?, onRegister: () -> Unit, onForgot: (
     val busy = submitting || session == SessionState.SigningIn
     val scope = rememberCoroutineScope()
     LaunchedEffect(settings.accountEmail) { if (account.isBlank()) account = settings.accountEmail }
+    LaunchedEffect(registeredAccount) {
+        if (registeredAccount != null) {
+            account = registeredAccount
+            password = ""
+            error = null
+            onRegisteredAccountConsumed()
+        }
+    }
     AccountScaffold(onBack = onBack) {
         Icon(
             Icons.Outlined.AutoAwesome, null,

@@ -1,5 +1,6 @@
 package app.picacgmd.feature.account
 
+import androidx.activity.compose.BackHandler
 import app.picacgmd.core.designsystem.window.secureDialogProperties
 
 import androidx.compose.foundation.layout.Arrangement
@@ -39,7 +40,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-internal fun RegisterScreen(onBack: () -> Unit, onRegistered: () -> Unit) {
+internal fun RegisterScreen(onBack: () -> Unit, onRegistered: (String) -> Unit) {
     val container = LocalAppContainer.current
     val scope = rememberCoroutineScope()
     // Keep the step with the in-memory password; process recreation restarts the form safely.
@@ -55,7 +56,11 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: () -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var success by rememberSaveable { mutableStateOf(false) }
-    val back = { if (step == 2 && !success && !busy) step = 1 else onBack() }
+    val back = {
+        if (!busy) {
+            if (step == 2 && !success) step = 1 else onBack()
+        }
+    }
     PredictiveBackContent(
         current = step,
         previous = 1,
@@ -64,9 +69,12 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: () -> Unit) {
     ) { shownStep, stepBack ->
         AccountScaffold("注册账号", onBack = stepBack) {
             if (success) {
-                Text("已注册", style = MaterialTheme.typography.headlineMedium)
+                Text("注册成功", style = MaterialTheme.typography.headlineMedium)
+                Text("账号：${email.trim()}")
+                Text("请返回登录，输入密码后即可使用")
                 Text("请妥善保存安全问题和答案")
-                Button(onRegistered, Modifier.fillMaxWidth()) { Text("返回登录") }
+                error?.let { AccountError(it) }
+                Button(onBack, Modifier.fillMaxWidth(), enabled = !busy) { Text("返回登录") }
             } else {
                 Text("第 $shownStep 步，共 2 步", style = MaterialTheme.typography.titleMedium)
                 LinearWavyProgressIndicator(progress = { shownStep / 2f }, modifier = Modifier.fillMaxWidth(), waveSpeed = 0.dp)
@@ -105,26 +113,46 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: () -> Unit) {
                     error?.let { AccountError(it) }
                     Button(
                         onClick = {
+                            val registration = RegisterDto(
+                                email = email.trim(),
+                                password = password,
+                                name = name.trim(),
+                                birthday = birthday,
+                                gender = gender,
+                                question1 = questions[0].trim(),
+                                question2 = questions[1].trim(),
+                                question3 = questions[2].trim(),
+                                answer1 = answers[0].trim(),
+                                answer2 = answers[1].trim(),
+                                answer3 = answers[2].trim(),
+                            )
                             error = null
                             busy = true
                             scope.launch {
+                                var registered = false
                                 try {
-                                    container.networkConfigProvider.api().register(
-                                        RegisterDto(
-                                            email.trim(), password, name.trim(), birthday, gender,
-                                            questions[0].trim(), questions[1].trim(), questions[2].trim(),
-                                            answers[0].trim(), answers[1].trim(), answers[2].trim(),
-                                        ),
-                                    ).getOrThrow()
-                                    container.settingsRepository.setAccountEmail(email.trim())
+                                    container.networkConfigProvider.api().register(registration).getOrThrow()
+                                    registered = true
                                     password = ""
                                     answers.indices.forEach { answers[it] = "" }
-                                    success = true
+                                    // Registration creates an account, not an authenticated session.
+                                    container.sessionManager.logout()
+                                    container.settingsRepository.setAccountEmail(registration.email)
                                 } catch (exception: CancellationException) {
                                     throw exception
                                 } catch (exception: Exception) {
-                                    error = exception.localizedMessage ?: "注册失败"
+                                    val message = exception.localizedMessage ?: "注册失败"
+                                    error = when {
+                                        registered -> "账号已注册，但本机登录信息未能更新：$message"
+                                        message.contains("email is already exist", ignoreCase = true) -> "账号已存在，请直接登录或更换账号"
+                                        message.contains("name is already exist", ignoreCase = true) -> "昵称已被使用，请换一个昵称"
+                                        else -> message
+                                    }
                                 } finally {
+                                    if (registered) {
+                                        success = true
+                                        onRegistered(registration.email)
+                                    }
                                     busy = false
                                 }
                             }
@@ -137,6 +165,7 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: () -> Unit) {
             }
         }
     }
+    BackHandler(enabled = busy) { }
     if (birthdayPicker) {
         val picker = rememberDatePickerState(
             initialSelectedDateMillis = (birthday.takeIf(String::isNotBlank)?.let(LocalDate::parse)
