@@ -42,11 +42,9 @@ import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -54,15 +52,12 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LinearWavyProgressIndicator
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -70,7 +65,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.toShape
@@ -91,7 +85,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -100,15 +94,23 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.Lifecycle
 import app.picacgmd.core.data.db.DownloadComic
 import app.picacgmd.core.data.db.DownloadStatus
+import app.picacgmd.core.designsystem.component.AppButton
+import app.picacgmd.core.designsystem.component.AppFilledIconButton
+import app.picacgmd.core.designsystem.component.AppFilledTonalIconButton
+import app.picacgmd.core.designsystem.component.AppIconButton
+import app.picacgmd.core.designsystem.component.AppTextButton
 import app.picacgmd.core.designsystem.component.ComicCover
 import app.picacgmd.core.designsystem.component.EmptyState
+import app.picacgmd.core.designsystem.component.LoadingState
+import app.picacgmd.core.designsystem.component.SelectionMark
+import app.picacgmd.core.designsystem.component.SelectionTopAppBar
 import app.picacgmd.core.designsystem.component.StatusPane
 import app.picacgmd.core.domain.download.DownloadManager
 import app.picacgmd.core.domain.download.DownloadManagerOwner
 import app.picacgmd.core.domain.download.DownloadProgress
 import app.picacgmd.core.domain.download.DownloadedFileLocation
 import app.picacgmd.di.LocalAppContainer
-import app.picacgmd.feature.bookshelf.SelectionMark
+import app.picacgmd.feature.bookshelf.ToolbarAction
 import app.picacgmd.feature.bookshelf.ViewSwitcher
 import app.picacgmd.feature.bookshelf.safeImageUrl
 import app.picacgmd.feature.settings.formatBytes
@@ -215,19 +217,10 @@ fun DownloadsScreen(
                 label = "downloadsTopBar",
             ) { mode ->
                 when (mode) {
-                    2 -> TopAppBar(
-                        title = { Text("已选 ${selection.size} 本") },
-                        navigationIcon = {
-                            IconButton(onClick = { selection = emptySet() }) { Icon(Icons.Outlined.Close, contentDescription = "退出多选") }
-                        },
-                        actions = {
-                            IconButton(onClick = {
-                                selection = byTab[DownloadTab.Done].orEmpty().map { it.comicId }.toSet()
-                            }) { Icon(Icons.Outlined.SelectAll, contentDescription = "全选") }
-                            IconButton(onClick = {
-                                pendingDelete = all.filter { it.comicId in selection }
-                            }) { Icon(Icons.Outlined.Delete, contentDescription = "删除") }
-                        },
+                    2 -> SelectionTopAppBar(
+                        count = selection.size,
+                        onClearSelection = { selection = emptySet() },
+                        onSelectAll = { selection = byTab[DownloadTab.Done].orEmpty().map { it.comicId }.toSet() },
                     )
                     1 -> TopAppBar(
                         title = {
@@ -243,17 +236,17 @@ fun DownloadsScreen(
                             )
                         },
                         navigationIcon = {
-                            IconButton(onClick = { searching = false; query = "" }) { Icon(Icons.Outlined.Close, contentDescription = "关闭搜索") }
+                            AppIconButton(onClick = { searching = false; query = "" }) { Icon(Icons.Outlined.Close, contentDescription = "关闭搜索") }
                         },
                     )
                     else -> TopAppBar(
                         title = { Text("下载") },
                         scrollBehavior = scrollBehavior,
                         actions = {
-                            IconButton(onClick = { searching = true }) { Icon(Icons.Outlined.Search, contentDescription = "搜索") }
-                            IconButton(onClick = onOpenSettings) { Icon(Icons.Outlined.Settings, contentDescription = "下载设置") }
+                            AppIconButton(onClick = { searching = true }) { Icon(Icons.Outlined.Search, contentDescription = "搜索") }
+                            AppIconButton(onClick = onOpenSettings) { Icon(Icons.Outlined.Settings, contentDescription = "下载设置") }
                             Box {
-                                IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "更多操作") }
+                                AppIconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "更多操作") }
                                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, properties = securePopupProperties(focusable = true)) {
                                     DropdownMenuItem(
                                         text = { Text("全部暂停") },
@@ -282,68 +275,83 @@ fun DownloadsScreen(
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
-            when {
-                comics == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LoadingIndicator() }
-                all.isEmpty() && query.isNotBlank() -> EmptyState(
-                    title = "未找到「${query.trim()}」",
-                    description = null,
-                    icon = Icons.Outlined.Search,
-                    shape = MaterialShapes.Clover8Leaf,
-                    modifier = Modifier.fillMaxSize(),
-                )
-                all.isEmpty() -> DownloadsEmpty(onBrowse, Modifier.fillMaxSize())
-                else -> {
-                    ViewSwitcher(
-                        options = DownloadTab.entries,
-                        selected = tab,
-                        onSelect = {
-                            tabName = it.name
-                            selection = emptySet()
-                        },
-                        label = { "${it.label} ${byTab[it].orEmpty().size}" },
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        Box(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
+            Column(Modifier.fillMaxSize()) {
+                when {
+                    comics == null -> LoadingState(Modifier.fillMaxSize())
+                    all.isEmpty() && query.isNotBlank() -> EmptyState(
+                        title = "未找到「${query.trim()}」",
+                        description = null,
+                        icon = Icons.Outlined.Search,
+                        shape = MaterialShapes.Clover8Leaf,
+                        modifier = Modifier.fillMaxSize(),
                     )
-                    val enterSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
-                    val exitSpec = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
-                    AnimatedContent(
-                        targetState = tab,
-                        transitionSpec = { fadeIn(enterSpec) togetherWith fadeOut(exitSpec) },
-                        label = "downloadTab",
-                        modifier = Modifier.weight(1f),
-                    ) { current ->
-                        val items = byTab[current].orEmpty()
-                        val bottom = PaddingValues(bottom = padding.calculateBottomPadding() + 24.dp)
-                        when (current) {
-                            DownloadTab.Active -> ActiveList(
-                                items = items,
-                                manager = manager,
-                                contentPadding = bottom,
-                                onPause = { id -> act { pause(id) } },
-                                onResume = { id -> act { resume(id) } },
-                                onRemove = { comic -> pendingDelete = listOf(comic) },
-                                onPauseAll = { act { pauseAll() } },
-                                onResumeAll = { act { resumeAll() } },
-                                onOpenDetail = onOpenDetail,
-                            )
-                            DownloadTab.Done -> DoneList(
-                                items = items,
-                                selection = selection,
-                                contentPadding = bottom,
-                                onToggle = { id -> selection = if (id in selection) selection - id else selection + id },
-                                onOpen = onReadDownloaded,
-                                onOpenDetail = onOpenDetail,
-                                onDelete = { comic -> pendingDelete = listOf(comic) },
-                            )
-                            DownloadTab.Failed -> FailedList(
-                                items = items,
-                                contentPadding = bottom,
-                                onRetry = { id -> act { retryFailed(id) } },
-                                onRetryAll = { act { retryFailed() } },
-                                onRemove = { comic -> pendingDelete = listOf(comic) },
-                                onOpenDetail = onOpenDetail,
-                            )
+                    all.isEmpty() -> DownloadsEmpty(onBrowse, Modifier.fillMaxSize())
+                    else -> {
+                        ViewSwitcher(
+                            options = DownloadTab.entries,
+                            selected = tab,
+                            onSelect = {
+                                tabName = it.name
+                                selection = emptySet()
+                            },
+                            label = { "${it.label} ${byTab[it].orEmpty().size}" },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                        )
+                        val enterSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+                        val exitSpec = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
+                        AnimatedContent(
+                            targetState = tab,
+                            transitionSpec = { fadeIn(enterSpec) togetherWith fadeOut(exitSpec) },
+                            label = "downloadTab",
+                            modifier = Modifier.weight(1f),
+                        ) { current ->
+                            val items = byTab[current].orEmpty()
+                            val bottom = PaddingValues(bottom = padding.calculateBottomPadding() + 24.dp)
+                            when (current) {
+                                DownloadTab.Active -> ActiveList(
+                                    items = items,
+                                    manager = manager,
+                                    contentPadding = bottom,
+                                    onPause = { id -> act { pause(id) } },
+                                    onResume = { id -> act { resume(id) } },
+                                    onRemove = { comic -> pendingDelete = listOf(comic) },
+                                    onPauseAll = { act { pauseAll() } },
+                                    onResumeAll = { act { resumeAll() } },
+                                    onOpenDetail = onOpenDetail,
+                                )
+                                DownloadTab.Done -> DoneList(
+                                    items = items,
+                                    selection = selection,
+                                    contentPadding = bottom,
+                                    onToggle = { id -> selection = if (id in selection) selection - id else selection + id },
+                                    onOpen = onReadDownloaded,
+                                    onOpenDetail = onOpenDetail,
+                                    onDelete = { comic -> pendingDelete = listOf(comic) },
+                                )
+                                DownloadTab.Failed -> FailedList(
+                                    items = items,
+                                    contentPadding = bottom,
+                                    onRetry = { id -> act { retryFailed(id) } },
+                                    onRetryAll = { act { retryFailed() } },
+                                    onRemove = { comic -> pendingDelete = listOf(comic) },
+                                    onOpenDetail = onOpenDetail,
+                                )
+                            }
                         }
+                    }
+                }
+            }
+            // SPEC §18/§23: batch actions live in the floating toolbar, the app bar keeps the count.
+            AnimatedVisibility(
+                visible = selecting && tab == DownloadTab.Done,
+                enter = fadeIn(motion.fastEffectsSpec()),
+                exit = fadeOut(motion.fastEffectsSpec()),
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = padding.calculateBottomPadding() + 20.dp),
+            ) {
+                HorizontalFloatingToolbar(expanded = true) {
+                    ToolbarAction(Icons.Outlined.Delete, "删除", destructive = true) {
+                        pendingDelete = all.filter { it.comicId in selection }
                     }
                 }
             }
@@ -363,7 +371,7 @@ fun DownloadsScreen(
                 )
             },
             confirmButton = {
-                Button(
+                AppButton(
                     onClick = {
                         val ids = targets.map { it.comicId }
                         pendingDelete = null
@@ -376,7 +384,7 @@ fun DownloadsScreen(
                     ),
                 ) { Text("删除") }
             },
-            dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("取消") } },
+            dismissButton = { AppTextButton(onClick = { pendingDelete = null }) { Text("取消") } },
         )
     }
 }
@@ -391,7 +399,7 @@ private fun DownloadsEmpty(onBrowse: () -> Unit, modifier: Modifier = Modifier) 
             icon = Icons.Outlined.Download,
             shape = MaterialShapes.Sunny,
             actions = {
-                Button(onClick = onBrowse) {
+                AppButton(onClick = onBrowse) {
                     Icon(Icons.Outlined.Explore, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text("去发现")
@@ -512,7 +520,7 @@ private fun EngineCard(
                 Text(title, style = MaterialTheme.typography.titleMedium)
                 Text(subtitle, style = MaterialTheme.typography.bodySmall)
             }
-            FilledIconButton(
+            AppFilledIconButton(
                 onClick = if (running || !hasPaused) onPauseAll else onResumeAll,
                 colors = IconButtonDefaults.filledIconButtonColors(containerColor = content, contentColor = container),
             ) {
@@ -597,15 +605,15 @@ private fun ActiveList(
                 },
                 trailing = {
                     when (comic.status) {
-                        DownloadStatus.RUNNING -> FilledTonalIconButton(onClick = { onPause(comic.comicId) }) {
+                        DownloadStatus.RUNNING -> AppFilledTonalIconButton(onClick = { onPause(comic.comicId) }) {
                             Icon(Icons.Outlined.Pause, contentDescription = "暂停")
                         }
-                        DownloadStatus.PAUSED -> FilledTonalIconButton(onClick = { onResume(comic.comicId) }) {
+                        DownloadStatus.PAUSED -> AppFilledTonalIconButton(onClick = { onResume(comic.comicId) }) {
                             Icon(Icons.Outlined.PlayArrow, contentDescription = "继续")
                         }
                         else -> Row {
-                            IconButton(onClick = { onPause(comic.comicId) }) { Icon(Icons.Outlined.Pause, contentDescription = "暂停") }
-                            IconButton(onClick = { onRemove(comic) }) { Icon(Icons.Outlined.Close, contentDescription = "移出队列") }
+                            AppIconButton(onClick = { onPause(comic.comicId) }) { Icon(Icons.Outlined.Pause, contentDescription = "暂停") }
+                            AppIconButton(onClick = { onRemove(comic) }) { Icon(Icons.Outlined.Close, contentDescription = "移出队列") }
                         }
                     }
                 },
@@ -745,7 +753,9 @@ private fun DoneList(
             var rowMenu by remember { mutableStateOf(false) }
             DownloadRow(
                 comic = comic,
-                modifier = Modifier.animateItem().semantics { if (selecting) contentDescription = if (comic.comicId in selection) "已选中" else "未选中" },
+                modifier = Modifier.animateItem().then(
+                    if (selecting) Modifier.semantics { selected = comic.comicId in selection } else Modifier,
+                ),
                 subtitle = buildString {
                     if (comic.author.isNotBlank()) append(comic.author).append(" · ")
                     append("${comic.completedEpCount} 话 · ${context.formatBytes(comic.downloadedBytes)}")
@@ -756,7 +766,7 @@ private fun DoneList(
                 trailing = if (selecting) null else {
                     {
                         Box {
-                            IconButton(onClick = { rowMenu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "更多操作") }
+                            AppIconButton(onClick = { rowMenu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "更多操作") }
                             DropdownMenu(expanded = rowMenu, onDismissRequest = { rowMenu = false }, properties = securePopupProperties(focusable = true)) {
                                 DropdownMenuItem(text = { Text("阅读") }, onClick = { rowMenu = false; onOpen(comic.comicId) })
                                 DropdownMenuItem(text = { Text("查看详情") }, onClick = { rowMenu = false; onOpenDetail(comic.comicId) })
@@ -806,7 +816,7 @@ private fun FailedList(
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
                     )
-                    Button(
+                    AppButton(
                         onClick = onRetryAll,
                         colors = ButtonDefaults.buttonColors(containerColor = colors.error, contentColor = colors.onError),
                     ) { Text("全部重试") }
@@ -829,8 +839,8 @@ private fun FailedList(
                 },
                 trailing = {
                     Row {
-                        IconButton(onClick = { onRetry(comic.comicId) }) { Icon(Icons.Outlined.Refresh, contentDescription = "重试") }
-                        IconButton(onClick = { onRemove(comic) }) { Icon(Icons.Outlined.Close, contentDescription = "移出队列") }
+                        AppIconButton(onClick = { onRetry(comic.comicId) }) { Icon(Icons.Outlined.Refresh, contentDescription = "重试") }
+                        AppIconButton(onClick = { onRemove(comic) }) { Icon(Icons.Outlined.Close, contentDescription = "移出队列") }
                     }
                 },
             )

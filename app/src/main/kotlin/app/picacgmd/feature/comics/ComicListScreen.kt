@@ -4,11 +4,15 @@ import app.picacgmd.core.designsystem.window.securePopupProperties
 
 import app.picacgmd.feature.routing.RouteMenuButton
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -18,18 +22,17 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Checklist
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.GridView
-import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material.icons.outlined.ViewAgenda
 import androidx.compose.material.icons.outlined.ViewModule
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -40,6 +43,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
@@ -52,10 +56,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import app.picacgmd.R
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.data.settings.ListLayout
+import app.picacgmd.core.designsystem.component.AppIconButton
+import app.picacgmd.core.designsystem.component.SelectionTopAppBar
 import app.picacgmd.core.domain.di.AppContainer
 import app.picacgmd.core.network.ComicSimple
 import app.picacgmd.core.network.ComicSort
 import app.picacgmd.di.LocalAppContainer
+import app.picacgmd.feature.bookshelf.ToolbarAction
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -131,7 +138,7 @@ fun ComicListScreen(
     ComicListContent(viewModel, displayTitle, onBack, onComicClick, onBatchDownload, modifier)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ComicListContent(
     viewModel: ComicListViewModel,
@@ -146,6 +153,7 @@ private fun ComicListContent(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     var selection by rememberSaveable { mutableStateOf(emptyList<String>()) }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val motion = MaterialTheme.motionScheme
 
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -157,15 +165,10 @@ private fun ComicListContent(
                 label = "listTopBar",
             ) { selecting ->
                 if (selecting) {
-                    SelectionTopBar(
+                    SelectionTopAppBar(
                         count = selection.size,
-                        onClear = { selection = emptyList() },
+                        onClearSelection = { selection = emptyList() },
                         onSelectAll = { selection = state.comics.map(ComicSimple::id) },
-                        onDownload = {
-                            val chosen = selection.toSet()
-                            onBatchDownload(state.comics.filter { it.id in chosen })
-                            selection = emptyList()
-                        },
                     )
                 } else {
                     TopAppBar(
@@ -174,7 +177,7 @@ private fun ComicListContent(
                             app.picacgmd.core.designsystem.component.BackButton(onBack)
                         },
                         actions = {
-                            IconButton(onClick = { state.comics.firstOrNull()?.let { selection = listOf(it.id) } }, enabled = state.comics.isNotEmpty()) {
+                            AppIconButton(onClick = { state.comics.firstOrNull()?.let { selection = listOf(it.id) } }, enabled = state.comics.isNotEmpty()) {
                                 Icon(Icons.Outlined.Checklist, stringResource(R.string.comics_select))
                             }
                             LayoutMenuButton(settings.listLayout, viewModel::setLayout)
@@ -186,33 +189,51 @@ private fun ComicListContent(
             }
         },
     ) { padding ->
-        ComicResults(
-            state = state,
-            layout = settings.listLayout,
-            columnCount = settings.listColumnCount,
-            paginationMode = settings.paginationMode,
-            selection = selection.toSet(),
-            onSelectionChange = { selection = it.toList() },
-            onComicClick = onComicClick,
-            onLoadNext = viewModel.pager::loadNext,
-            onRetryAppend = viewModel.pager::retryAppend,
-            onRetry = viewModel.pager::reload,
-            onJumpTo = viewModel.pager::jumpTo,
-            contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding()),
-            header = {
-                Column {
-                    SortChips(sort, viewModel::setSort)
-                    if (state.page > 0) {
-                        Text(
-                            foundLabel(state.total, state.hiddenCount),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                        )
+        Box(Modifier.fillMaxSize()) {
+            ComicResults(
+                state = state,
+                layout = settings.listLayout,
+                columnCount = settings.listColumnCount,
+                paginationMode = settings.paginationMode,
+                selection = selection.toSet(),
+                onSelectionChange = { selection = it.toList() },
+                onComicClick = onComicClick,
+                onLoadNext = viewModel.pager::loadNext,
+                onRetryAppend = viewModel.pager::retryAppend,
+                onRetry = viewModel.pager::reload,
+                onJumpTo = viewModel.pager::jumpTo,
+                contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding()),
+                header = {
+                    Column {
+                        SortChips(sort, viewModel::setSort)
+                        if (state.page > 0) {
+                            Text(
+                                foundLabel(state.total, state.hiddenCount),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            )
+                        }
+                    }
+                },
+            )
+            // SPEC §08: batch actions live in the floating toolbar, the app bar keeps the count.
+            // Same entrance as the shelf's toolbar, so the three lists select in one way.
+            AnimatedVisibility(
+                visible = selection.isNotEmpty(),
+                enter = slideInVertically(motion.defaultSpatialSpec()) { it } + fadeIn(motion.fastEffectsSpec()),
+                exit = slideOutVertically(motion.defaultSpatialSpec()) { it } + fadeOut(motion.fastEffectsSpec()),
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = padding.calculateBottomPadding() + 16.dp),
+            ) {
+                HorizontalFloatingToolbar(expanded = true) {
+                    ToolbarAction(Icons.Outlined.Download, stringResource(R.string.comics_batch_download)) {
+                        val chosen = selection.toSet()
+                        onBatchDownload(state.comics.filter { it.id in chosen })
+                        selection = emptyList()
                     }
                 }
-            },
-        )
+            }
+        }
     }
 }
 
@@ -237,7 +258,7 @@ fun SortChips(sort: ComicSort, onSort: (ComicSort) -> Unit, modifier: Modifier =
 @Composable
 fun LayoutMenuButton(layout: ListLayout, onLayout: (ListLayout) -> Unit) {
     var open by rememberSaveable { mutableStateOf(false) }
-    IconButton(onClick = { open = true }) {
+    AppIconButton(onClick = { open = true }) {
         Icon(layout.icon(), stringResource(R.string.comics_layout))
     }
     DropdownMenu(expanded = open, onDismissRequest = { open = false }, properties = securePopupProperties(focusable = true)) {
@@ -268,22 +289,21 @@ private fun ListLayout.icon() = when (this) {
     ListLayout.COVER_AND_TITLE -> Icons.Outlined.ViewModule
 }
 
-/** Contextual app bar of multi-select: 「已选 N 本」, select all, batch download. */
+/**
+ * Contextual app bar of multi-select for the comic list and search (which share it): 「已选 N 本」,
+ * select all and a batch download. Thin wrapper over the shared [SelectionTopAppBar]; the list
+ * screens place their batch actions in the floating toolbar instead (SPEC §08).
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SelectionTopBar(count: Int, onClear: () -> Unit, onSelectAll: () -> Unit, onDownload: () -> Unit) {
-    TopAppBar(
-        title = { Text(stringResource(R.string.comics_selected_count, count)) },
-        navigationIcon = {
-            IconButton(onClick = onClear) { Icon(Icons.Outlined.Close, stringResource(R.string.comics_clear_selection)) }
-        },
-        actions = {
-            IconButton(onClick = onSelectAll) { Icon(Icons.Outlined.SelectAll, stringResource(R.string.comics_select_all)) }
-            IconButton(onClick = onDownload) { Icon(Icons.Outlined.Download, stringResource(R.string.comics_batch_download)) }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-            titleContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-        ),
-    )
+    SelectionTopAppBar(
+        count = count,
+        onClearSelection = onClear,
+        onSelectAll = onSelectAll,
+    ) {
+        AppIconButton(onClick = onDownload) {
+            Icon(Icons.Outlined.Download, stringResource(R.string.comics_batch_download))
+        }
+    }
 }

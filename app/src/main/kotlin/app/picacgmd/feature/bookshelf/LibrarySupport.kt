@@ -1,30 +1,20 @@
 package app.picacgmd.feature.bookshelf
 
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
-import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -42,7 +32,7 @@ import java.time.ZoneId
 
 /**
  * Helpers shared by the library lane (bookshelf, downloads, 我的): image URLs that never throw,
- * snapshot → [ComicSimple] conversion, the connected view switcher and the selection mark.
+ * snapshot → [ComicSimple] conversion and the connected view switcher.
  */
 
 /** Resolves an image URL with the current routing; null while the network config is unavailable. */
@@ -138,30 +128,5 @@ internal fun CountPill(count: Int, highlighted: Boolean, modifier: Modifier = Mo
             style = MaterialTheme.typography.labelSmall,
             color = if (highlighted) colors.onError else colors.onPrimary,
         )
-    }
-}
-
-/** Cookie-shaped check that springs in on selected covers (board 23). */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-internal fun SelectionMark(selected: Boolean, modifier: Modifier = Modifier) {
-    val scale by animateFloatAsState(
-        if (selected) 1f else 0f,
-        MaterialTheme.motionScheme.fastSpatialSpec(),
-        label = "selectionMark",
-    )
-    if (scale <= 0.01f) return
-    val shape = MaterialShapes.Cookie9Sided.toShape()
-    Box(
-        modifier = modifier
-            .size(28.dp)
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
-            .background(MaterialTheme.colorScheme.primary, shape),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(Icons.Outlined.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(18.dp))
     }
 }
