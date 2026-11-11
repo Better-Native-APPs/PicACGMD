@@ -37,6 +37,8 @@
     <string name="comics_cancel">取消</string>
     <string name="comics_prev_page">上一页</string>
     <string name="comics_next_page">下一页</string>
+    <string name="comics_first_page">首页</string>
+    <string name="comics_last_page">末页</string>
 
     <!-- Selection -->
     <string name="comics_select">多选</string>
