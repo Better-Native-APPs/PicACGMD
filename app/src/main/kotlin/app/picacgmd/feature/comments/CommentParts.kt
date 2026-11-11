@@ -83,8 +83,7 @@ internal fun CommentLengthCounter(length: Int) {
 internal fun CommentMenu(onReport: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        // Small on purpose: it shares a line with the name, and Compose still widens the touch area to 48 dp.
-        IconButton(onClick = { open = true }, modifier = Modifier.size(24.dp)) {
+        IconButton(onClick = { open = true }) {
             Icon(
                 Icons.Outlined.MoreVert,
                 stringResource(R.string.comments_more_actions),

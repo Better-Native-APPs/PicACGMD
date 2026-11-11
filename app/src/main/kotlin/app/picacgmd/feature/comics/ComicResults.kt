@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -65,6 +66,7 @@ import app.picacgmd.core.data.settings.ListLayout
 import app.picacgmd.core.data.settings.FailedReloadAction
 import app.picacgmd.core.data.settings.PaginationMode
 import app.picacgmd.core.designsystem.component.ComicCoverCard
+import app.picacgmd.core.designsystem.component.ComicCoverAspectRatio
 import app.picacgmd.core.designsystem.component.ComicListItem
 import app.picacgmd.core.designsystem.component.EmptyState
 import app.picacgmd.core.designsystem.component.ErrorState
@@ -257,7 +259,7 @@ private fun androidx.compose.foundation.lazy.grid.LazyGridScope.skeleton(layout:
     items(12, key = { "sk-$it" }, contentType = { "skeleton" }) {
         if (layout == ListLayout.DETAILS) {
             Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                SkeletonBlock(Modifier.size(72.dp, 100.dp))
+                SkeletonBlock(Modifier.width(84.dp).aspectRatio(ComicCoverAspectRatio))
                 Spacer(Modifier.width(12.dp))
                 SkeletonBlock(Modifier.fillMaxWidth().height(18.dp), shape = MaterialTheme.shapes.small)
             }
@@ -371,7 +373,7 @@ private fun AppendFooter(state: ComicPageState, onRetry: () -> Unit, pullToRetry
             !state.hasNextPage && state.page > 0 -> Text(
                 stringResource(R.string.comics_end_of_list),
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.outline,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -398,13 +400,18 @@ private fun PageBar(
             FilledTonalIconButton(onClick = { onJumpTo(page - 1) }, enabled = enabled && page > 1) {
                 Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, stringResource(R.string.comics_prev_page))
             }
-            Text(
-                stringResource(R.string.comics_page_indicator, page, pages),
-                style = MaterialTheme.typography.titleSmall,
+            Box(
                 modifier = Modifier
                     .clickable(enabled = enabled, onClickLabel = stringResource(R.string.comics_jump_to_page), onClick = onOpenJump)
+                    .heightIn(min = 48.dp)
                     .padding(horizontal = 16.dp, vertical = 10.dp),
-            )
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    stringResource(R.string.comics_page_indicator, page, pages),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+            }
             FilledTonalIconButton(onClick = { onJumpTo(page + 1) }, enabled = enabled && page < pages) {
                 Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, stringResource(R.string.comics_next_page))
             }

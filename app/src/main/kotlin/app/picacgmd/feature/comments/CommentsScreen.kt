@@ -46,6 +46,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -58,8 +59,13 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -91,18 +97,20 @@ fun CommentsScreen(comicId: String, onBack: () -> Unit, modifier: Modifier = Mod
     val replies by viewModel.replies.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     var reportTarget by remember { mutableStateOf<Comment?>(null) }
     LaunchedEffect(viewModel) { viewModel.messages.collect { snackbar.showSnackbar(it) } }
     LoadMoreEffect(listState, state.items.size, viewModel::loadNext)
 
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
                 title = { Text(title ?: stringResource(R.string.comments_title)) },
                 navigationIcon = {
                     app.picacgmd.core.designsystem.component.BackButton(onBack)
                 },
+                scrollBehavior = scrollBehavior,
             )
         },
         snackbarHost = { SnackbarHost(snackbar) },
@@ -148,7 +156,7 @@ fun CommentsScreen(comicId: String, onBack: () -> Unit, modifier: Modifier = Mod
                             when {
                                 state.appending -> LoadingIndicator()
                                 state.appendError != null -> TextButton(onClick = viewModel::retryAppend) { Text(stringResource(R.string.comics_load_more_failed)) }
-                                !state.hasNext -> Text(stringResource(R.string.comics_end_of_list), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
+                                !state.hasNext -> Text(stringResource(R.string.comics_end_of_list), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -203,6 +211,7 @@ private fun GroupLabel(text: String, pinned: Boolean) {
 }
 
 /** One comment: avatar, name + level, body, time, reply count and like toggle. Public for the detail preview. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun CommentRow(
     comment: Comment,
@@ -226,8 +235,7 @@ fun CommentRow(
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
                         user?.name?.takeIf { it.isNotBlank() } ?: stringResource(R.string.comments_anonymous),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.labelLargeEmphasized,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
@@ -248,7 +256,7 @@ fun CommentRow(
             Text(
                 if (comment.hide) stringResource(R.string.comments_hidden) else comment.content,
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (comment.hide) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface,
+                color = if (comment.hide) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                 maxLines = if (compact) 3 else Int.MAX_VALUE,
             )
             if (!compact) {
@@ -256,7 +264,7 @@ fun CommentRow(
                     Text(
                         comment.createdAt?.replace('T', ' ')?.take(16).orEmpty(),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f),
                     )
                     if (onReplies != null) {
@@ -270,7 +278,13 @@ fun CommentRow(
                         }
                     }
                     if (onLike != null) {
-                        TextButton(onClick = onLike) {
+                        TextButton(
+                            onClick = onLike,
+                            modifier = Modifier.semantics {
+                                role = Role.Checkbox
+                                toggleableState = if (comment.isLiked) ToggleableState.On else ToggleableState.Off
+                            },
+                        ) {
                             Icon(
                                 if (comment.isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                                 stringResource(R.string.comments_like),

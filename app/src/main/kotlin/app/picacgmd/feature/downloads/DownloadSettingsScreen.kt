@@ -6,7 +6,6 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -233,16 +232,16 @@ fun DownloadSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp))
         ListItem(
-            headlineContent = { Text("应用内部存储") },
+            onClick = { changeLocation(null) },
+            content = { Text("应用内部存储") },
             supportingContent = { Text("无需目录授权") },
             leadingContent = { RadioButton(selected = treeUri == null, onClick = null) },
-            modifier = Modifier.clickable { changeLocation(null) },
         )
         ListItem(
-            headlineContent = { Text(if (treeUri == null) "选择文件夹" else "更改文件夹") },
+            content = { Text(if (treeUri == null) "选择文件夹" else "更改文件夹") },
             supportingContent = { Text(folderName ?: "使用系统文件选择器") },
             leadingContent = { Icon(Icons.Outlined.FolderOpen, null) },
-            modifier = Modifier.clickable {
+            onClick = {
                 choosingLocation = false
                 picker.launch(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
@@ -256,12 +255,14 @@ fun DownloadSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 /** Big number + 1–16 slider with ticks + quick presets; the warning appears only above 8. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ThreadCountCard(threads: Int, defaultThreads: Int, onCommit: (Int) -> Unit, modifier: Modifier = Modifier) {
     var dragging by remember { mutableStateOf(false) }
     var local by remember { mutableFloatStateOf(threads.toFloat()) }
     val shown = if (dragging) local.roundToInt() else threads
     val colors = MaterialTheme.colorScheme
+    val motion = MaterialTheme.motionScheme
     Column(modifier) {
         Card(
             shape = MaterialTheme.shapes.extraLarge,
@@ -279,7 +280,7 @@ private fun ThreadCountCard(threads: Int, defaultThreads: Int, onCommit: (Int) -
                     }
                     Text(
                         "$shown",
-                        style = MaterialTheme.typography.displayMedium,
+                        style = MaterialTheme.typography.displayMediumEmphasized,
                         color = colors.primary,
                         modifier = Modifier.padding(start = 12.dp),
                     )
@@ -331,8 +332,8 @@ private fun ThreadCountCard(threads: Int, defaultThreads: Int, onCommit: (Int) -
         }
         AnimatedVisibility(
             visible = shown > ThrottleHint,
-            enter = expandVertically() + fadeIn(),
-            exit = shrinkVertically() + fadeOut(),
+            enter = expandVertically(motion.fastSpatialSpec()) + fadeIn(motion.fastEffectsSpec()),
+            exit = shrinkVertically(motion.fastSpatialSpec()) + fadeOut(motion.fastEffectsSpec()),
         ) {
             val extended = PikapikaTheme.extendedColors
             Card(

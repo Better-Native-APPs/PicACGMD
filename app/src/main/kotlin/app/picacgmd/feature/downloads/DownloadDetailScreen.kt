@@ -1,6 +1,5 @@
 package app.picacgmd.feature.downloads
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,6 +43,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +51,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -112,12 +113,14 @@ fun DownloadDetailScreen(
         }
     }
 
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
                 title = { Text("下载详情") },
                 navigationIcon = { BackButton(onBack) },
+                scrollBehavior = scrollBehavior,
                 actions = {
                     if (comic != null) Box {
                         IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, "更多操作") }
@@ -254,8 +257,9 @@ private fun DownloadChapterRow(chapter: DownloadEp, onRead: () -> Unit, onRetry:
         DownloadChapterPhase.Deleting -> "删除中"
     }
     ListItem(
-        modifier = Modifier.clickable(enabled = phase == DownloadChapterPhase.Complete, onClick = onRead),
-        headlineContent = { Text(chapter.title) },
+        onClick = onRead,
+        enabled = phase == DownloadChapterPhase.Complete,
+        content = { Text(chapter.title) },
         supportingContent = {
             Column {
                 Text(if (chapter.selectedPictureCount > 0) "$label · ${chapter.completedPictureCount}/${chapter.selectedPictureCount} 张" else label,

@@ -1,6 +1,5 @@
 package app.picacgmd.feature.bookshelf
 
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,7 +27,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import app.picacgmd.core.data.db.TagFavourite
 import app.picacgmd.core.designsystem.component.EmptyState
@@ -68,15 +66,12 @@ internal fun TagFavouritesSheet(
                 items(tags, key = { it.tag }) { favourite ->
                     var menu by remember { mutableStateOf(false) }
                     ListItem(
-                        headlineContent = { Text(favourite.tag) },
+                        onClick = { onOpenTag(favourite.tag) },
+                        enabled = removing != favourite.tag,
+                        onLongClick = { menu = true },
+                        onLongClickLabel = "管理标签收藏",
+                        content = { Text(favourite.tag) },
                         leadingContent = { Icon(Icons.Outlined.Label, null) },
-                        modifier = Modifier.combinedClickable(
-                            enabled = removing != favourite.tag,
-                            role = Role.Button,
-                            onClick = { onOpenTag(favourite.tag) },
-                            onLongClick = { menu = true },
-                            onLongClickLabel = "管理标签收藏",
-                        ),
                         trailingContent = {
                             Box {
                                 IconButton(onClick = { menu = true }, enabled = removing != favourite.tag) {
