@@ -379,6 +379,18 @@ private fun ContinueCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(history.progressText(), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp))
+                // Board 22 / SPEC 1059: the wavy bar shows how far into the chapter this record is.
+                // Only drawn once the chapter length is known (0 = record written before the field),
+                // and still (waveSpeed = 0) so it costs nothing while the card sits idle.
+                if (history.lastChapterPages > 0 && history.lastEpOrder >= 1 && history.lastPictureIndex >= 1) {
+                    LinearWavyProgressIndicator(
+                        progress = { (history.lastPictureIndex.toFloat() / history.lastChapterPages).coerceIn(0f, 1f) },
+                        color = colors.onPrimaryContainer,
+                        trackColor = colors.onPrimaryContainer.copy(alpha = 0.24f),
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        waveSpeed = 0.dp,
+                    )
+                }
                 Spacer(Modifier.height(12.dp))
                 AppButton(onClick = if (canContinue) onContinue else onOpen) {
                     Icon(Icons.Outlined.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
