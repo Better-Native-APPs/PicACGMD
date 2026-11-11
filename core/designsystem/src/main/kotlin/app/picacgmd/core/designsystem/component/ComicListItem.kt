@@ -24,6 +24,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -41,7 +43,11 @@ import app.picacgmd.core.designsystem.theme.ThemeChoice
  * @param progressLabel the 「已读」 mark on the cover; with [progressDetail] / [progressDetailShort]
  *   it works as in [ComicCover]. The 84dp cover fits a short detail up to two digits, e.g.
  *   「已读 | 12 话」; longer ones leave the bare 「已读」 (TalkBack still hears the chapter).
- * @param selected highlights the row, for the list pane of the large-screen list/detail layout.
+ * @param selected highlights the row, for the list pane of the large-screen list/detail layout
+ *   and for multi-select.
+ * @param selectionMode true while the surrounding list is in multi-select; the row then reports
+ *   [selected] to accessibility services (TalkBack says 「已选中」 / 「未选中」). Left false, a
+ *   highlighted row of the list/detail layout stays a plain button.
  * @param leadingContent e.g. a rank number (board 07); vertically centered before the cover.
  * @param trailingContent e.g. a download state or overflow button; vertically centered.
  */
@@ -61,6 +67,7 @@ fun ComicListItem(
     progressLabel: String? = null,
     badge: String? = null,
     selected: Boolean = false,
+    selectionMode: Boolean = false,
     leadingContent: (@Composable () -> Unit)? = null,
     trailingContent: (@Composable () -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
@@ -79,6 +86,10 @@ fun ComicListItem(
             .clip(MaterialTheme.shapes.large)
             .background(containerColor)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick, role = Role.Button)
+            .then(
+                // In multi-select the tick is decoration; the row itself says whether it is picked.
+                if (selectionMode) Modifier.semantics { this.selected = selected } else Modifier,
+            )
             .padding(8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {

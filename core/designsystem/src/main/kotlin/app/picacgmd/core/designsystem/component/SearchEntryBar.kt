@@ -34,7 +34,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -84,8 +83,8 @@ fun ShapedAvatar(
                 Text(
                     text = initial.take(1),
                     color = content,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = (size.value * 0.42f).sp,
+                    // Emphasized weight from the theme; the size follows the avatar it sits in.
+                    style = MaterialTheme.typography.labelLargeEmphasized.copy(fontSize = (size.value * 0.42f).sp),
                     maxLines = 1,
                 )
             } else {

@@ -15,4 +15,8 @@
     <string name="designsystem_finished">完结</string>
     <string name="designsystem_read_progress">看到 %1$s</string>
     <string name="designsystem_cover_unavailable">封面加载失败</string>
+    <!-- Multi-select app bar (SelectionTopAppBar). -->
+    <string name="designsystem_selected_count">已选 %1$d 本</string>
+    <string name="designsystem_clear_selection">退出多选</string>
+    <string name="designsystem_select_all">全选</string>
 </resources>
