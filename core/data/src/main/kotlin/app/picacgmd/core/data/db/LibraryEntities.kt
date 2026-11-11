@@ -1,5 +1,6 @@
 package app.picacgmd.core.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -16,6 +17,8 @@ data class ViewHistory(
     val lastEpOrder: Int = 0,
     val lastEpTitle: String = "",
     val lastPictureIndex: Int = 0,
+    /** Total pages of the last-read chapter; 0 = unknown (records written before this field existed). */
+    @ColumnInfo(defaultValue = "0") val lastChapterPages: Int = 0,
     val pinned: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = createdAt,

@@ -62,9 +62,9 @@ internal class FakeViewHistoryDao : ViewHistoryDao {
     }
     override suspend fun get(comicId: String): ViewHistory? = entries.value[comicId]
     override suspend fun upsert(history: ViewHistory) { entries.value += history.comicId to history }
-    override suspend fun updateProgress(comicId: String, epOrder: Int, epTitle: String, pictureIndex: Int, updatedAt: Long): Int {
+    override suspend fun updateProgress(comicId: String, epOrder: Int, epTitle: String, pictureIndex: Int, pageCount: Int, updatedAt: Long): Int {
         val previous = get(comicId) ?: return 0
-        upsert(previous.copy(lastEpOrder = epOrder, lastEpTitle = epTitle, lastPictureIndex = pictureIndex, updatedAt = updatedAt))
+        upsert(previous.copy(lastEpOrder = epOrder, lastEpTitle = epTitle, lastPictureIndex = pictureIndex, lastChapterPages = pageCount, updatedAt = updatedAt))
         return 1
     }
     override suspend fun setPinned(comicId: String, pinned: Boolean): Int {

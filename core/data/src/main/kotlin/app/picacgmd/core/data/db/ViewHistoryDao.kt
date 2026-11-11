@@ -34,7 +34,7 @@ interface ViewHistoryDao {
 
     @Query("""
         UPDATE view_history SET lastEpOrder = :epOrder, lastEpTitle = :epTitle,
-            lastPictureIndex = :pictureIndex, updatedAt = :updatedAt
+            lastPictureIndex = :pictureIndex, lastChapterPages = :pageCount, updatedAt = :updatedAt
         WHERE comicId = :comicId
     """)
     suspend fun updateProgress(
@@ -42,6 +42,7 @@ interface ViewHistoryDao {
         epOrder: Int,
         epTitle: String,
         pictureIndex: Int,
+        pageCount: Int,
         updatedAt: Long,
     ): Int
 
