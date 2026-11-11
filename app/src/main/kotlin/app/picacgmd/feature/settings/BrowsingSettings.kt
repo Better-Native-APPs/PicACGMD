@@ -418,7 +418,6 @@ private fun HiddenKeywordsGroup(keywords: List<String>, snackbar: SnackbarHostSt
     SettingsGroup("隐藏关键词") {
         row { shapes ->
             SegmentedListItem(
-                onClick = {},
                 shapes = shapes,
                 supportingContent = {
                     Column {
@@ -463,7 +462,6 @@ private fun HiddenKeywordsGroup(keywords: List<String>, snackbar: SnackbarHostSt
         }
         row { shapes ->
             SegmentedListItem(
-                onClick = {},
                 shapes = shapes,
                 supportingContent = {
                     Column {
@@ -585,7 +583,6 @@ private fun HomeCategoriesPage(onBack: () -> Unit, modifier: Modifier = Modifier
                 settings.pinnedHomeCategories.forEachIndexed { index, name ->
                     row { shapes ->
                         SegmentedListItem(
-                            onClick = {},
                             shapes = shapes,
                             leadingContent = { Icon(Icons.Outlined.PushPin, contentDescription = null) },
                             trailingContent = {
@@ -623,7 +620,6 @@ private fun HomeCategoriesPage(onBack: () -> Unit, modifier: Modifier = Modifier
                                 val hidden = name in settings.hiddenCategories
                                 val pinned = name in settings.pinnedHomeCategories
                                 SegmentedListItem(
-                                    onClick = {},
                                     shapes = shapes,
                                     trailingContent = {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -656,7 +652,7 @@ private fun HomeCategoriesPage(onBack: () -> Unit, modifier: Modifier = Modifier
                                 ) {
                                     Text(
                                         name,
-                                        color = if (hidden) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurface,
+                                        color = if (hidden) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                                     )
                                 }
                             }

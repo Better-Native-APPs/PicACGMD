@@ -209,7 +209,7 @@ internal fun SettingsSwitchRow(
         checked = checked,
         onCheckedChange = onCheckedChange,
         shapes = remember(shapes) { shapes.withoutSelectedShape() },
-        modifier = modifier,
+        modifier = modifier.semantics { role = Role.Switch },
         enabled = enabled,
         leadingContent = leading,
         supportingContent = summary?.let { { Text(it) } },
@@ -232,7 +232,6 @@ internal fun SettingsNoteRow(
     content: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
     SegmentedListItem(
-        onClick = {},
         shapes = shapes,
         modifier = modifier,
         enabled = false,
@@ -328,7 +327,6 @@ internal fun <T> SettingsChoiceRow(
     icon: ((T) -> ImageVector?)? = null,
 ) {
     SegmentedListItem(
-        onClick = {},
         shapes = shapes,
         enabled = true,
         supportingContent = {

@@ -56,6 +56,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import app.picacgmd.core.designsystem.component.ExpressivePullToRefreshBox
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
@@ -69,9 +70,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -116,6 +117,7 @@ fun MeScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val writer = remember(container) { SettingsWriter(container.settingsRepository, scope, snackbar) }
     val settings = rememberAppSettings()
     val session by container.sessionManager.state.collectAsStateWithLifecycle()
@@ -202,7 +204,7 @@ fun MeScreen(
     }
 
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
                 title = { Text("我的") },
@@ -210,6 +212,7 @@ fun MeScreen(
                 actions = {
                     IconButton(onClick = onOpenSettings) { Icon(Icons.Outlined.Settings, contentDescription = "设置") }
                 },
+                scrollBehavior = scrollBehavior,
             )
         },
         snackbarHost = { SnackbarHost(snackbar) },
@@ -398,8 +401,15 @@ private fun ProfileCard(
                     IconButton(
                         onClick = onChangeAvatar,
                         enabled = !uploading,
-                        modifier = Modifier.align(Alignment.BottomEnd).size(32.dp).clip(MaterialTheme.shapes.extraLarge).background(colors.surface),
-                    ) { Icon(Icons.Outlined.CameraAlt, contentDescription = "修改头像", tint = colors.primary, modifier = Modifier.size(18.dp)) }
+                        modifier = Modifier.align(Alignment.BottomEnd).size(48.dp),
+                    ) {
+                        Box(
+                            Modifier.size(32.dp).background(colors.surface, MaterialTheme.shapes.extraLarge),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(Icons.Outlined.CameraAlt, contentDescription = "修改头像", tint = colors.primary, modifier = Modifier.size(18.dp))
+                        }
+                    }
                 }
                 Column(Modifier.weight(1f).padding(start = 20.dp)) {
                     Text(profile.name, style = MaterialTheme.typography.headlineSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -410,7 +420,7 @@ private fun ProfileCard(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             "Lv.${profile.level}",
-                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                            style = MaterialTheme.typography.labelLargeEmphasized,
                             color = colors.onPrimary,
                             modifier = Modifier.background(colors.primary, MaterialTheme.shapes.extraLarge).padding(horizontal = 10.dp, vertical = 2.dp),
                         )
@@ -421,7 +431,7 @@ private fun ProfileCard(
             Text(
                 profile.slogan?.takeIf { it.isNotBlank() } ?: "还没有签名",
                 style = MaterialTheme.typography.bodyMedium,
-                color = colors.onPrimaryContainer.copy(alpha = if (profile.slogan.isNullOrBlank()) 0.6f else 1f),
+                color = if (profile.slogan.isNullOrBlank()) colors.onSurfaceVariant else colors.onPrimaryContainer,
                 modifier = Modifier.padding(top = 16.dp),
             )
         }
@@ -471,7 +481,14 @@ private fun PunchCard(
                 }
                 when {
                     punching -> LoadingIndicator(Modifier.size(40.dp))
-                    !punched -> FilledTonalButton(onClick = onPunch) { Text("打卡") }
+                    !punched -> FilledTonalButton(
+                        onClick = onPunch,
+                        modifier = Modifier.height(ButtonDefaults.LargeContainerHeight),
+                        shapes = ButtonDefaults.shapesFor(ButtonDefaults.LargeContainerHeight),
+                        contentPadding = ButtonDefaults.contentPaddingFor(ButtonDefaults.LargeContainerHeight),
+                    ) {
+                        Text("打卡", style = ButtonDefaults.textStyleFor(ButtonDefaults.LargeContainerHeight))
+                    }
                 }
             }
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {

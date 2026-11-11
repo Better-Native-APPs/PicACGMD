@@ -3,7 +3,6 @@ package app.picacgmd.feature.settings
 import android.content.Intent
 import android.hardware.display.DisplayManager
 import android.view.Display
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
@@ -22,7 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BrightnessAuto
 import androidx.compose.material.icons.outlined.DarkMode
@@ -56,6 +54,7 @@ import app.picacgmd.core.designsystem.theme.ThemeChoice
 import app.picacgmd.core.designsystem.theme.isDynamicColorSupported
 import app.picacgmd.core.designsystem.theme.staticColorScheme
 import app.picacgmd.di.LocalAppContainer
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 private enum class AppearanceDialog { RefreshRate, Orientation, FullScreen, StartupImage }
@@ -78,7 +77,7 @@ internal fun AppearanceSettingsPage(onBack: () -> Unit, modifier: Modifier = Mod
             }.onSuccess {
                 writer.update { setStartupImageUri(uri.toString()) }
             }.onFailure {
-                Toast.makeText(context, "无法保留图片访问权限，请重新选择", Toast.LENGTH_LONG).show()
+                scope.launch { snackbar.showSnackbar("无法保留图片访问权限，请重新选择") }
             }
         }
     }
@@ -325,14 +324,14 @@ private fun PaletteCard(
                 Modifier
                     .fillMaxWidth()
                     .aspectRatio(1.5f)
-                    .background(scheme.surface, RoundedCornerShape(14.dp))
-                    .border(1.dp, scheme.outlineVariant, RoundedCornerShape(14.dp))
+                    .background(scheme.surface, MaterialTheme.shapes.medium)
+                    .border(1.dp, scheme.outlineVariant, MaterialTheme.shapes.medium)
                     .padding(8.dp),
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         listOf(scheme.primaryContainer, scheme.secondaryContainer, scheme.tertiaryContainer).forEach {
-                            Box(Modifier.weight(1f).height(26.dp).background(it, RoundedCornerShape(8.dp)))
+                            Box(Modifier.weight(1f).height(26.dp).background(it, MaterialTheme.shapes.small))
                         }
                     }
                     Box(Modifier.width(52.dp).height(6.dp).background(scheme.onSurfaceVariant.copy(alpha = 0.4f), CircleShape))

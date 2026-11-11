@@ -3,7 +3,10 @@ package app.picacgmd.feature.settings
 import app.picacgmd.core.designsystem.window.secureDialogProperties
 import app.picacgmd.core.designsystem.window.secureModalBottomSheetProperties
 
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.StatFs
 import android.text.format.Formatter
 import androidx.compose.animation.core.animateFloatAsState
@@ -30,10 +33,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CleaningServices
 import androidx.compose.material.icons.outlined.CloudSync
+import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Gavel
 import androidx.compose.material.icons.outlined.PrivacyTip
+import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -79,7 +84,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.URI
 
 /** Bytes per storage bucket for the 28 storage card; downloads are never cleaned from here. */
 internal data class StorageUsage(
@@ -357,6 +365,16 @@ private fun CheckRow(title: String, summary: String, trailing: String?, checked:
 
 private enum class AboutDialog { Licenses, Privacy, Usage }
 
+private const val GITHUB_REPOSITORY_URL = "https://github.com/Better-Native-APPs/PicACGMD"
+private const val LATEST_RELEASE_URL = "$GITHUB_REPOSITORY_URL/releases/latest"
+private const val LATEST_RELEASE_API_URL = "https://api.github.com/repos/Better-Native-APPs/PicACGMD/releases/latest"
+
+private sealed interface UpdateCheckResult {
+    data class Available(val version: String) : UpdateCheckResult
+    data class UpToDate(val version: String) : UpdateCheckResult
+    data object Failed : UpdateCheckResult
+}
+
 private val Libraries = listOf(
     "Kotlin 标准库与协程" to "Apache License 2.0",
     "kotlinx.serialization" to "Apache License 2.0",
@@ -366,19 +384,31 @@ private val Libraries = listOf(
     "Coil" to "Apache License 2.0",
 )
 
-/** Board 28b 关于: local information only — no external links and no update check (SPEC §0). */
+/** Board 28b 关于: local information, repository link and a manual-only release check. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun AboutSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     var dialog by rememberSaveable { mutableStateOf<AboutDialog?>(null) }
+    var checking by remember { mutableStateOf(false) }
+    var updateResult by remember { mutableStateOf<UpdateCheckResult?>(null) }
     val version = remember(context) {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0) }.getOrNull()
     }
     val icon = remember(context) {
         runCatching { context.packageManager.getApplicationIcon(context.packageName).toBitmap(192, 192).asImageBitmap() }.getOrNull()
     }
+
+    fun openBrowser(url: String) {
+        try {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE))
+        } catch (_: ActivityNotFoundException) {
+            scope.launch { snackbar.showSnackbar("打开失败：无可用浏览器") }
+        }
+    }
+
     SettingsPageScaffold(SettingsPage.About.title, onBack, snackbar, modifier) {
         item {
             Column(
@@ -406,6 +436,37 @@ internal fun AboutSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier
                     )
                 }
                 row { shapes ->
+                    SettingsNavRow(
+                        shapes, "GitHub 仓库", { openBrowser(GITHUB_REPOSITORY_URL) },
+                        leading = { Icon(Icons.Outlined.Code, contentDescription = null) },
+                    )
+                }
+                row { shapes ->
+                    SettingsNavRow(
+                        shapes, "检查更新",
+                        onClick = {
+                            checking = true
+                            scope.launch {
+                                updateResult = try {
+                                    checkLatestRelease(checkNotNull(version?.versionName))
+                                } catch (exception: CancellationException) {
+                                    throw exception
+                                } catch (_: Exception) {
+                                    UpdateCheckResult.Failed
+                                } finally {
+                                    checking = false
+                                }
+                            }
+                        },
+                        enabled = !checking,
+                        value = if (checking) "正在检查" else null,
+                        leading = {
+                            if (checking) LoadingIndicator(Modifier.size(24.dp))
+                            else Icon(Icons.Outlined.SystemUpdate, contentDescription = null)
+                        },
+                    )
+                }
+                row { shapes ->
                     SettingsNavRow(shapes, "开源许可", { dialog = AboutDialog.Licenses }, leading = { Icon(Icons.Outlined.Gavel, contentDescription = null) })
                 }
                 row { shapes ->
@@ -418,7 +479,7 @@ internal fun AboutSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier
         }
         item {
             Text(
-                "不检查更新",
+                "仅手动检查更新",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
@@ -437,7 +498,7 @@ internal fun AboutSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier
         AboutDialog.Privacy -> InfoDialog("隐私说明", onDismiss = { dialog = null }) {
             Text(
                 "不收集、不上传使用数据，无统计和广告。\n\n" +
-                    "仅连接哔咔接口、图片服务器和已设置的代理；账号密码经系统密钥库加密，仅保存在本机。\n\n" +
+                    "仅连接哔咔接口、图片服务器和已设置的代理；仅在你手动点按「检查更新」时连接 GitHub，不做后台检查。账号密码经系统密钥库加密，仅保存在本机。\n\n" +
                     "浏览记录、收藏、下载和设置仅保存在本机，卸载后会一并删除。",
                 style = MaterialTheme.typography.bodyMedium,
             )
@@ -451,6 +512,72 @@ internal fun AboutSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier
         }
         null -> Unit
     }
+    if (dialog == null) {
+        updateResult?.let { result ->
+            AlertDialog(
+                properties = secureDialogProperties(),
+                onDismissRequest = { updateResult = null },
+                title = {
+                    Text(
+                        when (result) {
+                            is UpdateCheckResult.Available -> "发现新版本 v${result.version}"
+                            is UpdateCheckResult.UpToDate -> "已是最新版本（v${result.version}）"
+                            UpdateCheckResult.Failed -> "检查更新失败，请稍后重试"
+                        },
+                    )
+                },
+                confirmButton = {
+                    if (result is UpdateCheckResult.Available) {
+                        Button(onClick = {
+                            updateResult = null
+                            openBrowser(LATEST_RELEASE_URL)
+                        }) { Text("打开下载页") }
+                    } else {
+                        TextButton(onClick = { updateResult = null }) { Text("关闭") }
+                    }
+                },
+                dismissButton = if (result is UpdateCheckResult.Available) {
+                    { TextButton(onClick = { updateResult = null }) { Text("关闭") } }
+                } else {
+                    null
+                },
+            )
+        }
+    }
+}
+
+private suspend fun checkLatestRelease(installedVersion: String): UpdateCheckResult = withContext(Dispatchers.IO) {
+    val connection = URI(LATEST_RELEASE_API_URL).toURL().openConnection() as HttpURLConnection
+    try {
+        connection.requestMethod = "GET"
+        connection.connectTimeout = 15_000
+        connection.readTimeout = 15_000
+        connection.setRequestProperty("User-Agent", "PicACGMD/$installedVersion")
+        connection.setRequestProperty("Accept", "application/vnd.github+json")
+        check(connection.responseCode == HttpURLConnection.HTTP_OK)
+        val latestVersion = connection.inputStream.bufferedReader(Charsets.UTF_8).use { reader ->
+            JSONObject(reader.readText()).getString("tag_name").removePrefix("v")
+        }
+        if (isNewerRelease(latestVersion, installedVersion)) {
+            UpdateCheckResult.Available(latestVersion)
+        } else {
+            UpdateCheckResult.UpToDate(installedVersion.removePrefix("v"))
+        }
+    } finally {
+        connection.disconnect()
+    }
+}
+
+private fun isNewerRelease(latestVersion: String, installedVersion: String): Boolean {
+    fun parts(version: String): List<Int> = version.removePrefix("v").split('.').map(String::toInt).also { values ->
+        require(values.size == 3 && values.all { it >= 0 })
+    }
+    val latest = parts(latestVersion)
+    val installed = parts(installedVersion)
+    for (index in latest.indices) {
+        if (latest[index] != installed[index]) return latest[index] > installed[index]
+    }
+    return false
 }
 
 @Composable
