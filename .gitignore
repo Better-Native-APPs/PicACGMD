@@ -29,8 +29,9 @@ result
 result-*
 .direnv/
 
-# Design drafts and their toolchain stay on the maintainer's machine
+# Working documents stay on the maintainer's machine
 /design/
+/docs/upstream-inventory.md
 
 # Misc
 *.log

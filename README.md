@@ -94,7 +94,6 @@ nix develop   # JDK 21 · Android SDK 37 · Gradle · Kotlin · Node · Python 3
 | [CHANGELOG.md](CHANGELOG.md) | 版本发布历史与详细变更日志 |
 | [docs/README.md](docs/README.md) | 文档导航索引与整体技术架构概述 |
 | [docs/picacg-protocol.md](docs/picacg-protocol.md) | 哔咔漫画 HTTP 接口协议、请求头与 HMAC-SHA256 签名规范 |
-| [docs/upstream-inventory.md](docs/upstream-inventory.md) | 原始功能与接口清单（页面 56 个、设置 81 项、接口 106 个） |
 | [core/data/README.md](core/data/README.md) | 本地数据层（Room schema v4、DataStore 偏好设置、DAO） |
 
 ---
