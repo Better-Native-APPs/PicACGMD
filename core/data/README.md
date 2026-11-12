@@ -12,12 +12,13 @@ val database = PikapikaDatabase.create(applicationContext)
 val settingsRepository = SettingsRepository.create(applicationContext)
 ```
 
-应用生命周期内保留一个数据库实例；退出时可 `close()`。数据库名为 `pikapika.db`，版本 4，使用 WAL，不启用破坏性迁移。自动迁移链完整覆盖版本升级：
+应用生命周期内保留一个数据库实例；退出时可 `close()`。数据库名为 `pikapika.db`，版本 5，使用 WAL，不启用破坏性迁移。自动迁移链完整覆盖版本升级：
 - 1 → 2：使用 `DropObsoleteFoldersSpec` 移除历史废弃的旧收藏与文件夹表；
 - 2 → 3：自动为下载表追加 `storageRoot` 字段；
-- 3 → 4：使用 `DropLocalLibrarySpec` 完全移除本地书架与本地文件夹表（`local_folders` 与 `local_folder_entries`），仅保留浏览记录、阅读进度、下载、订阅追更与缓存。
+- 3 → 4：使用 `DropLocalLibrarySpec` 完全移除本地书架与本地文件夹表（`local_folders` 与 `local_folder_entries`），仅保留浏览记录、阅读进度、下载、订阅追更与缓存；
+- 4 → 5：自动为浏览记录表追加 `lastChapterPages` 字段（上次阅读章节的总页数，0 表示未知）。
 
-KSP 将当前 schema 导出至 `core/data/schemas/app.picacgmd.core.data.db.PikapikaDatabase/4.json`；版本 1–3 的 schema 完整保留用于单元测试与升级校验。
+KSP 将当前 schema 导出至 `core/data/schemas/app.picacgmd.core.data.db.PikapikaDatabase/5.json`；版本 1–4 的 schema 完整保留用于单元测试与升级校验。
 
 `SettingsRepository.create` 使用共享的 `app_settings` Preferences DataStore；测试或注入也可使用 `SettingsRepository(dataStore: DataStore<Preferences>)`。读取入口是 `val settings: Flow<AppSettings>`。所有 setter 返回 `Unit`，读写失败直接传播。
 
@@ -27,7 +28,7 @@ KSP 将当前 schema 导出至 `core/data/schemas/app.picacgmd.core.data.db.Pika
 
 | 实体 | 主键 / 必填构造参数 | 其他字段 |
 |---|---|---|
-| `ViewHistory` | `comicId: String`, `title: String` | `author`, `thumbFileServer`, `thumbPath`, `categoriesJson`, `lastEpOrder`, `lastEpTitle`, `lastPictureIndex`, `pinned`, `createdAt`, `updatedAt` |
+| `ViewHistory` | `comicId: String`, `title: String` | `author`, `thumbFileServer`, `thumbPath`, `categoriesJson`, `lastEpOrder`, `lastEpTitle`, `lastPictureIndex`, `lastChapterPages`, `pinned`, `createdAt`, `updatedAt` |
 | `DownloadComic` | `comicId: String`, `title: String` | 漫画元数据，`status`, `selectedEpCount`, `completedEpCount`, `selectedPictureCount`, `completedPictureCount`, `downloadedBytes`, `folder`, `filePath`, `thumbFilePath`, `thumbFormat`, `error`, `createdAt`, `updatedAt`, `completedAt` |
 | `DownloadEp` | `epId: String`, `comicId: String`, `epOrder: Int`, `title: String` | `picturesFetched`, `status`, `selectedPictureCount`, `completedPictureCount`, `downloadedBytes`, `filePath`, `error`, `createdAt`, `updatedAt`, `completedAt` |
 | `DownloadPicture` | `pictureId: String`, `comicId: String`, `epId: String`, `epOrder: Int`, `pictureIndex: Int`, `fileServer: String`, `path: String` | `originalName`, `status`, `downloadedBytes`, `fileSizeBytes`, `format`, `width`, `height`, `filePath`, `attemptCount`, `error`, `createdAt`, `updatedAt`, `completedAt` |

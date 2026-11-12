@@ -9,7 +9,7 @@
 | **项目主文档** | [`../README.md`](../README.md) | 项目概览、功能特性、本地开发环境配置、编译打包与签名发布说明 |
 | **版本更新日志** | [`../CHANGELOG.md`](../CHANGELOG.md) | 遵循语义化补丁版本（`1.0.0` → `1.0.1` …）的详细发布记录与变动细节 |
 | **API 协议参考** | [`picacg-protocol.md`](picacg-protocol.md) | 哔咔漫画官方 HTTP 接口规范、请求头约束、网络拓扑与 HMAC-SHA256 签名算法 |
-| **本地数据层架构** | [`../core/data/README.md`](../core/data/README.md) | Room 数据库（Schema v4）、DataStore 偏好设置及 DAO 接口规范 |
+| **本地数据层架构** | [`../core/data/README.md`](../core/data/README.md) | Room 数据库（Schema v5）、DataStore 偏好设置及 DAO 接口规范 |
 
 ---
 
