@@ -6,7 +6,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 /**
- * Custom color roles that Material 3 does not define (design/SPEC.md board 01):
+ * Custom color roles that Material 3 does not define (design board 01):
  * success (e.g. the 「完结」 tag, finished downloads) and warning.
  * Read them through [PikapikaTheme.extendedColors].
  */

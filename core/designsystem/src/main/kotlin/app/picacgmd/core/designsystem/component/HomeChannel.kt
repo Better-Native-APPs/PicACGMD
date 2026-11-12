@@ -54,7 +54,7 @@ object HomeChannelDefaults {
     val IconSize: Dp = 28.dp
 }
 
-/** The three fixed home channels of design/SPEC.md §0, with their board-01 shape and color. */
+/** The three fixed home channels of the design spec, with their board-01 shape and color. */
 enum class HomeChannel { Rankings, Random, Games }
 
 /**

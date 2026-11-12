@@ -5,9 +5,9 @@ import kotlin.math.abs
 import kotlin.math.cbrt
 
 /*
- * Runtime harmonisation of the extended roles under dynamic colour (design/SPEC.md 104).
+ * Runtime harmonisation of the extended roles under dynamic colour.
  *
- * The design pipeline (design/src/gen-tokens.mjs) harmonises the success / warning seed colours
+ * The design pipeline harmonises the success / warning seed colours
  * toward each palette's seed and then rebuilds their tones; tokens.json therefore ships an already
  * harmonised set for every fixed palette. Under [ThemeChoice.Dynamic] the source colour is the
  * user's wallpaper, which is only known at runtime, so the same rule is applied here to the brand

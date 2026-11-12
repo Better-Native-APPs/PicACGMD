@@ -29,9 +29,8 @@ result
 result-*
 .direnv/
 
-# Design toolchain
-/design/src/node_modules/
-/design/src/pages/
+# Design drafts and their toolchain stay on the maintainer's machine
+/design/
 
 # Misc
 *.log

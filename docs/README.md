@@ -8,8 +8,6 @@
 | :--- | :--- | :--- |
 | **项目主文档** | [`../README.md`](../README.md) | 项目概览、功能特性、本地开发环境配置、编译打包与签名发布说明 |
 | **版本更新日志** | [`../CHANGELOG.md`](../CHANGELOG.md) | 遵循语义化补丁版本（`1.0.0` → `1.0.1` …）的详细发布记录与变动细节 |
-| **设计规范与决策日志** | [`../design/SPEC.md`](../design/SPEC.md) | **权威设计规范**：组件映射、视觉标准与历次设计评审决策全记录 |
-| **视觉设计走查** | [`../design/index.html`](../design/index.html) | 33 组设计画板（01–33）渲染预览、状态说明与组件层级结构 |
 | **API 协议参考** | [`picacg-protocol.md`](picacg-protocol.md) | 哔咔漫画官方 HTTP 接口规范、请求头约束、网络拓扑与 HMAC-SHA256 签名算法 |
 | **原始功能清单** | [`upstream-inventory.md`](upstream-inventory.md) | 原客户端功能、页面（56 个）、设置（81 项）与接口（106 个）清单与重构对照 |
 | **本地数据层架构** | [`../core/data/README.md`](../core/data/README.md) | Room 数据库（Schema v4）、DataStore 偏好设置及 DAO 接口规范 |

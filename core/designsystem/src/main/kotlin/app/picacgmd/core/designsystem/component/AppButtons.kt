@@ -24,7 +24,7 @@ import androidx.compose.ui.Modifier
 
 /*
  * Buttons for the app: every one defaults `shapes` to the Expressive set
- * (design/SPEC.md 142, 165), so a press tightens the corners instead of only tinting.
+ * (design spec), so a press tightens the corners instead of only tinting.
  * The morph runs on the interaction source, i.e. only while a finger is down, so it costs
  * nothing while the screen is idle (audit §"low-end rule").
  *

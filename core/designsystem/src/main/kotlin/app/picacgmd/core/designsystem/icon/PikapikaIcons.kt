@@ -7,7 +7,7 @@ import app.picacgmd.core.designsystem.R
 
 /**
  * Icons that are not part of Material Symbols. The three home channel icons are the fixed channel
- * artwork chosen in design/SPEC.md §0; they are single-color and take the tint of their container.
+ * artwork chosen in the design spec; they are single-color and take the tint of their container.
  */
 object PikapikaIcons {
     /** 排行榜: three podium bars with stars. */

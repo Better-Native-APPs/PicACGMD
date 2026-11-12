@@ -14,7 +14,7 @@
 
 PicACGMD 为哔咔漫画提供完整可用的原生 Android 体验：所有功能直接可用，没有付费限制；不含遥测，只连接哔咔官方接口、图片服务器，以及用户自己配置的代理。下载线程 1–16 可调。
 
-界面与交互遵循 Material 3 Expressive 设计语言；完整设计稿与规范见 [design/SPEC.md](design/SPEC.md) 与 [design/index.html](design/index.html)。协议与架构文档见 [docs/](docs/README.md)，更新历史见 [CHANGELOG.md](CHANGELOG.md)。
+界面与交互遵循 Material 3 Expressive 设计语言。协议与架构文档见 [docs/](docs/README.md)，更新历史见 [CHANGELOG.md](CHANGELOG.md)。
 
 ---
 
@@ -22,11 +22,11 @@ PicACGMD 为哔咔漫画提供完整可用的原生 Android 体验：所有功�
 
 - **浏览与发现**：分类（含全分类）、排行榜、随机、搜索、游戏专区、公告；常用分类可固定到首页。
 - **书架**：在线收藏、追更、浏览记录、标签收藏。
-- **阅读器**：翻页（从右到左 / 从左到右）、长条（连续滚动）与自由缩放模式；自定义点按区域、背景与滤镜；墨水屏按屏滚动与残影优化；全屏沉浸阅读与三种全屏模式。
+- **阅读器**：翻页（从右到左 / 从左到右）、长条（连续滚动）与自由缩放模式；自定义点按区域、背景与滤镜；墨水屏按屏滚动与残影优化；全屏沉浸阅读。
 - **下载**：章节级多线程下载（1–16 线程可调），可选应用内部存储或系统文件夹；支持仅 Wi-Fi 下载与收藏时自动下载；下载内容供应用内离线阅读。
 - **分流**：接口分流与图片分流并发测速，一键自动选择最快线路；支持自定义代理与从官方同步分流。
 - **隐私**：应用锁（系统生物识别或锁屏密码）、防止截屏；不收集使用数据，记录仅保存在本机。
-- **系统适配**：预测性返回、动态取色、深色与纯黑主题。
+- **系统适配**：预测性返回、动态取色、深色与纯黑主题；「全屏显示」可隐藏导航栏或全部系统栏。
 - **关于**：内置 GitHub 仓库入口；可手动检查新版本（仅手动触发，不做后台检查）。
 
 ---
@@ -42,7 +42,7 @@ PicACGMD 为哔咔漫画提供完整可用的原生 Android 体验：所有功�
 
 ## 下载安装
 
-- 在 [Releases](https://github.com/Better-Native-APPs/PicACGMD/releases) 下载最新 APK；推送 `v` 开头的标签（如 `v1.0.2`，须与 `versionName` 一致）会自动构建并发布 Release。
+- 在 [Releases](https://github.com/Better-Native-APPs/PicACGMD/releases) 下载最新 APK；推送 `v` 开头的标签（如 `v1.0.2`，须与 `versionName` 一致）会自动构建并发布 Release，Release 说明取自 [CHANGELOG.md](CHANGELOG.md) 中该版本的条目。
 - 分支模型：`main` 只保留已发布的版本；开发提交进入 `dev` 分支。
 - 版本号依次递进（`1.0.0` → `1.0.1` → `1.0.2` …）。
 - 日常使用请安装 release 包：它关闭调试，启用代码优化、无用代码与资源压缩，并附带 ART 基线配置，适合低性能手机。
@@ -95,8 +95,6 @@ nix develop   # JDK 21 · Android SDK 37 · Gradle · Kotlin · Node · Python 3
 | [docs/README.md](docs/README.md) | 文档导航索引与整体技术架构概述 |
 | [docs/picacg-protocol.md](docs/picacg-protocol.md) | 哔咔漫画 HTTP 接口协议、请求头与 HMAC-SHA256 签名规范 |
 | [docs/upstream-inventory.md](docs/upstream-inventory.md) | 原始功能与接口清单（页面 56 个、设置 81 项、接口 106 个） |
-| [design/SPEC.md](design/SPEC.md) | 权威设计规范（Material 3 Expressive）、组件映射与历次决策日志 |
-| [design/index.html](design/index.html) | 设计画板总览（01–33 号画板视觉预览与状态说明） |
 | [core/data/README.md](core/data/README.md) | 本地数据层（Room schema v4、DataStore 偏好设置、DAO） |
 
 ---

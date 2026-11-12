@@ -46,7 +46,7 @@
             pkgs.kotlin
             pkgs.kotlin-language-server
             pkgs.ktlint
-            # design toolchain (design/src: HTML/CSS mockups -> PNG via headless Chrome)
+            # design-mockup tooling (HTML/CSS mockups -> PNG via headless Chrome); the drafts are not in the repository
             pkgs.nodejs
             pkgs.python3
             pkgs.jq
@@ -64,7 +64,7 @@
             export ANDROID_AVD_HOME="$PWD/.android/avd"
             export ANDROID_USER_HOME="$PWD/.android"
             export PATH="${sdkRoot}/emulator:${sdkRoot}/platform-tools:$PATH"
-            # The design pipeline (design/src) drives a headless Chrome or Chromium found on PATH.
+            # The design-mockup tooling drives a headless Chrome or Chromium found on PATH.
             export CHROME_PATH="''${CHROME_PATH:-$(command -v google-chrome || command -v chromium || true)}"
           '';
         };

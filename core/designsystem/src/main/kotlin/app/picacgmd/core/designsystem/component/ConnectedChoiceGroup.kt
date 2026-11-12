@@ -30,7 +30,7 @@ import app.picacgmd.core.designsystem.theme.ThemeChoice
 private val DefaultOptionPadding = PaddingValues(horizontal = 8.dp)
 
 /**
- * Connected single-choice group (design/SPEC.md 320, `cbg()`): the library's `ButtonGroup` shapes
+ * Connected single-choice group (`cbg()` in the design spec): the library's `ButtonGroup` shapes
  * over [ToggleButton]s, which is the documented Expressive pattern — the selected option rounds out
  * into a pill, the ends keep their outer corner, and a press tightens the inner corner.
  *
