@@ -8,6 +8,8 @@ import app.picacgmd.core.domain.session.MemorySessionPreferences
 import app.picacgmd.core.domain.session.SessionManager
 import app.picacgmd.core.network.PicaApi
 import app.picacgmd.core.network.PicaClientFactory
+import java.io.IOException
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -120,6 +122,81 @@ class SubscriptionRepositoryTest {
         enqueueComic("comic")
         assertEquals(1, repository.checkOnAppOpen().checkedCount)
         assertEquals(2, server.requestCount)
+    }
+
+    @Test
+    fun appOpenAndRefreshStopAfterThreeTransportFailuresAndReportSkippedEntries() = runTest {
+        val entries = (1..5).map { Subscription("comic-$it", "Comic $it", lastCheckedAt = NOW - SIX_HOURS - 1) }
+        entries.forEach { dao.upsert(it) }
+        val lookups = AtomicInteger()
+        client = client.newBuilder().addInterceptor {
+            lookups.incrementAndGet()
+            throw IOException("offline")
+        }.build()
+        val repository = repository(backgroundScope)
+        val states = mutableListOf<SubscriptionCheckState>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { repository.checkState.toList(states) }
+
+        repeat(2) { attempt ->
+            states.clear()
+            val report = if (attempt == 0) repository.checkOnAppOpen() else repository.refresh()
+
+            assertEquals((attempt + 1) * 3, lookups.get())
+            assertEquals(0, report.checkedCount)
+            assertEquals(0, report.updatedCount)
+            val lastFailure = report.failures.getValue(entries[2].comicId)
+            assertEquals(entries.associate { it.comicId to lastFailure }, report.failures)
+            entries.forEach { assertEquals(it, dao.get(it.comicId)) }
+            assertEquals(entries.size, states.filterIsInstance<SubscriptionCheckState.Checking>().last().completed)
+            assertTrue(states.filterIsInstance<SubscriptionCheckState.Checking>().all { it.total == entries.size })
+            assertEquals(SubscriptionCheckState.Done(report), repository.checkState.value)
+        }
+    }
+
+    @Test
+    fun serverErrorResetsTheConsecutiveTransportFailureCounter() = runTest {
+        val entries = (1..7).map { Subscription("comic-$it", "Comic $it") }
+        entries.forEach { dao.upsert(it) }
+        val lookups = AtomicInteger()
+        client = client.newBuilder().addInterceptor { chain ->
+            if (lookups.incrementAndGet() == 3) chain.proceed(chain.request()) else throw IOException("offline")
+        }.build()
+        server.enqueue(MockResponse.Builder().code(500).body("unavailable").build())
+        val repository = repository(backgroundScope)
+
+        val report = repository.refresh()
+
+        assertEquals(6, lookups.get())
+        assertEquals(1, server.requestCount)
+        assertEquals(entries.map { it.comicId }.toSet(), report.failures.keys)
+        assertTrue(report.failures.getValue("comic-3").contains("500"))
+        assertEquals(report.failures.getValue("comic-6"), report.failures.getValue("comic-7"))
+        entries.forEach { assertNull(dao.get(it.comicId)?.lastCheckedAt) }
+        assertEquals(SubscriptionCheckState.Done(report), repository.checkState.value)
+    }
+
+    @Test
+    fun successfulChecksResetTheCounterAndKeepUpdatingSubscriptions() = runTest {
+        val entries = (1..6).map { Subscription("comic-$it", "Comic $it") }
+        entries.forEach { dao.upsert(it) }
+        val lookups = AtomicInteger()
+        client = client.newBuilder().addInterceptor { chain ->
+            if (lookups.incrementAndGet() % 3 == 0) chain.proceed(chain.request()) else throw IOException("offline")
+        }.build()
+        enqueueComic("comic-3")
+        enqueueComic("comic-6")
+        val repository = repository(backgroundScope)
+
+        val report = repository.refresh()
+
+        assertEquals(6, lookups.get())
+        assertEquals(2, server.requestCount)
+        assertEquals(2, report.checkedCount)
+        assertEquals(2, report.updatedCount)
+        assertEquals(setOf("comic-1", "comic-2", "comic-4", "comic-5"), report.failures.keys)
+        listOf("comic-3", "comic-6").forEach { assertEquals(NOW, dao.get(it)?.lastCheckedAt) }
+        report.failures.keys.forEach { assertNull(dao.get(it)?.lastCheckedAt) }
+        assertEquals(SubscriptionCheckState.Done(report), repository.checkState.value)
     }
 
     private fun repository(scope: CoroutineScope): SubscriptionRepository {

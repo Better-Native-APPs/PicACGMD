@@ -4,6 +4,9 @@ import app.picacgmd.core.data.db.Subscription
 import app.picacgmd.core.data.db.SubscriptionDao
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.network.ComicInfo
+import app.picacgmd.core.network.PicaException
+import app.picacgmd.core.network.PicaTransportException
+import java.io.IOException
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.format.DateTimeParseException
@@ -18,6 +21,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 private const val APP_OPEN_CHECK_INTERVAL_MILLIS = 6L * 60 * 60 * 1_000
+private const val MAX_CONSECUTIVE_TRANSPORT_FAILURES = 3
 
 data class SubscriptionCheckReport(val checkedCount: Int, val updatedCount: Int, val failures: Map<String, String>)
 
@@ -77,11 +81,13 @@ class SubscriptionRepository(
             }
             var updated = 0
             var checked = 0
+            var consecutiveTransportFailures = 0
             val failures = linkedMapOf<String, String>()
             mutableCheckState.value = SubscriptionCheckState.Checking(0, subscribed.size)
-            subscribed.forEachIndexed { index, entry ->
+            for ((index, entry) in subscribed.withIndex()) {
                 try {
                     val latest = comics.comicInfo(entry.comicId)
+                    consecutiveTransportFailures = 0
                     val checkedAt = now()
                     val updateTime = parseComicUpdatedAt(latest.updatedAt)
                     val previousUpdateTime = entry.lastKnownUpdatedAt
@@ -94,7 +100,15 @@ class SubscriptionRepository(
                 } catch (exception: CancellationException) {
                     throw exception
                 } catch (exception: Exception) {
-                    failures[entry.comicId] = exception.message ?: "更新检查失败"
+                    val message = exception.message ?: "更新检查失败"
+                    failures[entry.comicId] = message
+                    consecutiveTransportFailures = if (exception.isTransportFailure()) consecutiveTransportFailures + 1 else 0
+                    if (consecutiveTransportFailures >= MAX_CONSECUTIVE_TRANSPORT_FAILURES) {
+                        // Leave skipped entries stale so the next explicit check can retry them.
+                        subscribed.drop(index + 1).forEach { failures[it.comicId] = message }
+                        mutableCheckState.value = SubscriptionCheckState.Checking(subscribed.size, subscribed.size)
+                        break
+                    }
                 }
                 mutableCheckState.value = SubscriptionCheckState.Checking(index + 1, subscribed.size)
             }
@@ -110,6 +124,9 @@ class SubscriptionRepository(
         }
     }
 }
+
+private fun Exception.isTransportFailure(): Boolean =
+    this is IOException && (this !is PicaException || this is PicaTransportException)
 
 internal fun parseComicUpdatedAt(value: String?): Long? {
     if (value == null) return null
