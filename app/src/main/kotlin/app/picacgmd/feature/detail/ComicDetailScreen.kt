@@ -129,7 +129,7 @@ import app.picacgmd.core.designsystem.component.MetaInfo
 import app.picacgmd.core.designsystem.component.SectionHeader
 import app.picacgmd.core.designsystem.component.ShapedAvatar
 import app.picacgmd.core.designsystem.component.SoftBackdrop
-import app.picacgmd.core.designsystem.theme.PikapikaTheme
+import app.picacgmd.core.designsystem.theme.PicaTheme
 import app.picacgmd.core.designsystem.theme.withTabularFigures
 import app.picacgmd.core.domain.repository.ReadingProgress
 import app.picacgmd.core.domain.repository.containsKeyword
@@ -996,7 +996,7 @@ private fun ChapterRow(
             if (showDownloadColumn) {
                 Box(Modifier.size(20.dp)) {
                     if (downloaded) {
-                        Icon(Icons.Outlined.DownloadDone, stringResource(R.string.detail_chapter_downloaded), tint = PikapikaTheme.extendedColors.success)
+                        Icon(Icons.Outlined.DownloadDone, stringResource(R.string.detail_chapter_downloaded), tint = PicaTheme.extendedColors.success)
                     }
                 }
             }

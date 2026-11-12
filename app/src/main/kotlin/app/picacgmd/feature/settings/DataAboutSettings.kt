@@ -74,7 +74,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import coil3.ImageLoader
-import app.picacgmd.core.data.db.PikapikaDatabase
+import app.picacgmd.core.data.db.PicaDatabase
 import app.picacgmd.core.data.settings.CacheCleanupInterval
 import app.picacgmd.core.designsystem.component.AppButton
 import app.picacgmd.core.designsystem.component.AppFilledTonalButton
@@ -105,7 +105,7 @@ internal suspend fun measureStorage(context: Context, imageLoader: ImageLoader):
     val downloads = external?.let { File(it, "downloads").treeSize() } ?: 0L
     val imageCache = runCatching { imageLoader.diskCache?.size ?: 0L }.getOrDefault(0L)
     val cacheTotal = context.cacheDir.treeSize() + (context.externalCacheDir?.treeSize() ?: 0L)
-    val databasePath = context.getDatabasePath(PikapikaDatabase.DATABASE_NAME)
+    val databasePath = context.getDatabasePath(PicaDatabase.DATABASE_NAME)
     val database = listOf("", "-wal", "-shm", "-journal").sumOf { File(databasePath.path + it).takeIf(File::exists)?.length() ?: 0L }
     val available = runCatching { StatFs((external ?: context.filesDir).path).availableBytes }.getOrDefault(0L)
     StorageUsage(downloads, imageCache, (cacheTotal - imageCache).coerceAtLeast(0), database, available)

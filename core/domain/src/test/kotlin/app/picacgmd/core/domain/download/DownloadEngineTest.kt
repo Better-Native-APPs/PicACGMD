@@ -53,7 +53,7 @@ class DownloadEngineTest {
         apiServer = MockWebServer().apply { start() }
         imageServer = MockWebServer().apply { start() }
         client = PicaClientFactory.imageClient()
-        root = Files.createTempDirectory("pikapika-download-test-").toFile()
+        root = Files.createTempDirectory("picacgmd-download-test-").toFile()
         dao = FakeDownloadDao()
         settings = MutableStateFlow(AppSettings.DEFAULT.copy(imageRoutingMode = RoutingMode.NONE))
         network = MutableStateFlow(DownloadNetworkState(connected = true, wifi = true))

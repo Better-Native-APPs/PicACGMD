@@ -11,7 +11,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import app.picacgmd.core.designsystem.theme.PikapikaTheme
+import app.picacgmd.core.designsystem.theme.PicaTheme
 import app.picacgmd.core.domain.session.RouteLatencyGrade
 
 /**
@@ -21,9 +21,9 @@ import app.picacgmd.core.domain.session.RouteLatencyGrade
 @Composable
 @ReadOnlyComposable
 internal fun latencyColor(grade: RouteLatencyGrade): Color = when (grade) {
-    RouteLatencyGrade.GOOD -> PikapikaTheme.extendedColors.success
+    RouteLatencyGrade.GOOD -> PicaTheme.extendedColors.success
     // Both mid grades use the single warning role; the signal bars carry the finer distinction.
-    RouteLatencyGrade.OK, RouteLatencyGrade.SLOW -> PikapikaTheme.extendedColors.warning
+    RouteLatencyGrade.OK, RouteLatencyGrade.SLOW -> PicaTheme.extendedColors.warning
     RouteLatencyGrade.FAILED -> MaterialTheme.colorScheme.error
 }
 

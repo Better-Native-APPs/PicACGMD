@@ -5,10 +5,10 @@
 ## 初始化
 
 ```kotlin
-import app.picacgmd.core.data.db.PikapikaDatabase
+import app.picacgmd.core.data.db.PicaDatabase
 import app.picacgmd.core.data.settings.SettingsRepository
 
-val database = PikapikaDatabase.create(applicationContext)
+val database = PicaDatabase.create(applicationContext)
 val settingsRepository = SettingsRepository.create(applicationContext)
 ```
 
@@ -18,7 +18,7 @@ val settingsRepository = SettingsRepository.create(applicationContext)
 - 3 → 4：使用 `DropLocalLibrarySpec` 完全移除本地书架与本地文件夹表（`local_folders` 与 `local_folder_entries`），仅保留浏览记录、阅读进度、下载、订阅追更与缓存；
 - 4 → 5：自动为浏览记录表追加 `lastChapterPages` 字段（上次阅读章节的总页数，0 表示未知）。
 
-KSP 将当前 schema 导出至 `core/data/schemas/app.picacgmd.core.data.db.PikapikaDatabase/5.json`；版本 1–4 的 schema 完整保留用于单元测试与升级校验。
+KSP 将当前 schema 导出至 `core/data/schemas/app.picacgmd.core.data.db.PicaDatabase/5.json`；版本 1–4 的 schema 完整保留用于单元测试与升级校验。
 
 `SettingsRepository.create` 使用共享的 `app_settings` Preferences DataStore；测试或注入也可使用 `SettingsRepository(dataStore: DataStore<Preferences>)`。读取入口是 `val settings: Flow<AppSettings>`。所有 setter 返回 `Unit`，读写失败直接传播。
 

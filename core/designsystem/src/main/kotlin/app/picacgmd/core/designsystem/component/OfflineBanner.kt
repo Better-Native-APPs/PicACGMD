@@ -27,7 +27,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import app.picacgmd.core.designsystem.R
-import app.picacgmd.core.designsystem.theme.PikapikaTheme
+import app.picacgmd.core.designsystem.theme.PicaTheme
 import app.picacgmd.core.designsystem.theme.ThemeChoice
 
 /**
@@ -92,7 +92,7 @@ fun OfflineBanner(
 @Preview(showBackground = true, widthDp = 380)
 @Composable
 private fun OfflineBannerPreview() {
-    PikapikaTheme(themeChoice = ThemeChoice.Brand) {
+    PicaTheme(themeChoice = ThemeChoice.Brand) {
         OfflineBanner(visible = true, onAction = {})
     }
 }

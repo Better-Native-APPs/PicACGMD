@@ -38,7 +38,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.graphics.shapes.RoundedPolygon
 import app.picacgmd.core.designsystem.R
-import app.picacgmd.core.designsystem.theme.PikapikaTheme
+import app.picacgmd.core.designsystem.theme.PicaTheme
 import app.picacgmd.core.designsystem.theme.ThemeChoice
 import kotlinx.coroutines.launch
 
@@ -251,7 +251,7 @@ fun OfflineState(
 @Preview(showBackground = true, widthDp = 380)
 @Composable
 private fun ErrorStatePreview() {
-    PikapikaTheme(themeChoice = ThemeChoice.Brand) {
+    PicaTheme(themeChoice = ThemeChoice.Brand) {
         ErrorState(
             onRetry = {},
             description = "当前分流没有响应。可以换一条分流，或稍后再试。",
@@ -265,7 +265,7 @@ private fun ErrorStatePreview() {
 @Preview(showBackground = true, widthDp = 380)
 @Composable
 private fun EmptyStatePreview() {
-    PikapikaTheme(themeChoice = ThemeChoice.Book) {
+    PicaTheme(themeChoice = ThemeChoice.Book) {
         EmptyState(
             title = "没找到相关漫画",
             description = "换个关键词，或者去掉一些筛选条件试试。",
@@ -279,7 +279,7 @@ private fun EmptyStatePreview() {
 @Preview(showBackground = true, widthDp = 380)
 @Composable
 private fun OfflineAndLoadingPreview() {
-    PikapikaTheme(themeChoice = ThemeChoice.Dusty) {
+    PicaTheme(themeChoice = ThemeChoice.Dusty) {
         Column {
             OfflineState(onRetry = {}, onOpenNetworkSettings = {})
             LoadingState(message = "正在加载…")

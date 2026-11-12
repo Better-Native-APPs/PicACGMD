@@ -7,7 +7,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * The runtime harmonisation behind [PikapikaExtendedColors] under dynamic colour (audit §B7). It is
+ * The runtime harmonisation behind [PicaExtendedColors] under dynamic colour (audit §B7). It is
  * pure colour arithmetic, so it is pinned here: the hue follows the wallpaper, nothing else moves.
  */
 class ColorHarmonizeTest {

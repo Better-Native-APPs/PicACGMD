@@ -64,7 +64,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import app.picacgmd.core.designsystem.R
-import app.picacgmd.core.designsystem.theme.PikapikaTheme
+import app.picacgmd.core.designsystem.theme.PicaTheme
 import app.picacgmd.core.designsystem.theme.ThemeChoice
 import app.picacgmd.core.designsystem.theme.withTabularFigures
 
@@ -350,7 +350,7 @@ fun ComicCoverCard(
 @Preview(showBackground = true)
 @Composable
 private fun ComicCoverCardPreview() {
-    PikapikaTheme(themeChoice = ThemeChoice.Brand) {
+    PicaTheme(themeChoice = ThemeChoice.Brand) {
         Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ComicCoverCard(
                 title = "星屑列车",

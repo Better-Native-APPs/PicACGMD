@@ -15,7 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
  * emphasized styles; that needs a bundled TTF and can be passed in here once it is added.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
-fun pikapikaTypography(fontFamily: FontFamily = FontFamily.Default): Typography {
+fun picaTypography(fontFamily: FontFamily = FontFamily.Default): Typography {
     val base = Typography()
     fun TextStyle.regular() = copy(fontFamily = fontFamily)
     fun TextStyle.emphasized() = copy(fontFamily = fontFamily, fontWeight = FontWeight.Bold)

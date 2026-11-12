@@ -15,7 +15,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class DownloadStorageTest {
-    private val temporaryRoot = Files.createTempDirectory("pikapika-storage-test-").toFile()
+    private val temporaryRoot = Files.createTempDirectory("picacgmd-storage-test-").toFile()
     private val legacy = File(temporaryRoot, "legacy")
     private val internal = File(temporaryRoot, "internal")
     private val staging = File(temporaryRoot, "staging")

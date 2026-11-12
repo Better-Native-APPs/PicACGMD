@@ -25,7 +25,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import app.picacgmd.core.designsystem.theme.PikapikaTheme
+import app.picacgmd.core.designsystem.theme.PicaTheme
 import app.picacgmd.core.designsystem.theme.ThemeChoice
 import app.picacgmd.core.designsystem.theme.withTabularFigures
 
@@ -97,15 +97,15 @@ object MetaIcons {
 @Preview(showBackground = true)
 @Composable
 private fun MetaPreview() {
-    PikapikaTheme(themeChoice = ThemeChoice.Brand) {
+    PicaTheme(themeChoice = ThemeChoice.Brand) {
         Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             MetaInfo(MetaIcons.Likes, "12.4k")
             MetaInfo(MetaIcons.Views, "86.2k")
             TagPill("奇幻")
             TagPill(
                 "完结",
-                containerColor = PikapikaTheme.extendedColors.successContainer,
-                contentColor = PikapikaTheme.extendedColors.onSuccessContainer,
+                containerColor = PicaTheme.extendedColors.successContainer,
+                contentColor = PicaTheme.extendedColors.onSuccessContainer,
             )
         }
     }

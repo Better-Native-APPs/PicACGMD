@@ -40,7 +40,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
-import app.picacgmd.core.designsystem.theme.PikapikaTheme
+import app.picacgmd.core.designsystem.theme.PicaTheme
 import app.picacgmd.core.designsystem.theme.ThemeChoice
 
 /**
@@ -145,7 +145,7 @@ fun SearchEntryBar(
 @Preview(showBackground = true, widthDp = 412)
 @Composable
 private fun SearchEntryBarPreview() {
-    PikapikaTheme(themeChoice = ThemeChoice.Brand) {
+    PicaTheme(themeChoice = ThemeChoice.Brand) {
         SearchEntryBar(
             placeholder = "搜索漫画、作者、标签",
             onClick = {},

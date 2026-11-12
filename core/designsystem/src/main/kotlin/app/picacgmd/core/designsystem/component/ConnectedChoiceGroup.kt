@@ -23,7 +23,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import app.picacgmd.core.designsystem.theme.PikapikaTheme
+import app.picacgmd.core.designsystem.theme.PicaTheme
 import app.picacgmd.core.designsystem.theme.ThemeChoice
 
 /** Default content padding of [ConnectedChoiceGroup] buttons: tight enough for four options per row. */
@@ -127,7 +127,7 @@ private enum class RangePreview(val label: String) { Day24("24 小时"), Week7("
 @Preview(showBackground = true, widthDp = 380)
 @Composable
 private fun ConnectedChoiceGroupPreview() {
-    PikapikaTheme(themeChoice = ThemeChoice.Brand) {
+    PicaTheme(themeChoice = ThemeChoice.Brand) {
         ConnectedChoiceGroup(
             options = RangePreview.entries,
             selected = RangePreview.Week7,

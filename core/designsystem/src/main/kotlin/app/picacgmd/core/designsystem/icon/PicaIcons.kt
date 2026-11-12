@@ -9,7 +9,7 @@ import app.picacgmd.core.designsystem.R
  * Icons that are not part of Material Symbols. The three home channel icons are the fixed channel
  * artwork chosen in the design spec; they are single-color and take the tint of their container.
  */
-object PikapikaIcons {
+object PicaIcons {
     /** 排行榜: three podium bars with stars. */
     val Rankings: ImageVector
         @Composable get() = ImageVector.vectorResource(R.drawable.ic_channel_rankings)

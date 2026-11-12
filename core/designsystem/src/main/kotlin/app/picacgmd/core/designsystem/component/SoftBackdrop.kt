@@ -63,7 +63,7 @@ private const val BlurPasses = 3
  * entry, so it never displaces the sharp cover that lists and the detail header show.
  */
 private object SoftBlurTransformation : Transformation() {
-    override val cacheKey: String = "pikapika.softBackdrop.$ThumbLongEdgePx.$BlurRadiusPx.$BlurPasses"
+    override val cacheKey: String = "pica.softBackdrop.$ThumbLongEdgePx.$BlurRadiusPx.$BlurPasses"
 
     override suspend fun transform(input: Bitmap, size: coil3.size.Size): Bitmap {
         val scale = ThumbLongEdgePx.toFloat() / max(input.width, input.height)

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="open_with_pikapika">用 PicACG 打开</string>
+    <string name="open_with_app">用 PicACG 打开</string>
     <string name="app_name">PicACG</string>
 
     <!-- Navigation -->

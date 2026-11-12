@@ -12,7 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
-class PikapikaApplication : Application(), DownloadManagerOwner {
+class PicaApplication : Application(), DownloadManagerOwner {
     lateinit var appContainer: AppContainer
         private set
     override val downloadManager: DownloadManager by lazy {
@@ -41,7 +41,7 @@ class PikapikaApplication : Application(), DownloadManagerOwner {
                 throw exception
             } catch (exception: Exception) {
                 // Optional sign-in/punch-in/subscription refresh must not crash the application.
-                Log.w("Pikapika", "App-open refresh failed", exception)
+                Log.w("PicACGMD", "App-open refresh failed", exception)
             }
         }
     }

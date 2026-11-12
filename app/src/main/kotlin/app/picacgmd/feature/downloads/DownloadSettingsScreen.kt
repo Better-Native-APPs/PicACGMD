@@ -53,9 +53,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import app.picacgmd.PikapikaApplication
+import app.picacgmd.PicaApplication
 import app.picacgmd.core.designsystem.window.secureModalBottomSheetProperties
-import app.picacgmd.core.designsystem.theme.PikapikaTheme
+import app.picacgmd.core.designsystem.theme.PicaTheme
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.settings.SettingsGroup
 import app.picacgmd.feature.settings.SettingsNavRow
@@ -130,7 +130,7 @@ fun DownloadSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             // Persisting the grant and switching the location run in the application scope so they still
             // complete if this screen leaves composition (e.g. the app lock takes over); only the snackbar
             // depends on the screen staying around.
-            val applied = (context.applicationContext as PikapikaApplication).applicationScope.async {
+            val applied = (context.applicationContext as PicaApplication).applicationScope.async {
                 if (data == null || tree == null) throw IOException("未获取到下载目录，请重试")
                 val flags = data.flags and (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
                 if (flags != (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)) {
@@ -334,7 +334,7 @@ private fun ThreadCountCard(threads: Int, defaultThreads: Int, onCommit: (Int) -
             enter = expandVertically(motion.fastSpatialSpec()) + fadeIn(motion.fastEffectsSpec()),
             exit = shrinkVertically(motion.fastSpatialSpec()) + fadeOut(motion.fastEffectsSpec()),
         ) {
-            val extended = PikapikaTheme.extendedColors
+            val extended = PicaTheme.extendedColors
             Card(
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                 shape = MaterialTheme.shapes.large,

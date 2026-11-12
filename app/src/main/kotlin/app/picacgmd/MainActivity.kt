@@ -48,7 +48,7 @@ import app.picacgmd.core.designsystem.component.ImageFailureReloadAction
 import app.picacgmd.core.designsystem.component.LocalImageFailureReloadAction
 import app.picacgmd.core.designsystem.component.StatusPane
 import app.picacgmd.core.designsystem.theme.DarkMode
-import app.picacgmd.core.designsystem.theme.PikapikaTheme
+import app.picacgmd.core.designsystem.theme.PicaTheme
 import app.picacgmd.core.designsystem.theme.ThemeChoice
 import app.picacgmd.core.designsystem.theme.isDark
 import app.picacgmd.core.designsystem.window.LocalSecureWindows
@@ -60,7 +60,7 @@ import app.picacgmd.lock.AppLockScreen
 import app.picacgmd.lock.AppLockState
 import app.picacgmd.navigation.ExternalNavigation
 import app.picacgmd.navigation.externalNavigation
-import app.picacgmd.ui.PikapikaApp
+import app.picacgmd.ui.PicaApp
 import app.picacgmd.reader.toSystemBarsMode
 import app.picacgmd.feature.reader.ui.ReaderSystemBars
 import kotlinx.coroutines.delay
@@ -72,7 +72,7 @@ import kotlinx.coroutines.launch
 import app.picacgmd.core.data.settings.DarkMode as SettingsDarkMode
 
 class MainActivity : ComponentActivity() {
-    private val pikaApplication get() = application as PikapikaApplication
+    private val pikaApplication get() = application as PicaApplication
     private var settings by mutableStateOf<AppSettings?>(null)
     private var settingsError by mutableStateOf<String?>(null)
     private var pendingNavigation by mutableStateOf<ExternalNavigation?>(null)
@@ -159,7 +159,7 @@ class MainActivity : ComponentActivity() {
                     ImageFailureReloadAction.Tap
                 } else ImageFailureReloadAction.PullDown,
             ) {
-                PikapikaTheme(themeChoice, darkMode, preferences.pureBlack) {
+                PicaTheme(themeChoice, darkMode, preferences.pureBlack) {
                     Surface(Modifier.fillMaxSize()) {
                         when {
                             settingsError != null -> StatusPane(
@@ -183,7 +183,7 @@ class MainActivity : ComponentActivity() {
                                 Modifier.fillMaxSize(), contentAlignment = Alignment.Center,
                             ) { app.picacgmd.core.designsystem.component.LoadingState() }
                             session is SessionState.SignedIn -> unlockedContent.SaveableStateProvider("app") {
-                                PikapikaApp(
+                                PicaApp(
                                     externalNavigation = pendingNavigation,
                                     onExternalNavigationConsumed = { pendingNavigation = null },
                                     onExternalComicExit = ::finish,

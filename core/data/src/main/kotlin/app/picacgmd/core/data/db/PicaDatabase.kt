@@ -29,7 +29,7 @@ import androidx.room.TypeConverters
     exportSchema = true,
 )
 @TypeConverters(DownloadStatusConverters::class)
-abstract class PikapikaDatabase : RoomDatabase() {
+abstract class PicaDatabase : RoomDatabase() {
     abstract fun viewHistoryDao(): ViewHistoryDao
     abstract fun downloadDao(): DownloadDao
     abstract fun searchHistoryDao(): SearchHistoryDao
@@ -42,8 +42,8 @@ abstract class PikapikaDatabase : RoomDatabase() {
         const val DATABASE_NAME: String = "pikapika.db"
 
         /** Keep one instance for the application lifetime. There is no destructive migration fallback. */
-        fun create(context: Context): PikapikaDatabase =
-            Room.databaseBuilder(context.applicationContext, PikapikaDatabase::class.java, DATABASE_NAME)
+        fun create(context: Context): PicaDatabase =
+            Room.databaseBuilder(context.applicationContext, PicaDatabase::class.java, DATABASE_NAME)
                 .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
                 .build()
     }

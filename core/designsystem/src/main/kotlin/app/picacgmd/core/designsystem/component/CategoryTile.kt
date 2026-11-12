@@ -30,7 +30,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import app.picacgmd.core.designsystem.theme.PikapikaTheme
+import app.picacgmd.core.designsystem.theme.PicaTheme
 import app.picacgmd.core.designsystem.theme.ThemeChoice
 
 object CategoryTileDefaults {
@@ -113,7 +113,7 @@ fun CategoryTile(
 @Preview(showBackground = true, widthDp = 380)
 @Composable
 private fun CategoryTilePreview() {
-    PikapikaTheme(themeChoice = ThemeChoice.Brand) {
+    PicaTheme(themeChoice = ThemeChoice.Brand) {
         Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("全彩", "长篇", "同人").forEach {
                 CategoryTile(name = it, imageUrl = null, onClick = {}, modifier = Modifier.weight(1f))

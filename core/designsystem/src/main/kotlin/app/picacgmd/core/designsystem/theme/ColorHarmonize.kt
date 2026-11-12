@@ -91,7 +91,7 @@ internal fun Color.harmonisedToward(source: Color): Color {
  * Harmonises every extended role toward [source] (the live scheme's primary under dynamic colour),
  * so green and amber drift with the wallpaper like the rest of the scheme.
  */
-internal fun PikapikaExtendedColors.harmonisedToward(source: Color): PikapikaExtendedColors = PikapikaExtendedColors(
+internal fun PicaExtendedColors.harmonisedToward(source: Color): PicaExtendedColors = PicaExtendedColors(
     success = success.harmonisedToward(source),
     onSuccess = onSuccess.harmonisedToward(source),
     successContainer = successContainer.harmonisedToward(source),

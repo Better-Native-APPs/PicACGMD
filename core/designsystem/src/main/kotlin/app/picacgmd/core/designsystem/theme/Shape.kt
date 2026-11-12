@@ -11,7 +11,7 @@ import androidx.compose.ui.unit.dp
  * [Shapes.small] / [Shapes.medium] corners.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
-val PikapikaShapes: Shapes = Shapes(
+val PicaShapes: Shapes = Shapes(
     extraSmall = RoundedCornerShape(4.dp), // badges
     small = RoundedCornerShape(8.dp), // chips, text fields, small covers
     medium = RoundedCornerShape(12.dp), // cards, covers

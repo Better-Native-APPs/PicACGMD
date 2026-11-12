@@ -9,7 +9,7 @@ import kotlin.test.assertTrue
 class DownloadFileStoreTest {
     @Test
     fun interruptedFilesAreCleanedOnlyOnceAcrossStoreInstancesForTheSameRoot() {
-        val root = Files.createTempDirectory("pikapika-cleanup-test-").toFile()
+        val root = Files.createTempDirectory("picacgmd-cleanup-test-").toFile()
         try {
             val interrupted = File(root, "comic/1/.1.interrupted.part")
             interrupted.parentFile!!.mkdirs()

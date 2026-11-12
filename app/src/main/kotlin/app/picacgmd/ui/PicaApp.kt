@@ -41,7 +41,7 @@ import androidx.navigation.compose.rememberNavController
 import app.picacgmd.R
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.bookshelf.rememberBookshelfUnseenCount
-import app.picacgmd.navigation.PikapikaNavHost
+import app.picacgmd.navigation.PicaNavHost
 import app.picacgmd.navigation.ComicDetailRoute
 import app.picacgmd.navigation.ExternalNavigation
 import app.picacgmd.navigation.SearchRoute
@@ -85,7 +85,7 @@ private fun currentNavigationLayout(): NavigationLayout {
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun PikapikaApp(
+fun PicaApp(
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController(),
     externalNavigation: ExternalNavigation? = null,
@@ -168,7 +168,7 @@ fun PikapikaApp(
         },
     ) {
         Box(Modifier.fillMaxSize()) {
-            PikapikaNavHost(
+            PicaNavHost(
                 navController = navController, compactNavigation = !usesRail,
                 externalComicId = externalComicId, onExternalComicExit = onExternalComicExit,
                 rootBackHandler = {

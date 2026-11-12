@@ -30,7 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import app.picacgmd.core.designsystem.R
-import app.picacgmd.core.designsystem.theme.PikapikaTheme
+import app.picacgmd.core.designsystem.theme.PicaTheme
 import app.picacgmd.core.designsystem.theme.ThemeChoice
 
 /**
@@ -139,8 +139,8 @@ fun ComicListItem(
                         if (finished) {
                             TagPill(
                                 text = stringResource(R.string.designsystem_finished),
-                                containerColor = PikapikaTheme.extendedColors.successContainer,
-                                contentColor = PikapikaTheme.extendedColors.onSuccessContainer,
+                                containerColor = PicaTheme.extendedColors.successContainer,
+                                contentColor = PicaTheme.extendedColors.onSuccessContainer,
                             )
                         }
                     }
@@ -178,7 +178,7 @@ fun ComicListItem(
 @Preview(showBackground = true, widthDp = 400)
 @Composable
 private fun ComicListItemPreview() {
-    PikapikaTheme(themeChoice = ThemeChoice.Brand) {
+    PicaTheme(themeChoice = ThemeChoice.Brand) {
         Column(Modifier.padding(vertical = 8.dp)) {
             ComicListItem(
                 title = "星屑列车",

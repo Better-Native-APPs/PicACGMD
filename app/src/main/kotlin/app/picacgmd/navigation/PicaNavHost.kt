@@ -76,7 +76,7 @@ import kotlinx.coroutines.launch
  * how it opens, in how it leaves and in what back does on it (see [isTabSwitch]).
  */
 @Composable
-fun PikapikaNavHost(
+fun PicaNavHost(
     navController: NavHostController,
     compactNavigation: Boolean,
     modifier: Modifier = Modifier,
