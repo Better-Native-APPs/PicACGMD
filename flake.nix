@@ -1,5 +1,5 @@
 {
-  description = "Pikapika Android — native Kotlin + Jetpack Compose (Material 3 Expressive) PicACG client";
+  description = "PicACGMD — native Kotlin + Jetpack Compose (Material 3 Expressive) PicACG client";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";

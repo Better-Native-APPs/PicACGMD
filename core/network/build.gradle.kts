@@ -1,10 +1,7 @@
 plugins {
-    `java-library`
-    alias(libs.plugins.kotlin.jvm)
+    id("picacgmd.jvm.library")
     alias(libs.plugins.kotlin.serialization)
 }
-
-kotlin { jvmToolchain(21) }
 
 dependencies {
     api(libs.okhttp)
