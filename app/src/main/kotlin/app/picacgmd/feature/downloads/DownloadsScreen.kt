@@ -461,31 +461,33 @@ private fun EngineCard(
     @SuppressLint("StateFlowValueCalledInComposition") // Only the starting value; the flow delivers every later one.
     val firstProgress = manager.progress.value
     val progress by progressUpdates.collectAsStateWithLifecycle(firstProgress)
+    val waitingForWifi by manager.waitingForWifi.collectAsStateWithLifecycle(initialValue = progress.waitingForWifi)
+    val waiting = running && waitingForWifi
     val context = LocalContext.current
     val colors = MaterialTheme.colorScheme
     val throttled = running && progress.effectiveThreads < progress.configuredThreads
     val container = when {
-        progress.waitingForWifi -> colors.surfaceContainerHighest
+        waiting -> colors.surfaceContainerHighest
         throttled -> colors.tertiaryContainer
         running -> colors.primaryContainer
         else -> colors.surfaceContainerHigh
     }
     val content = when {
-        progress.waitingForWifi -> colors.onSurfaceVariant
+        waiting -> colors.onSurfaceVariant
         throttled -> colors.onTertiaryContainer
         running -> colors.onPrimaryContainer
         else -> colors.onSurfaceVariant
     }
     val speed = "${context.formatBytes(progress.bytesPerSecond)}/s"
     val title = when {
-        progress.waitingForWifi -> "等待 Wi-Fi"
+        waiting -> "等待 Wi-Fi"
         throttled -> "服务器限流 · $speed"
         running -> "下载中 · $speed"
         hasPaused -> "已暂停"
         else -> "排队中"
     }
     val subtitle = when {
-        progress.waitingForWifi -> "连接 Wi-Fi 后自动继续"
+        waiting -> "连接 Wi-Fi 后自动继续"
         throttled -> "当前 ${progress.effectiveThreads} 个线程 · 已设 ${progress.configuredThreads} 个"
         running -> buildString {
             append("${progress.effectiveThreads} 个线程 · 剩余 ${progress.remainingPictures} 张")
@@ -501,7 +503,7 @@ private fun EngineCard(
     ) {
         Row(Modifier.padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-                if (running && !progress.waitingForWifi) {
+                if (running && !waiting) {
                     // A still cookie badge, not the morphing LoadingIndicator: a queue can run for an
                     // hour, and the morph asked for a new frame on every vsync the whole time.
                     // The engine's picture total only covers chapters resolved so far, so a ring
@@ -513,7 +515,7 @@ private fun EngineCard(
                         Icon(Icons.Outlined.Download, contentDescription = null, tint = container, modifier = Modifier.size(20.dp))
                     }
                 } else {
-                    Icon(if (progress.waitingForWifi) Icons.Outlined.WifiOff else Icons.Outlined.Pause, contentDescription = null)
+                    Icon(if (waiting) Icons.Outlined.WifiOff else Icons.Outlined.Pause, contentDescription = null)
                 }
             }
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {

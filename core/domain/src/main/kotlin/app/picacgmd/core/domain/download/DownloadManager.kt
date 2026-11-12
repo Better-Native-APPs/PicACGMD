@@ -1,7 +1,11 @@
 package app.picacgmd.core.domain.download
 
 import android.content.Context
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.Uri
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
@@ -23,10 +27,17 @@ import app.picacgmd.core.network.PicaJson
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import okhttp3.OkHttpClient
@@ -38,6 +49,7 @@ class DownloadManager(
     private val dao: DownloadDao,
     private val settingsRepository: SettingsRepository,
     context: Context,
+    scope: CoroutineScope,
     imageUrlProvider: ((PicaImage) -> String)? = null,
     notificationSmallIcon: Int = R.drawable.ic_download_notification,
 ) {
@@ -66,7 +78,21 @@ class DownloadManager(
         onStorageFallback = settingsRepository::clearDownloadTreeUriIfMatches,
     )
     val progress: StateFlow<DownloadProgress> = engine.progress
+    val waitingForWifi: Flow<Boolean> = combine(
+        settingsRepository.settings.map { it.downloadWifiOnly },
+        observeDownloadNetwork(this.context),
+    ) { wifiOnly, network -> wifiRuleBlocks(wifiOnly, network) }.distinctUntilChanged()
     internal val notifications = DownloadNotifications(this.context, notificationSmallIcon)
+    @Volatile private var userActionAt: Long? = null
+
+    init {
+        scope.launch {
+            settingsRepository.settings.map { it.downloadWifiOnly }.distinctUntilChanged().drop(1).collect {
+                cancelWifiWaiter()
+                start()
+            }
+        }
+    }
 
     suspend fun enqueue(comic: DownloadComic, eps: List<DownloadEp>? = null) {
         enqueueBatch(listOf(DownloadRequest(comic, eps)))
@@ -91,16 +117,25 @@ class DownloadManager(
         start()
     }
 
-    suspend fun pause(comicId: String) { engine.pause(comicId) }
+    suspend fun pause(comicId: String) {
+        engine.pause(comicId)
+        cancelWifiWaiterWhenIdle()
+    }
 
     suspend fun resume(comicId: String) {
         engine.resume(comicId)
         start()
     }
 
-    suspend fun delete(comicId: String) { engine.delete(comicId) }
+    suspend fun delete(comicId: String) {
+        engine.delete(comicId)
+        cancelWifiWaiterWhenIdle()
+    }
 
-    suspend fun deleteChapter(epId: String) { engine.deleteChapter(epId) }
+    suspend fun deleteChapter(epId: String) {
+        engine.deleteChapter(epId)
+        cancelWifiWaiterWhenIdle()
+    }
 
     suspend fun retryChapter(epId: String): Int = engine.retryChapter(epId).also { start() }
 
@@ -118,6 +153,7 @@ class DownloadManager(
     suspend fun pauseAll() {
         engine.pauseAll()
         WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+        cancelWifiWaiter()
     }
 
     suspend fun resumeAll() {
@@ -138,7 +174,12 @@ class DownloadManager(
     fun observeChapters(comicId: String): Flow<List<DownloadEp>> = dao.observeEps(comicId)
 
     /** Call on application startup as well as after enqueue to recover work after process death. */
-    fun start() {
+    suspend fun start() {
+        if (!hasWork()) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && blockedByWifiRule()) {
+            enqueueWifiWaiter()
+            return
+        }
         val request = OneTimeWorkRequestBuilder<DownloadWorker>()
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
@@ -148,12 +189,47 @@ class DownloadManager(
         WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
     }
 
+    @RequiresApi(Build.VERSION_CODES.P)
+    private fun enqueueWifiWaiter() {
+        val network = NetworkRequest.Builder()
+            .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            .build()
+        val request = OneTimeWorkRequestBuilder<DownloadWifiWaitWorker>()
+            .setConstraints(Constraints.Builder().setRequiredNetworkRequest(network, NetworkType.CONNECTED).build())
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+            .addTag(WIFI_WORK_NAME)
+            .build()
+        WorkManager.getInstance(context).enqueueUniqueWork(WIFI_WORK_NAME, ExistingWorkPolicy.REPLACE, request)
+    }
+
+    private fun cancelWifiWaiter() {
+        WorkManager.getInstance(context).cancelUniqueWork(WIFI_WORK_NAME)
+    }
+
+    private suspend fun cancelWifiWaiterWhenIdle() {
+        if (!hasWork()) cancelWifiWaiter()
+    }
+
+    internal suspend fun blockedByWifiRule(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+        wifiRuleBlocks(settingsRepository.settings.first().downloadWifiOnly, currentDownloadNetwork(context))
+
+    /** A notification action lets the next run start its foreground service from the background. */
+    internal fun noteUserAction() { userActionAt = System.nanoTime() }
+
+    internal fun userActionRecent(): Boolean =
+        userActionAt?.let { System.nanoTime() - it < USER_ACTION_GRANT_NANOS } ?: false
+
     internal suspend fun runUntilIdle() { engine.runUntilIdle() }
 
     internal suspend fun hasWork(): Boolean = dao.getNextComic() != null || dao.getDeletingComics().isNotEmpty()
 
     companion object {
         internal const val WORK_NAME = "pikapika-download-queue"
+        internal const val WIFI_WORK_NAME = "pikapika-download-wifi-wait"
+        // Shorter than the retry backoff, so a refused start is not attempted twice.
+        private const val USER_ACTION_GRANT_NANOS = 10_000_000_000L
         const val ACTION_OPEN_DOWNLOADS = "app.picacgmd.action.OPEN_DOWNLOADS"
     }
 }

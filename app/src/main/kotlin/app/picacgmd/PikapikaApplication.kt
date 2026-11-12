@@ -22,6 +22,7 @@ class PikapikaApplication : Application(), DownloadManagerOwner {
             dao = appContainer.database.downloadDao(),
             settingsRepository = appContainer.settingsRepository,
             context = this,
+            scope = applicationScope,
             imageUrlProvider = appContainer.networkConfigProvider::imageUrl,
         )
     }
@@ -32,7 +33,7 @@ class PikapikaApplication : Application(), DownloadManagerOwner {
         super.onCreate()
         appContainer = AppContainer(this)
         SingletonImageLoader.setSafe { appContainer.imageLoader }
-        downloadManager.start()
+        applicationScope.launch { downloadManager.start() }
         applicationScope.launch {
             try {
                 appContainer.onAppOpen()

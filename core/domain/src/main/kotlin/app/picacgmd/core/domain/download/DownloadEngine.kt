@@ -324,7 +324,10 @@ internal class DownloadEngine(
             } finally {
                 running = false
                 activeComic = null
-                mutableProgress.update { it.copy(bytesPerSecond = 0, currentComicTitle = null, currentEpTitle = null) }
+                // The wait flag belongs to a run; a stale one would label the next run's first notification.
+                mutableProgress.update {
+                    it.copy(bytesPerSecond = 0, currentComicTitle = null, currentEpTitle = null, waitingForWifi = false)
+                }
             }
         }
     }

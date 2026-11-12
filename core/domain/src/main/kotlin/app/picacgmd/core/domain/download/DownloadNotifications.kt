@@ -43,6 +43,9 @@ internal class DownloadNotifications(private val context: Context, private val s
 
     fun update(progress: DownloadProgress) { notifyIfAllowed(FOREGROUND_ID, ongoing(progress)) }
 
+    /** Removes a progress notification that no foreground service owns; the system ignores it otherwise. */
+    fun cancelOngoing() { manager.cancel(FOREGROUND_ID) }
+
     fun finished(progress: DownloadProgress) {
         if (progress.failedComics > 0 || progress.failedPictures > 0) {
             val title = if (progress.failedPictures > 0) {
@@ -111,7 +114,10 @@ class DownloadActionReceiver : BroadcastReceiver() {
             try {
                 when (intent.action) {
                     ACTION_PAUSE -> manager.pauseAll()
-                    ACTION_RETRY -> manager.retryFailed()
+                    ACTION_RETRY -> {
+                        manager.noteUserAction()
+                        manager.retryFailed()
+                    }
                 }
             } finally {
                 pending.finish()
