@@ -9,6 +9,7 @@ import androidx.compose.foundation.gestures.calculateCentroid
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.setValue
@@ -52,6 +53,12 @@ internal class ZoomState(private val scope: CoroutineScope) {
         private set
     var offsetY by mutableFloatStateOf(0f)
         private set
+
+    /**
+     * [scale] as the strip's layout sees it. It only moves below 1×, so a pinch above 1× is a pure
+     * layer change and never asks the list for a new measure pass.
+     */
+    val layoutScale: Float by derivedStateOf { scale.coerceAtMost(1f) }
 
     var minScale: Float = 1f
     var maxScale: Float = 3f
