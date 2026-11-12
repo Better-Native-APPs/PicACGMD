@@ -124,12 +124,6 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 }
             }
         }
-        item {
-            NoticeCard(
-                text = "仅连接哔咔服务器、图片服务器和已设置的代理",
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
-            )
-        }
     }
 
     val dismiss = { dialog = null }
@@ -406,12 +400,6 @@ internal fun PrivacySettingsPage(onBack: () -> Unit, modifier: Modifier = Modifi
                     )
                 }
             }
-        }
-        item {
-            NoticeCard(
-                "不收集使用数据，浏览记录、收藏和下载仅保存在本机",
-                Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
-            )
         }
     }
 

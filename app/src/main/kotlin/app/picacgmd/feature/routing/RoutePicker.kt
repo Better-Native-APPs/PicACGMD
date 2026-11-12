@@ -180,7 +180,7 @@ fun RoutePickerDialog(onDismiss: () -> Unit) {
     val syncing = work == RouteWork.Syncing
 
     val status = message ?: when {
-        !measured -> RouteMessage("正在同时测量所有分流…", RouteTone.Hint)
+        !measured -> RouteMessage("正在测速…", RouteTone.Hint)
         apiFastest == null && imageFastest == null -> RouteMessage("暂无可用分流，请检查网络或代理后重新测速", RouteTone.Error)
         proxyOn -> RouteMessage("直连测速；当前请求使用代理", RouteTone.Proxy)
         else -> RouteMessage("点按立即切换", RouteTone.Hint)

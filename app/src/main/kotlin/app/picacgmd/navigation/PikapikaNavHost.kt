@@ -27,6 +27,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavDestination
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -38,6 +39,7 @@ import app.picacgmd.core.designsystem.component.HomeChannel
 import app.picacgmd.core.designsystem.component.BackPreviewFrame
 import app.picacgmd.core.designsystem.component.BackPreviewState
 import app.picacgmd.core.designsystem.component.predictiveBackExit
+import app.picacgmd.core.designsystem.component.rememberBackPreviewState
 import app.picacgmd.core.domain.download.DownloadManagerOwner
 import app.picacgmd.feature.bookshelf.BookshelfScreen
 import app.picacgmd.feature.categories.CategoriesScreen
@@ -65,11 +67,13 @@ import kotlinx.coroutines.launch
 
 /**
  * App navigation graph. Motion follows board 01b: tabs crossfade, forward navigation slides in a
- * little from the end edge, and back (including the predictive back gesture) shrinks the leaving
- * page toward 90 % over the dimmed previous page, which is already in place underneath.
+ * little from the end edge, and back shrinks the leaving page toward 90 % over the dimmed previous
+ * page, which is already in place underneath. With the back gesture the page follows the finger:
+ * how far it has shrunk, rounded and leaned is how far the finger has dragged.
  *
  * @param compactNavigation true when the phone navigation bar is in use: 「我的」 is then reached
- * from the discover avatar and gets a back button.
+ * from the discover avatar and gets a back button. It is an ordinary second-level page there, in
+ * how it opens, in how it leaves and in what back does on it (see [isTabSwitch]).
  */
 @Composable
 fun PikapikaNavHost(
@@ -98,8 +102,12 @@ fun PikapikaNavHost(
     val downloads = remember(downloadManager, scope, snackbar) { DownloadActions(downloadManager, scope, snackbar) }
     val onReaderMessage: (String) -> Unit = { message -> scope.launch { snackbar.showSnackbar(message) } }
     // The exit specs below say whether a transition is a pop, so only a popped page and the one it
-    // uncovers get the back preview; in every other transition the frames stay idle.
-    val backPreview = remember { BackPreviewState() }
+    // uncovers get the back preview; in every other transition the frames stay idle. This holds
+    // for a back gesture too: NavHost picks popExitTransition as soon as the gesture starts and
+    // builds the spec in the composition that follows, before it seeks the first frame. Nothing
+    // resets the flag when a gesture is cancelled, and nothing has to: the pages are back at rest,
+    // and the next transition, whichever it is, builds its specs again.
+    val backPreview = rememberBackPreviewState()
 
     Box(modifier.fillMaxSize()) {
         CompositionLocalProvider(LocalBackPreview provides backPreview) {
@@ -108,7 +116,7 @@ fun PikapikaNavHost(
                 startDestination = DiscoverGraph,
                 modifier = Modifier.fillMaxSize(),
                 enterTransition = {
-                    if (isTabSwitch()) {
+                    if (isTabSwitch(compact.value)) {
                         fadeIn(fadeSpec)
                     } else {
                         slideInHorizontally(slideSpec) { it / 8 } + fadeIn(fadeSpec)
@@ -116,24 +124,26 @@ fun PikapikaNavHost(
                 },
                 exitTransition = {
                     backPreview.popping = false
-                    if (isTabSwitch()) {
+                    if (isTabSwitch(compact.value)) {
                         fadeOut(fastFadeSpec)
                     } else {
                         slideOutHorizontally(slideSpec) { -it / 16 } + fadeOut(fastFadeSpec)
                     }
                 },
                 popEnterTransition = {
-                    if (isTabSwitch()) {
+                    if (isTabSwitch(compact.value)) {
                         fadeIn(fadeSpec)
                     } else {
                         EnterTransition.None
                     }
                 },
                 popExitTransition = {
-                    backPreview.popping = !isTabSwitch()
-                    if (isTabSwitch()) {
+                    backPreview.popping = !isTabSwitch(compact.value)
+                    if (isTabSwitch(compact.value)) {
                         fadeOut(fastFadeSpec)
                     } else {
+                        // No motion from the host: BackPreviewFrame moves the page, off the same
+                        // timeline, so there is nothing here for the gesture to seek twice.
                         predictiveBackExit()
                     }
                 },
@@ -147,11 +157,24 @@ fun PikapikaNavHost(
     }
 }
 
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.isTabSwitch(): Boolean {
-    val from = initialState.destination.topLevelDestination() ?: return false
-    val to = targetState.destination.topLevelDestination() ?: return false
+/**
+ * Whether this transition goes from one tab to another, which crossfades instead of sliding in or
+ * shrinking away.
+ *
+ * A tab is a top-level destination that the navigation chrome on screen lists. A rail lists all
+ * four. The phone bar leaves out 「我的」, which is opened from the discover avatar and closed with
+ * a back arrow: with [compact] navigation it counts as a page like any other, so it slides in and
+ * gets the back preview. What decides is the layout at the moment the transition starts, not how
+ * the page was reached: the back stack looks the same either way.
+ */
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.isTabSwitch(compact: Boolean): Boolean {
+    val from = initialState.destination.tab(compact) ?: return false
+    val to = targetState.destination.tab(compact) ?: return false
     return from != to
 }
+
+private fun NavDestination.tab(compact: Boolean): TopLevelDestination? =
+    topLevelDestination()?.takeIf { !compact || it.inBottomBar }
 
 @Composable
 private fun NavHostController.backAction(): () -> Unit = dropUnlessResumed {
@@ -221,7 +244,9 @@ private fun NavGraphBuilder.topLevelGraphs(
     }
     navigation<MeGraph>(startDestination = MeRoute) {
         page<MeRoute> {
-            rootBack.value()
+            // Behind the avatar on phones, back returns to the page it was opened from, as the
+            // arrow in its app bar does; only where it is a rail tab is it a root page.
+            if (!compact.value) rootBack.value()
             val messageBoardTitle = stringResource(R.string.comments_message_board)
             MeScreen(
                 onOpenSettings = { navController.navigate(SettingsRoute) },

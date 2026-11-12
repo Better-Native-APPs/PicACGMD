@@ -53,7 +53,6 @@ internal fun GameLinksSheet(links: List<String>, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, properties = secureModalBottomSheetProperties()) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("下载链接", style = MaterialTheme.typography.headlineSmall)
-            Text("复制链接不联网", style = MaterialTheme.typography.bodyMedium)
             links.forEach { raw ->
                 // Preserve codes/passwords alongside the original address instead of silently dropping them.
                 val urls = remember(raw) { Regex("https?://[^\\s<>\"']+").findAll(raw).map { it.value }.filter { Uri.parse(it).host != null }.toList() }

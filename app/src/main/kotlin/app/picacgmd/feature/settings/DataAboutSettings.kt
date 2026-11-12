@@ -477,14 +477,6 @@ internal fun AboutSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier
                 }
             }
         }
-        item {
-            Text(
-                "仅手动检查更新",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-            )
-        }
     }
     when (dialog) {
         AboutDialog.Licenses -> InfoDialog("开源许可", onDismiss = { dialog = null }) {
