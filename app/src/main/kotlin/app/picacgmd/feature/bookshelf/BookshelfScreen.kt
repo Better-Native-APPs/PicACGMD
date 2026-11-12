@@ -6,6 +6,7 @@ import app.picacgmd.core.designsystem.window.securePopupProperties
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -21,17 +22,14 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.outlined.BookmarkRemove
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.NotificationsOff
-import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -39,7 +37,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -49,7 +46,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -71,6 +67,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.picacgmd.core.data.db.Subscription
 import app.picacgmd.core.data.db.ViewHistory
+import app.picacgmd.core.designsystem.component.AppButton
+import app.picacgmd.core.designsystem.component.AppIconButton
+import app.picacgmd.core.designsystem.component.AppTextButton
+import app.picacgmd.core.designsystem.component.SelectionTopAppBar
 import app.picacgmd.core.network.ComicSimple
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.downloads.rememberDownloadManager
@@ -214,25 +214,29 @@ fun BookshelfScreen(
         return
     }
 
+    val motion = MaterialTheme.motionScheme
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            AnimatedContent(targetState = selecting, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "shelfTopBar") { selectMode ->
+            AnimatedContent(
+                targetState = selecting,
+                transitionSpec = {
+                    (fadeIn(motion.fastEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec()))
+                        .using(SizeTransform { _, _ -> motion.defaultSpatialSpec() })
+                },
+                label = "shelfTopBar",
+            ) { selectMode ->
                 if (selectMode) {
-                    TopAppBar(
-                        title = { Text("已选 ${selection.size} 本") },
-                        navigationIcon = {
-                            IconButton(onClick = { selectionList = emptyList() }) { Icon(Icons.Outlined.Close, contentDescription = "退出多选") }
-                        },
-                        actions = {
-                            IconButton(onClick = {
-                                when (view) {
-                                    ShelfView.Online -> viewModel.selectAllOnline { setSelection(it) }
-                                    ShelfView.Follow -> setSelection(subscriptions.orEmpty().map { it.comicId }.toSet())
-                                    ShelfView.History -> setSelection(history.orEmpty().map { it.comicId }.toSet())
-                                }
-                            }) { Icon(Icons.Outlined.SelectAll, contentDescription = "全选") }
+                    SelectionTopAppBar(
+                        count = selection.size,
+                        onClearSelection = { selectionList = emptyList() },
+                        onSelectAll = {
+                            when (view) {
+                                ShelfView.Online -> viewModel.selectAllOnline { setSelection(it) }
+                                ShelfView.Follow -> setSelection(subscriptions.orEmpty().map { it.comicId }.toSet())
+                                ShelfView.History -> setSelection(history.orEmpty().map { it.comicId }.toSet())
+                            }
                         },
                     )
                 } else {
@@ -241,11 +245,11 @@ fun BookshelfScreen(
                         scrollBehavior = scrollBehavior,
                         actions = {
                             if (current.showTagFavourites) {
-                                IconButton(onClick = { tagFavouritesOpen = true }) { Icon(Icons.Outlined.Label, "标签收藏") }
+                                AppIconButton(onClick = { tagFavouritesOpen = true }) { Icon(Icons.AutoMirrored.Outlined.Label, "标签收藏") }
                             }
                             if (view == ShelfView.History) {
                                 Box {
-                                    IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "更多操作") }
+                                    AppIconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "更多操作") }
                                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, properties = securePopupProperties(focusable = true)) {
                                         DropdownMenuItem(
                                             text = { Text("清空浏览记录") },
@@ -280,7 +284,10 @@ fun BookshelfScreen(
                 }
                 AnimatedContent(
                     targetState = view,
-                    transitionSpec = { fadeIn() togetherWith fadeOut() },
+                    transitionSpec = {
+                        (fadeIn(motion.defaultEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec()))
+                            .using(SizeTransform { _, _ -> motion.defaultSpatialSpec() })
+                    },
                     label = "shelfView",
                     modifier = Modifier.weight(1f),
                 ) { shown ->
@@ -327,13 +334,17 @@ fun BookshelfScreen(
                     .padding(bottom = padding.calculateBottomPadding() + 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                AnimatedVisibility(visible = batch != null, enter = fadeIn(), exit = fadeOut()) {
+                AnimatedVisibility(
+                    visible = batch != null,
+                    enter = fadeIn(motion.fastEffectsSpec()),
+                    exit = fadeOut(motion.fastEffectsSpec()),
+                ) {
                     batch?.let { BatchCard(it, Modifier.padding(bottom = 12.dp)) }
                 }
                 AnimatedVisibility(
                     visible = selecting,
-                    enter = slideInVertically { it } + fadeIn(),
-                    exit = slideOutVertically { it } + fadeOut(),
+                    enter = slideInVertically(motion.defaultSpatialSpec()) { it } + fadeIn(motion.fastEffectsSpec()),
+                    exit = slideOutVertically(motion.defaultSpatialSpec()) { it } + fadeOut(motion.fastEffectsSpec()),
                 ) {
                     HorizontalFloatingToolbar(expanded = true) {
                         ToolbarAction(Icons.Outlined.Download, "下载") {
@@ -371,7 +382,7 @@ fun BookshelfScreen(
                 )
             },
             confirmButton = {
-                Button(
+                AppButton(
                     onClick = {
                         viewModel.unfavourite(active.ids, current.autoDeleteDownloadOnUnfavourite) { downloads.delete(it) }
                         selectionList = emptyList()
@@ -383,7 +394,7 @@ fun BookshelfScreen(
                     ),
                 ) { Text("取消收藏") }
             },
-            dismissButton = { TextButton(onClick = { dialog = null }) { Text("保留") } },
+            dismissButton = { AppTextButton(onClick = { dialog = null }) { Text("保留") } },
         )
         ShelfDialog.ClearHistory -> AlertDialog(
             properties = secureDialogProperties(),
@@ -391,7 +402,7 @@ fun BookshelfScreen(
             title = { Text("清空浏览记录？") },
             text = { Text("阅读进度会一并删除，无法撤销") },
             confirmButton = {
-                Button(
+                AppButton(
                     onClick = {
                         viewModel.run("清空失败", "已清空浏览记录") { historyRepository.clear() }
                         dialog = null
@@ -402,7 +413,7 @@ fun BookshelfScreen(
                     ),
                 ) { Text("清空") }
             },
-            dismissButton = { TextButton(onClick = { dialog = null }) { Text("取消") } },
+            dismissButton = { AppTextButton(onClick = { dialog = null }) { Text("取消") } },
         )
         null -> Unit
     }
@@ -421,7 +432,7 @@ internal sealed interface ShelfDialog {
 
 /** Icon over a short label: the floating toolbar must stay readable without tooltips. */
 @Composable
-private fun ToolbarAction(icon: ImageVector, label: String, destructive: Boolean = false, onClick: () -> Unit) {
+internal fun ToolbarAction(icon: ImageVector, label: String, destructive: Boolean = false, onClick: () -> Unit) {
     val color = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
     Column(
         Modifier

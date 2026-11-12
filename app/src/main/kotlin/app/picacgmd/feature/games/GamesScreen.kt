@@ -10,29 +10,32 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.KeyboardDoubleArrowLeft
+import androidx.compose.material.icons.outlined.KeyboardDoubleArrowRight
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,7 +46,9 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -52,14 +57,23 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import app.picacgmd.R
+import app.picacgmd.core.designsystem.component.AppButton
+import app.picacgmd.core.designsystem.component.AppFilledTonalButton
+import app.picacgmd.core.designsystem.component.AppIconButton
+import app.picacgmd.core.designsystem.component.AppTextButton
+import app.picacgmd.core.designsystem.component.LoadingState
 import app.picacgmd.core.designsystem.component.TonalAsyncImage
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.data.settings.PaginationMode
+import app.picacgmd.core.designsystem.component.MetaIcons
+import app.picacgmd.core.designsystem.component.MetaInfo
 import app.picacgmd.core.designsystem.component.StatusPane
 import app.picacgmd.core.domain.repository.GameRepository
 import app.picacgmd.core.network.GameSimple
 import app.picacgmd.core.network.PicaImage
 import app.picacgmd.di.LocalAppContainer
+import app.picacgmd.feature.comics.formatCount
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -119,53 +133,71 @@ fun GamesScreen(onBack: () -> Unit, onGameClick: (String) -> Unit) {
         }
     }
     LaunchedEffect(model.page, infinite) { if (!infinite && model.page > 0) list.scrollToItem(0) }
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Column { Text("游戏专区"); if (model.total > 0) Text("共 ${model.total} 款", style = MaterialTheme.typography.bodySmall) } },
-            navigationIcon = { app.picacgmd.core.designsystem.component.BackButton(onBack) },
-            actions = { IconButton({ model.load(1, false) }, enabled = !model.loading) { Icon(Icons.Outlined.Refresh, "刷新") } },
-        )
-    }) { padding ->
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            TopAppBar(
+                title = { Column { Text("游戏专区"); if (model.total > 0) Text("共 ${model.total} 款", style = MaterialTheme.typography.bodySmall) } },
+                navigationIcon = { app.picacgmd.core.designsystem.component.BackButton(onBack) },
+                actions = { AppIconButton({ model.load(1, false) }, enabled = !model.loading) { Icon(Icons.Outlined.Refresh, "刷新") } },
+                scrollBehavior = scrollBehavior,
+            )
+        },
+    ) { padding ->
         if (model.games.isEmpty()) {
             GameLoadState(model.loading, model.error, "暂无游戏", Modifier.padding(padding)) { model.load(1, false) }
         } else {
-            LazyColumn(
-                state = list, modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                itemsIndexed(model.games, key = { _, game -> game.id }) { index, game ->
-                    Surface(
-                        onClick = { onGameClick(game.id) },
-                        shape = RoundedCornerShape(
-                            topStart = if (index == 0) 26.dp else 6.dp, topEnd = if (index == 0) 26.dp else 6.dp,
-                            bottomStart = if (index == model.games.lastIndex) 26.dp else 6.dp,
-                            bottomEnd = if (index == model.games.lastIndex) 26.dp else 6.dp,
-                        ),
-                        color = MaterialTheme.colorScheme.surfaceContainerLow,
-                    ) {
-                        Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                            GameImage(game.icon, game.title, Modifier.size(72.dp).clip(RoundedCornerShape(20.dp)))
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                Text(game.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                Text(game.publisher, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("v${game.version} · ${if (game.android) "安卓版" else "暂无安卓版"}", style = MaterialTheme.typography.bodySmall)
+            val paging = !infinite && model.pages > 1
+            Box(Modifier.fillMaxSize()) {
+                LazyColumn(
+                    state = list, modifier = Modifier.fillMaxSize().padding(padding),
+                    contentPadding = PaddingValues(
+                        start = 16.dp, end = 16.dp, top = 16.dp,
+                        // Room for the paging toolbar so the last game can clear it.
+                        bottom = if (paging) 104.dp else 16.dp,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    itemsIndexed(model.games, key = { _, game -> game.id }) { index, game ->
+                        Surface(
+                            onClick = { onGameClick(game.id) },
+                            shape = ListItemDefaults.segmentedShapes(index = index, count = model.games.size).shape,
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        ) {
+                            Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                                GameImage(game.icon, game.title, Modifier.size(72.dp).clip(MaterialTheme.shapes.largeIncreased))
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    Text(game.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    Text(game.publisher, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("v${game.version} · ${if (game.android) "安卓版" else "暂无安卓版"}", style = MaterialTheme.typography.bodySmall)
+                                }
+                                MetaInfo(MetaIcons.Likes, formatCount(game.likesCount.toLong()))
                             }
-                            Text("♥ ${game.likesCount}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                    item {
+                        Column(Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            if (model.loading) LoadingIndicator()
+                            model.error?.let { message ->
+                                Text(message, color = MaterialTheme.colorScheme.error)
+                                AppFilledTonalButton({ model.load(if (infinite) model.page + 1 else model.page, infinite) }) { Text("重试") }
+                            }
+                            if (infinite && !model.loading && model.error == null) {
+                                if (model.page < model.pages) AppTextButton({ model.load(model.page + 1, true) }) { Text("加载更多") }
+                                else Text("没有更多", style = MaterialTheme.typography.bodySmall)
+                            }
                         }
                     }
                 }
-                item {
-                    Column(Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        if (model.loading) LoadingIndicator()
-                        model.error?.let { message ->
-                            Text(message, color = MaterialTheme.colorScheme.error)
-                            FilledTonalButton({ model.load(if (infinite) model.page + 1 else model.page, infinite) }) { Text("重试") }
-                        }
-                        if (!infinite) GamePagination(model.page, model.pages, model.loading) { model.load(it, false) }
-                        else if (!model.loading && model.error == null && model.page < model.pages) {
-                            TextButton({ model.load(model.page + 1, true) }) { Text("加载更多") }
-                        } else if (model.page >= model.pages) Text("没有更多", style = MaterialTheme.typography.bodySmall)
-                    }
+                if (paging) {
+                    GamePagination(
+                        page = model.page,
+                        pages = model.pages,
+                        loading = model.loading,
+                        onPage = { model.load(it, false) },
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = padding.calculateBottomPadding() + 16.dp),
+                    )
                 }
             }
         }
@@ -189,28 +221,57 @@ internal fun GameImage(image: PicaImage?, description: String?, modifier: Modifi
 @Composable
 internal fun GameLoadState(loading: Boolean, error: String?, empty: String, modifier: Modifier = Modifier, onRetry: () -> Unit) {
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        if (loading) LoadingIndicator() else StatusPane(
+        if (loading) LoadingState() else StatusPane(
             title = if (error != null) "加载失败" else empty,
             description = error,
-            actions = if (error != null) { { Button(onRetry) { Text("重试") } } } else null,
+            actions = if (error != null) { { AppButton(onRetry) { Text("重试") } } } else null,
         )
     }
 }
 
+/**
+ * Board 08's button paging, shared with the game list and the game comments: a floating toolbar with
+ * 首页 / 上一页 / 「12 / 175」 / 下一页 / 末页. The page label opens a jump dialog. The toolbar is always
+ * expanded, so it never animates while it sits idle (low-end rule).
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-internal fun GamePagination(page: Int, pages: Int, loading: Boolean, onPage: (Int) -> Unit) {
+internal fun GamePagination(page: Int, pages: Int, loading: Boolean, onPage: (Int) -> Unit, modifier: Modifier = Modifier) {
     var jump by remember { mutableStateOf(false) }
     var target by remember { mutableStateOf("") }
-    if (pages > 1) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
-        TextButton({ onPage(page - 1) }, enabled = !loading && page > 1) { Text("上一页") }
-        TextButton({ target = page.toString(); jump = true }, enabled = !loading) { Text("$page / $pages") }
-        TextButton({ onPage(page + 1) }, enabled = !loading && page < pages) { Text("下一页") }
+    HorizontalFloatingToolbar(modifier = modifier, expanded = true) {
+        AppIconButton({ onPage(1) }, enabled = !loading && page > 1) {
+            Icon(Icons.Outlined.KeyboardDoubleArrowLeft, "首页")
+        }
+        AppIconButton({ onPage(page - 1) }, enabled = !loading && page > 1) {
+            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, "上一页")
+        }
+        // The page label is the jump target, sized to the 48dp minimum so it reads as a button too.
+        Box(
+            Modifier
+                .clip(MaterialTheme.shapes.large)
+                .clickable(enabled = !loading) { target = page.toString(); jump = true }
+                .heightIn(min = 48.dp)
+                .padding(horizontal = 12.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                stringResource(R.string.comics_page_indicator, page, pages),
+                style = MaterialTheme.typography.titleSmall,
+            )
+        }
+        AppIconButton({ onPage(page + 1) }, enabled = !loading && page < pages) {
+            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, "下一页")
+        }
+        AppIconButton({ onPage(pages) }, enabled = !loading && page < pages) {
+            Icon(Icons.Outlined.KeyboardDoubleArrowRight, "末页")
+        }
     }
     if (jump) AlertDialog(
         properties = secureDialogProperties(),
         onDismissRequest = { jump = false }, title = { Text("跳转页码") },
         text = { OutlinedTextField(target, { target = it.filter(Char::isDigit) }, label = { Text("1–$pages") }, singleLine = true) },
-        confirmButton = { TextButton({ target.toIntOrNull()?.takeIf { it in 1..pages }?.let(onPage); jump = false }, enabled = target.toIntOrNull()?.let { it in 1..pages } == true) { Text("跳转") } },
-        dismissButton = { TextButton({ jump = false }) { Text("取消") } },
+        confirmButton = { AppTextButton({ target.toIntOrNull()?.takeIf { it in 1..pages }?.let(onPage); jump = false }, enabled = target.toIntOrNull()?.let { it in 1..pages } == true) { Text("跳转") } },
+        dismissButton = { AppTextButton({ jump = false }) { Text("取消") } },
     )
 }

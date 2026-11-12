@@ -48,11 +48,9 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FloatingToolbarDefaults
 import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderState
@@ -79,6 +77,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import app.picacgmd.feature.reader.R
+import app.picacgmd.core.designsystem.component.AppFilledIconButton
+import app.picacgmd.core.designsystem.component.AppIconButton
 import app.picacgmd.core.designsystem.component.BackButton
 import app.picacgmd.feature.reader.SliderPosition
 import app.picacgmd.feature.reader.logic.pageToSlider
@@ -250,7 +250,7 @@ private fun TopCapsule(
 private fun MoreMenu(actions: ReaderControlActions, canReload: Boolean) {
     var expanded by remember { mutableStateOf(false) }
     Box {
-        IconButton(onClick = { expanded = true }, modifier = Modifier.size(ChromeIconButtonSize)) {
+        AppIconButton(onClick = { expanded = true }, modifier = Modifier.size(ChromeIconButtonSize)) {
             Icon(
                 imageVector = Icons.Rounded.MoreVert,
                 contentDescription = stringResource(R.string.reader_more),
@@ -311,27 +311,26 @@ private fun ChromeToolbar(hasPrevious: Boolean, hasNext: Boolean, actions: Reade
             toolbarContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         ),
     ) {
-        IconButton(
+        AppIconButton(
             onClick = actions.onPreviousChapter,
             enabled = hasPrevious,
             modifier = Modifier.size(ChromeIconButtonSize),
         ) {
             Icon(Icons.Rounded.SkipPrevious, contentDescription = stringResource(R.string.reader_previous_chapter))
         }
-        IconButton(onClick = actions.onOpenChapters, modifier = Modifier.size(ChromeIconButtonSize)) {
+        AppIconButton(onClick = actions.onOpenChapters, modifier = Modifier.size(ChromeIconButtonSize)) {
             Icon(Icons.Rounded.FormatListNumbered, contentDescription = stringResource(R.string.reader_chapters))
         }
-        FilledIconButton(
+        AppFilledIconButton(
             onClick = actions.onOpenSettings,
             modifier = Modifier.size(width = 64.dp, height = ChromeIconButtonSize),
-            shape = RoundedCornerShape(16.dp),
         ) {
             Icon(Icons.Rounded.Tune, contentDescription = stringResource(R.string.reader_settings))
         }
-        IconButton(onClick = actions.onFullscreen, modifier = Modifier.size(ChromeIconButtonSize)) {
+        AppIconButton(onClick = actions.onFullscreen, modifier = Modifier.size(ChromeIconButtonSize)) {
             Icon(Icons.Rounded.Fullscreen, contentDescription = stringResource(R.string.reader_fullscreen))
         }
-        IconButton(
+        AppIconButton(
             onClick = actions.onNextChapter,
             enabled = hasNext,
             modifier = Modifier.size(ChromeIconButtonSize),
@@ -386,7 +385,7 @@ private fun BottomSlider(page: () -> Int, pageCount: Int, rightToLeft: Boolean, 
     val label = stringResource(R.string.reader_slider)
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shadowElevation = CapsuleShadow,
     ) {
@@ -423,7 +422,7 @@ private fun SideSlider(page: () -> Int, pageCount: Int, onSeek: (Int) -> Unit) {
             .width(44.dp)
             .heightIn(max = SideSliderMaxHeight)
             .fillMaxHeight(),
-        shape = RoundedCornerShape(22.dp),
+        shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shadowElevation = CapsuleShadow,
     ) {

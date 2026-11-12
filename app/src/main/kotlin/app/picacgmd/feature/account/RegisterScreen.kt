@@ -1,11 +1,11 @@
 package app.picacgmd.feature.account
 
+import androidx.activity.compose.BackHandler
 import app.picacgmd.core.designsystem.window.secureDialogProperties
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -13,10 +13,8 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -28,6 +26,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.picacgmd.core.designsystem.component.AppButton
+import app.picacgmd.core.designsystem.component.AppOutlinedButton
+import app.picacgmd.core.designsystem.component.AppTextButton
+import app.picacgmd.core.network.PicaException
 import app.picacgmd.core.network.RegisterDto
 import app.picacgmd.core.designsystem.component.PredictiveBackContent
 import app.picacgmd.di.LocalAppContainer
@@ -37,9 +39,12 @@ import java.time.ZoneOffset
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
+private val accountPattern = Regex("""^(?!.*\.\.)(?!.*\.$)[\w][\w.]{0,29}$""")
+private const val ACCOUNT_RULE_MESSAGE = "账号只能用字母、数字、下划线或点（1–30 位），不能使用邮箱"
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-internal fun RegisterScreen(onBack: () -> Unit, onRegistered: () -> Unit) {
+internal fun RegisterScreen(onBack: () -> Unit, onRegistered: (String) -> Unit) {
     val container = LocalAppContainer.current
     val scope = rememberCoroutineScope()
     // Keep the step with the in-memory password; process recreation restarts the form safely.
@@ -55,7 +60,11 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: () -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var success by rememberSaveable { mutableStateOf(false) }
-    val back = { if (step == 2 && !success && !busy) step = 1 else onBack() }
+    val back = {
+        if (!busy) {
+            if (step == 2 && !success) step = 1 else onBack()
+        }
+    }
     PredictiveBackContent(
         current = step,
         previous = 1,
@@ -64,16 +73,26 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: () -> Unit) {
     ) { shownStep, stepBack ->
         AccountScaffold("注册账号", onBack = stepBack) {
             if (success) {
-                Text("已注册", style = MaterialTheme.typography.headlineMedium)
+                Text("注册成功", style = MaterialTheme.typography.headlineMedium)
+                Text("账号：${email.trim()}")
+                Text("请返回登录，输入密码后即可使用")
                 Text("请妥善保存安全问题和答案")
-                Button(onRegistered, Modifier.fillMaxWidth()) { Text("返回登录") }
+                error?.let { AccountError(it) }
+                AppButton(onBack, Modifier.fillMaxWidth(), enabled = !busy) { Text("返回登录") }
             } else {
                 Text("第 $shownStep 步，共 2 步", style = MaterialTheme.typography.titleMedium)
                 LinearWavyProgressIndicator(progress = { shownStep / 2f }, modifier = Modifier.fillMaxWidth(), waveSpeed = 0.dp)
                 if (shownStep == 1) {
-                    OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), label = { Text("账号") }, singleLine = true)
+                    OutlinedTextField(
+                        email,
+                        { email = it },
+                        Modifier.fillMaxWidth(),
+                        label = { Text("账号") },
+                        supportingText = { Text(ACCOUNT_RULE_MESSAGE) },
+                        singleLine = true,
+                    )
                     PasswordField(password, { password = it })
-                    Text("密码至少 8 位，包含大小写字母和数字", style = MaterialTheme.typography.bodySmall)
+                    Text("密码至少 8 位", style = MaterialTheme.typography.bodySmall)
                     OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text("昵称") }, singleLine = true)
                     Text("性别", style = MaterialTheme.typography.titleSmall)
                     Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
@@ -81,14 +100,15 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: () -> Unit) {
                             FilterChip(gender == value, { gender = value }, label = { Text(label) })
                         }
                     }
-                    OutlinedButton({ birthdayPicker = true }, Modifier.fillMaxWidth()) {
+                    AppOutlinedButton({ birthdayPicker = true }, Modifier.fillMaxWidth()) {
                         Text(if (birthday.isBlank()) "选择生日" else "生日：$birthday")
                     }
                     error?.let { AccountError(it) }
-                    Button({
+                    AppButton({
                         error = when {
                             email.isBlank() -> "请输入账号"
-                            password.length < 8 || password.none(Char::isUpperCase) || password.none(Char::isLowerCase) || password.none(Char::isDigit) -> "密码至少 8 位，包含大小写字母和数字"
+                            !accountPattern.matches(email.trim()) -> ACCOUNT_RULE_MESSAGE
+                            password.length < 8 -> "密码至少 8 位"
                             name.trim().length !in 2..50 -> "昵称需为 2–50 字"
                             birthday.isBlank() -> "请选择生日"
                             LocalDate.parse(birthday).isAfter(LocalDate.now().minusYears(18)) -> "注册须年满 18 岁"
@@ -103,28 +123,57 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: () -> Unit) {
                         OutlinedTextField(answers[index], { answers[index] = it }, Modifier.fillMaxWidth(), label = { Text("回答 ${index + 1}") }, enabled = !busy)
                     }
                     error?.let { AccountError(it) }
-                    Button(
+                    AppButton(
                         onClick = {
+                            val registration = RegisterDto(
+                                email = email.trim(),
+                                password = password,
+                                name = name.trim(),
+                                birthday = birthday,
+                                gender = gender,
+                                question1 = questions[0].trim(),
+                                question2 = questions[1].trim(),
+                                question3 = questions[2].trim(),
+                                answer1 = answers[0].trim(),
+                                answer2 = answers[1].trim(),
+                                answer3 = answers[2].trim(),
+                            )
                             error = null
                             busy = true
                             scope.launch {
+                                var registered = false
                                 try {
-                                    container.networkConfigProvider.api().register(
-                                        RegisterDto(
-                                            email.trim(), password, name.trim(), birthday, gender,
-                                            questions[0].trim(), questions[1].trim(), questions[2].trim(),
-                                            answers[0].trim(), answers[1].trim(), answers[2].trim(),
-                                        ),
-                                    ).getOrThrow()
-                                    container.settingsRepository.setAccountEmail(email.trim())
+                                    container.networkConfigProvider.api().register(registration).getOrThrow()
+                                    registered = true
                                     password = ""
                                     answers.indices.forEach { answers[it] = "" }
-                                    success = true
+                                    // Registration creates an account, not an authenticated session.
+                                    container.sessionManager.logout()
+                                    container.settingsRepository.setAccountEmail(registration.email)
                                 } catch (exception: CancellationException) {
                                     throw exception
                                 } catch (exception: Exception) {
-                                    error = exception.localizedMessage ?: "注册失败"
+                                    val message = exception.localizedMessage ?: "注册失败"
+                                    val detail = (exception as? PicaException)?.detail?.toString().orEmpty()
+                                    error = when {
+                                        registered -> "账号已注册，但本机登录信息未能更新：$message"
+                                        message.contains("email is already exist", ignoreCase = true) -> "账号已存在，请直接登录或更换账号"
+                                        message.contains("name is already exist", ignoreCase = true) -> "昵称已被使用，请换一个昵称"
+                                        message.equals("validation error", ignoreCase = true) -> when {
+                                            detail.contains("email is required", ignoreCase = true) -> "请输入账号"
+                                            detail.contains("email with value", ignoreCase = true) ||
+                                                detail.contains("required pattern", ignoreCase = true) -> ACCOUNT_RULE_MESSAGE
+                                            detail.contains("password length", ignoreCase = true) -> "密码至少 8 位"
+                                            detail.contains("name", ignoreCase = true) -> "昵称不符合要求（2–50 字）"
+                                            else -> message
+                                        }
+                                        else -> message
+                                    }
                                 } finally {
+                                    if (registered) {
+                                        success = true
+                                        onRegistered(registration.email)
+                                    }
                                     busy = false
                                 }
                             }
@@ -132,11 +181,12 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !busy && questions.all(String::isNotBlank) && answers.all(String::isNotBlank),
                     ) { Text(if (busy) "正在注册" else "注册") }
-                    TextButton({ step = 1; error = null }, enabled = !busy) { Text("上一步") }
+                    AppTextButton({ step = 1; error = null }, enabled = !busy) { Text("上一步") }
                 }
             }
         }
     }
+    BackHandler(enabled = busy) { }
     if (birthdayPicker) {
         val picker = rememberDatePickerState(
             initialSelectedDateMillis = (birthday.takeIf(String::isNotBlank)?.let(LocalDate::parse)
@@ -145,11 +195,11 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: () -> Unit) {
         DatePickerDialog(
             properties = secureDialogProperties(usePlatformDefaultWidth = false),
             onDismissRequest = { birthdayPicker = false },
-            confirmButton = { TextButton({
+            confirmButton = { AppTextButton({
                 picker.selectedDateMillis?.let { birthday = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate().toString() }
                 birthdayPicker = false
             }) { Text("确定") } },
-            dismissButton = { TextButton({ birthdayPicker = false }) { Text("取消") } },
+            dismissButton = { AppTextButton({ birthdayPicker = false }) { Text("取消") } },
         ) { DatePicker(picker) }
     }
 }

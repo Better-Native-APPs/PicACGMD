@@ -5,6 +5,7 @@ import app.picacgmd.core.designsystem.window.secureDialogProperties
 
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -29,6 +30,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -54,6 +56,7 @@ import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.DownloadDone
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Person
@@ -61,16 +64,14 @@ import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -78,11 +79,12 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SplitButtonDefaults
+import androidx.compose.material3.SplitButtonLayout
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -115,6 +117,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import app.picacgmd.R
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.data.settings.renderCopyName
+import app.picacgmd.core.designsystem.component.AppButton
+import app.picacgmd.core.designsystem.component.AppIconButton
+import app.picacgmd.core.designsystem.component.AppTextButton
 import app.picacgmd.core.designsystem.component.ComicCover
 import app.picacgmd.core.designsystem.component.ComicCoverCard
 import app.picacgmd.core.designsystem.component.ErrorState
@@ -296,6 +301,11 @@ private fun DetailBody(
 ) {
     val listState = rememberLazyListState()
     val collapsed by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
+    val topBarContainerColor by animateColorAsState(
+        targetValue = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = if (collapsed) 1f else 0f),
+        animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
+        label = "detailTopBarContainer",
+    )
     val clipboard = LocalClipboardManager.current
     var copyConfirmation by rememberSaveable(comic.id) { mutableStateOf<String?>(null) }
     var showAllChapters by rememberSaveable { mutableStateOf(false) }
@@ -399,15 +409,15 @@ private fun DetailBody(
 
         // Top bar fades from transparent-over-hero to solid once the hero scrolls away.
         Column(Modifier.fillMaxWidth()) {
-            Surface(color = if (collapsed) MaterialTheme.colorScheme.surfaceContainer else Color.Transparent) {
+            Surface(color = topBarContainerColor) {
                 Column {
                     Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
                     DetailTopBar(
                         title = if (collapsed) comic.title else null,
                         onBack = onBack,
-                        solid = collapsed,
+                        solid = false,
                         actions = {
-                            IconButton(onClick = {
+                            AppIconButton(onClick = {
                                 val rendered = renderCopyName(preferences.copyNameTemplate, comic.author, comic.title, comic.id)
                                 if (preferences.confirmCopy) copyConfirmation = rendered
                                 else clipboard.setText(AnnotatedString(rendered))
@@ -423,6 +433,9 @@ private fun DetailBody(
         ReadButton(
             progress = library.progress,
             firstEp = state.eps?.firstOrNull()?.order ?: 1,
+            eps = state.eps.orEmpty(),
+            currentEpPages = library.currentEpPages,
+            downloadedEpIds = library.downloadedEpIds,
             onRead = onRead,
             modifier = Modifier.align(Alignment.BottomCenter),
         )
@@ -434,14 +447,15 @@ private fun DetailBody(
             title = { Text("复制名称") },
             text = { Text(rendered) },
             confirmButton = {
-                TextButton(onClick = { clipboard.setText(AnnotatedString(rendered)); copyConfirmation = null }) { Text("复制") }
+                AppTextButton(onClick = { clipboard.setText(AnnotatedString(rendered)); copyConfirmation = null }) { Text("复制") }
             },
-            dismissButton = { TextButton(onClick = { copyConfirmation = null }) { Text("取消") } },
+            dismissButton = { AppTextButton(onClick = { copyConfirmation = null }) { Text("取消") } },
         )
     }
 }
 
 /** Blurred cover wash behind a crisp cover and the title block: the page's one dramatic moment. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun Hero(comic: ComicInfo, onAuthorClick: (String) -> Unit, showAuthorSearch: Boolean) {
     val cover = rememberImageUrl(comic.thumb)
@@ -467,18 +481,25 @@ private fun Hero(comic: ComicInfo, onAuthorClick: (String) -> Unit, showAuthorSe
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
                         comic.title,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.titleLargeEmphasized,
                         maxLines = 4,
                         overflow = TextOverflow.Ellipsis,
                     )
                     if (comic.author.isNotBlank()) {
-                        Text(
-                            comic.author,
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = if (showAuthorSearch) Modifier.clickable { onAuthorClick(comic.author) } else Modifier,
-                        )
+                        Box(
+                            modifier = if (showAuthorSearch) {
+                                Modifier
+                                    .clickable(role = Role.Button) { onAuthorClick(comic.author) }
+                                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                            } else Modifier,
+                            contentAlignment = Alignment.CenterStart,
+                        ) {
+                            Text(
+                                comic.author,
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         MetaInfo(MetaIcons.Likes, formatCount(comic.likesCount.toLong()))
@@ -514,6 +535,7 @@ private fun HiddenNotice() {
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ActionRow(
     comic: ComicInfo,
@@ -545,13 +567,27 @@ private fun ActionRow(
             label = if (library.subscribed) stringResource(R.string.detail_subscribed) else stringResource(R.string.detail_subscribe),
             onClick = onSubscribe,
         )
-        ActionToggle(
-            on = false,
-            iconOn = Icons.Outlined.Download, iconOff = Icons.Outlined.Download,
-            label = stringResource(R.string.detail_download),
-            onClick = onDownload,
-            enabled = comic.allowDownload,
-        )
+        val downloadLabel = stringResource(R.string.detail_download)
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(68.dp)) {
+            FilledTonalIconButton(
+                onClick = onDownload,
+                enabled = comic.allowDownload,
+                shapes = IconButtonDefaults.shapes(),
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
+                modifier = Modifier.size(52.dp),
+            ) { Icon(Icons.Outlined.Download, downloadLabel) }
+            Text(
+                downloadLabel,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
     }
 }
 
@@ -712,6 +748,7 @@ private fun MetaChips(
  * The uploader: avatar, name and level over 「上传者」 and their title. A tap lists their comics, the
  * same list the 骑士榜 opens. TalkBack reads the row as one button.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun UploaderRow(uploader: UserProfile, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.colorScheme
@@ -733,8 +770,7 @@ private fun UploaderRow(uploader: UserProfile, onClick: () -> Unit, modifier: Mo
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
                     uploader.name,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleSmallEmphasized,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
@@ -892,9 +928,9 @@ private fun LazyListScope.chapters(
     }
     item(key = "eps-actions") {
         Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 4.dp), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = onToggleReversed) { Text(stringResource(R.string.detail_chapters_reverse)) }
+            AppTextButton(onClick = onToggleReversed) { Text(stringResource(R.string.detail_chapters_reverse)) }
             if (ordered.size > COLLAPSED_CHAPTER_COUNT) {
-                TextButton(onClick = onToggleShowAll) {
+                AppTextButton(onClick = onToggleShowAll) {
                     Text(if (showAll) stringResource(R.string.detail_collapse) else stringResource(R.string.detail_chapters_expand, ordered.size))
                 }
             }
@@ -968,59 +1004,111 @@ private fun ChapterRow(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ReadButton(
-    progress: app.picacgmd.core.domain.repository.ReadingProgress?,
+    progress: ReadingProgress?,
     firstEp: Int,
+    eps: List<Ep>,
+    currentEpPages: Int?,
+    downloadedEpIds: Set<String>,
     onRead: (Int, Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var chapterPicker by rememberSaveable { mutableStateOf(false) }
+    val buttonHeight = SplitButtonDefaults.MediumContainerHeight
     Column(
         modifier
             .fillMaxWidth()
             .background(Brush.verticalGradient(listOf(Color.Transparent, MaterialTheme.colorScheme.surface)))
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
-        Button(
-            onClick = { if (progress != null) onRead(progress.epOrder, progress.pictureIndex - 1) else onRead(firstEp, 0) },
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
-        ) {
-            Icon(Icons.AutoMirrored.Outlined.MenuBook, null)
-            Spacer(Modifier.width(10.dp))
-            Text(
-                if (progress != null) stringResource(R.string.detail_continue_reading, progress.epTitle.ifBlank { progress.epOrder.toString() })
-                else stringResource(R.string.detail_start_reading),
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        SplitButtonLayout(
+            modifier = Modifier.fillMaxWidth().height(buttonHeight),
+            leadingButton = {
+                SplitButtonDefaults.LeadingButton(
+                    onClick = { if (progress != null) onRead(progress.epOrder, progress.pictureIndex - 1) else onRead(firstEp, 0) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shapes = SplitButtonDefaults.leadingButtonShapesFor(buttonHeight),
+                    contentPadding = SplitButtonDefaults.leadingButtonContentPaddingFor(buttonHeight),
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Outlined.MenuBook,
+                        contentDescription = null,
+                        modifier = Modifier.size(SplitButtonDefaults.leadingButtonIconSizeFor(buttonHeight)),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        if (progress != null) stringResource(R.string.detail_continue_reading, progress.epTitle.ifBlank { progress.epOrder.toString() })
+                        else stringResource(R.string.detail_start_reading),
+                        style = ButtonDefaults.textStyleFor(buttonHeight),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            },
+            trailingButton = {
+                SplitButtonDefaults.TrailingButton(
+                    onClick = { chapterPicker = true },
+                    enabled = eps.isNotEmpty(),
+                    shapes = SplitButtonDefaults.trailingButtonShapesFor(buttonHeight),
+                    contentPadding = SplitButtonDefaults.trailingButtonContentPaddingFor(buttonHeight),
+                ) {
+                    Icon(
+                        Icons.Outlined.ExpandMore,
+                        contentDescription = "选择章节",
+                        modifier = Modifier.size(SplitButtonDefaults.trailingButtonIconSizeFor(buttonHeight)),
+                    )
+                }
+            },
+        )
         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+    }
+    if (chapterPicker) {
+        ModalBottomSheet(onDismissRequest = { chapterPicker = false }, properties = secureModalBottomSheetProperties()) {
+            Text(
+                stringResource(R.string.detail_chapters, eps.size),
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+            )
+            LazyColumn(Modifier.weight(1f, fill = false)) {
+                items(eps, key = { it.id }) { ep ->
+                    ChapterRow(
+                        ep = ep,
+                        progress = progress,
+                        currentEpPages = currentEpPages,
+                        downloaded = ep.id in downloadedEpIds,
+                        showDownloadColumn = downloadedEpIds.isNotEmpty(),
+                        onClick = { onRead(ep.order, 0); chapterPicker = false },
+                    )
+                }
+            }
+            Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+        }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class, ExperimentalFoundationApi::class)
 @Composable
 private fun DownloadPickerSheet(eps: List<Ep>, onDismiss: () -> Unit, onConfirm: (List<Ep>) -> Unit) {
     var chosen by remember(eps) { mutableStateOf(eps.map(Ep::id).toSet()) }
     ModalBottomSheet(onDismissRequest = onDismiss, properties = secureModalBottomSheetProperties()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.detail_download_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-            TextButton(onClick = { chosen = if (chosen.size == eps.size) emptySet() else eps.map(Ep::id).toSet() }) {
+            AppTextButton(onClick = { chosen = if (chosen.size == eps.size) emptySet() else eps.map(Ep::id).toSet() }) {
                 Text(stringResource(R.string.comics_select_all))
             }
         }
         LazyColumn(Modifier.weight(1f, fill = false)) {
             items(eps, key = { it.id }) { ep ->
                 ListItem(
-                    headlineContent = { Text(ep.title.ifBlank { ep.order.toString() }) },
+                    checked = ep.id in chosen,
+                    onCheckedChange = { checked -> chosen = if (checked) chosen + ep.id else chosen - ep.id },
                     leadingContent = { Checkbox(checked = ep.id in chosen, onCheckedChange = null) },
-                    modifier = Modifier.clickable { chosen = if (ep.id in chosen) chosen - ep.id else chosen + ep.id },
-                )
+                ) { Text(ep.title.ifBlank { ep.order.toString() }) }
             }
         }
-        FilledTonalButton(
+        AppButton(
             onClick = { onConfirm(eps.filter { it.id in chosen }) },
             enabled = chosen.isNotEmpty(),
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),

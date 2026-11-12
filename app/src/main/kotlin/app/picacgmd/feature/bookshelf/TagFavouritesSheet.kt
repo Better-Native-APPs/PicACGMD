@@ -1,6 +1,5 @@
 package app.picacgmd.feature.bookshelf
 
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -8,15 +7,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -28,9 +26,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import app.picacgmd.core.data.db.TagFavourite
+import app.picacgmd.core.designsystem.component.AppIconButton
 import app.picacgmd.core.designsystem.component.EmptyState
 import app.picacgmd.core.designsystem.component.LoadingState
 import app.picacgmd.core.designsystem.window.secureModalBottomSheetProperties
@@ -61,25 +59,22 @@ internal fun TagFavouritesSheet(
             tags.isEmpty() -> EmptyState(
                 title = "还没有标签收藏",
                 description = "在漫画详情页开启「收藏标签」，再点选标签",
-                icon = Icons.Outlined.Label,
+                icon = Icons.AutoMirrored.Outlined.Label,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
             )
             else -> LazyColumn(Modifier.weight(1f, fill = false).padding(bottom = 16.dp)) {
                 items(tags, key = { it.tag }) { favourite ->
                     var menu by remember { mutableStateOf(false) }
                     ListItem(
-                        headlineContent = { Text(favourite.tag) },
-                        leadingContent = { Icon(Icons.Outlined.Label, null) },
-                        modifier = Modifier.combinedClickable(
-                            enabled = removing != favourite.tag,
-                            role = Role.Button,
-                            onClick = { onOpenTag(favourite.tag) },
-                            onLongClick = { menu = true },
-                            onLongClickLabel = "管理标签收藏",
-                        ),
+                        onClick = { onOpenTag(favourite.tag) },
+                        enabled = removing != favourite.tag,
+                        onLongClick = { menu = true },
+                        onLongClickLabel = "管理标签收藏",
+                        content = { Text(favourite.tag) },
+                        leadingContent = { Icon(Icons.AutoMirrored.Outlined.Label, null) },
                         trailingContent = {
                             Box {
-                                IconButton(onClick = { menu = true }, enabled = removing != favourite.tag) {
+                                AppIconButton(onClick = { menu = true }, enabled = removing != favourite.tag) {
                                     Icon(Icons.Outlined.MoreVert, "管理${favourite.tag}")
                                 }
                                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, properties = securePopupProperties(focusable = true)) {

@@ -2,6 +2,7 @@ package app.picacgmd.core.domain.repository
 
 import app.picacgmd.core.data.db.ViewHistory
 import app.picacgmd.core.data.settings.AppSettings
+import app.picacgmd.core.network.ComicInfo
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -59,5 +60,21 @@ class HistoryRepositoryTest {
     fun noIdsMeansNoQuery() = runTest {
         assertEquals(emptyMap(), repository.observeReadChapters(emptyList()).first())
         assertEquals(0, dao.largestReadChapterQuery)
+    }
+
+    @Test
+    fun savedProgressCarriesTheChapterPageCount() = runTest {
+        repository.saveProgress(ComicInfo(id = "c", title = "T"), epOrder = 2, epTitle = "第二话",
+            pictureIndex = 5, chapterPages = 24)
+
+        assertEquals(ReadingProgress(2, "第二话", 5, 24), repository.getProgress("c"))
+    }
+
+    @Test
+    fun progressWithoutAStoredPageCountReportsZero() = runTest {
+        // Records written before the page-count field existed must not fake a fraction.
+        dao.upsert(ViewHistory("old", "Old", lastEpOrder = 1, lastEpTitle = "一", lastPictureIndex = 3))
+
+        assertEquals(ReadingProgress(1, "一", 3, 0), repository.getProgress("old"))
     }
 }

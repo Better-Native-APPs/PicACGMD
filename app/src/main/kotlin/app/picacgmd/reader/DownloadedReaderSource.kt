@@ -84,7 +84,7 @@ class DownloadedReaderSource(
     override fun saveProgress(progress: ReaderProgress) {
         ReaderPersistence.launch(onProgressError) {
             val ep = checkNotNull(episodes.firstOrNull { it.epId == progress.chapter.id }) { "找不到该章节" }
-            historyRepository.saveProgress(historyComic, ep.epOrder, ep.title, progress.pageIndex + 1)
+            historyRepository.saveProgress(historyComic, ep.epOrder, ep.title, progress.pageIndex + 1, progress.pageCount)
         }
     }
 }

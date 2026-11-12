@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,7 +25,7 @@ internal fun PageBadge(page: Int, pageCount: Int, modifier: Modifier = Modifier,
     Box(
         modifier = modifier
             .heightIn(min = 18.dp)
-            .clip(RoundedCornerShape(9.dp))
+            .clip(MaterialTheme.shapes.small)
             .background(ReaderPillColors.Badge)
             .padding(horizontal = 8.dp),
         contentAlignment = Alignment.Center,

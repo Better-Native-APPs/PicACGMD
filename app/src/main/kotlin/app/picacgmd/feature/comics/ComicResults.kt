@@ -5,9 +5,7 @@ import app.picacgmd.core.designsystem.window.secureDialogProperties
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,25 +25,23 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.automirrored.outlined.LastPage
+import androidx.compose.material.icons.outlined.FirstPage
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExperimentalMaterial3Api
 import app.picacgmd.core.designsystem.component.ExpressivePullToRefreshBox
-import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -64,10 +60,15 @@ import app.picacgmd.R
 import app.picacgmd.core.data.settings.ListLayout
 import app.picacgmd.core.data.settings.FailedReloadAction
 import app.picacgmd.core.data.settings.PaginationMode
+import app.picacgmd.core.designsystem.component.AppFilledTonalButton
+import app.picacgmd.core.designsystem.component.AppIconButton
+import app.picacgmd.core.designsystem.component.AppTextButton
 import app.picacgmd.core.designsystem.component.ComicCoverCard
+import app.picacgmd.core.designsystem.component.ComicCoverAspectRatio
 import app.picacgmd.core.designsystem.component.ComicListItem
 import app.picacgmd.core.designsystem.component.EmptyState
 import app.picacgmd.core.designsystem.component.ErrorState
+import app.picacgmd.core.designsystem.component.SelectionMark
 import app.picacgmd.core.designsystem.component.SkeletonBlock
 import app.picacgmd.core.designsystem.component.rememberCoverGridState
 import app.picacgmd.core.designsystem.component.StatusPane
@@ -231,7 +232,8 @@ fun ComicResults(
                 }
             }
         }
-        if (paginationMode == PaginationMode.BUTTONS && state.pages > 0) {
+        // While selecting, the batch toolbar takes the bottom slot from the paging bar.
+        if (paginationMode == PaginationMode.BUTTONS && state.pages > 0 && !selecting) {
             PageBar(
                 page = state.page,
                 pages = state.pages,
@@ -257,7 +259,7 @@ private fun androidx.compose.foundation.lazy.grid.LazyGridScope.skeleton(layout:
     items(12, key = { "sk-$it" }, contentType = { "skeleton" }) {
         if (layout == ListLayout.DETAILS) {
             Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                SkeletonBlock(Modifier.size(72.dp, 100.dp))
+                SkeletonBlock(Modifier.width(84.dp).aspectRatio(ComicCoverAspectRatio))
                 Spacer(Modifier.width(12.dp))
                 SkeletonBlock(Modifier.fillMaxWidth().height(18.dp), shape = MaterialTheme.shapes.small)
             }
@@ -325,20 +327,6 @@ private fun ComicCell(
     }
 }
 
-@Composable
-private fun SelectionMark(selected: Boolean) {
-    val colors = MaterialTheme.colorScheme
-    Box(
-        Modifier
-            .size(26.dp)
-            .background(if (selected) colors.primary else colors.surface.copy(alpha = 0.85f), CircleShape)
-            .border(BorderStroke(2.dp, if (selected) colors.primary else colors.outline), CircleShape),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (selected) Icon(Icons.Outlined.Check, null, tint = colors.onPrimary, modifier = Modifier.size(16.dp))
-    }
-}
-
 /** Board 09: the gap left by shielded comics, dashed-quiet rather than alarming. */
 @Composable
 private fun HiddenSlot(count: Int) {
@@ -367,17 +355,18 @@ private fun AppendFooter(state: ComicPageState, onRetry: () -> Unit, pullToRetry
         when {
             state.appending -> LoadingIndicator()
             state.appendError != null -> if (pullToRetry) Text("加载失败，下拉重试")
-                else TextButton(onClick = onRetry) { Text(stringResource(R.string.comics_load_more_failed)) }
+                else AppTextButton(onClick = onRetry) { Text(stringResource(R.string.comics_load_more_failed)) }
             !state.hasNextPage && state.page > 0 -> Text(
                 stringResource(R.string.comics_end_of_list),
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.outline,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
 }
 
-/** Floating button-paging pill: ‹ 3 / 12 页 ›, tapping the label opens the jump dialog. */
+/** SPEC §08 floating button-paging bar: 首页 / 上一页 / 「12 / 175」跳页 / 下一页 / 末页. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun PageBar(
     page: Int,
@@ -387,27 +376,21 @@ private fun PageBar(
     onOpenJump: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
-        modifier = modifier,
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tonalElevation = 3.dp,
-        shadowElevation = 6.dp,
-    ) {
-        Row(Modifier.padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
-            FilledTonalIconButton(onClick = { onJumpTo(page - 1) }, enabled = enabled && page > 1) {
-                Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, stringResource(R.string.comics_prev_page))
-            }
-            Text(
-                stringResource(R.string.comics_page_indicator, page, pages),
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier
-                    .clickable(enabled = enabled, onClickLabel = stringResource(R.string.comics_jump_to_page), onClick = onOpenJump)
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-            )
-            FilledTonalIconButton(onClick = { onJumpTo(page + 1) }, enabled = enabled && page < pages) {
-                Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, stringResource(R.string.comics_next_page))
-            }
+    HorizontalFloatingToolbar(expanded = true, modifier = modifier) {
+        AppIconButton(onClick = { onJumpTo(1) }, enabled = enabled && page > 1) {
+            Icon(Icons.Outlined.FirstPage, stringResource(R.string.comics_first_page))
+        }
+        AppIconButton(onClick = { onJumpTo(page - 1) }, enabled = enabled && page > 1) {
+            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, stringResource(R.string.comics_prev_page))
+        }
+        AppFilledTonalButton(onClick = onOpenJump, enabled = enabled) {
+            Text(stringResource(R.string.comics_page_indicator, page, pages))
+        }
+        AppIconButton(onClick = { onJumpTo(page + 1) }, enabled = enabled && page < pages) {
+            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, stringResource(R.string.comics_next_page))
+        }
+        AppIconButton(onClick = { onJumpTo(pages) }, enabled = enabled && page < pages) {
+            Icon(Icons.AutoMirrored.Outlined.LastPage, stringResource(R.string.comics_last_page))
         }
     }
 }
@@ -432,10 +415,10 @@ fun JumpToPageDialog(pages: Int, current: Int, onDismiss: () -> Unit, onJump: (I
             )
         },
         confirmButton = {
-            TextButton(onClick = { target?.let(onJump) }, enabled = target != null) {
+            AppTextButton(onClick = { target?.let(onJump) }, enabled = target != null) {
                 Text(stringResource(R.string.comics_jump_confirm))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.comics_cancel)) } },
+        dismissButton = { AppTextButton(onClick = onDismiss) { Text(stringResource(R.string.comics_cancel)) } },
     )
 }

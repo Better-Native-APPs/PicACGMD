@@ -15,7 +15,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-data class ReadingProgress(val epOrder: Int, val epTitle: String, val pictureIndex: Int)
+data class ReadingProgress(val epOrder: Int, val epTitle: String, val pictureIndex: Int, val chapterPages: Int = 0)
 
 /** Disabling history stops new writes; existing progress remains readable and is not erased. */
 class HistoryRepository(
@@ -50,13 +50,14 @@ class HistoryRepository(
         mutex.withLock { dao.upsert(snapshot(comic, dao.get(comic.id))) }
     }
 
-    suspend fun saveProgress(comic: ComicInfo, epOrder: Int, epTitle: String, pictureIndex: Int) {
+    suspend fun saveProgress(comic: ComicInfo, epOrder: Int, epTitle: String, pictureIndex: Int, chapterPages: Int) {
         require(epOrder >= 1 && pictureIndex >= 1) { "阅读章节和页码必须从 1 开始" }
         if (!settings.first().historyEnabled) return
         mutex.withLock {
             dao.upsert(
                 snapshot(comic, dao.get(comic.id)).copy(
                     lastEpOrder = epOrder, lastEpTitle = epTitle, lastPictureIndex = pictureIndex,
+                    lastChapterPages = chapterPages,
                 ),
             )
         }
@@ -79,7 +80,8 @@ class HistoryRepository(
     }
 
     private fun ViewHistory.progress(): ReadingProgress? =
-        if (lastEpOrder < 1 || lastPictureIndex < 1) null else ReadingProgress(lastEpOrder, lastEpTitle, lastPictureIndex)
+        if (lastEpOrder < 1 || lastPictureIndex < 1) null
+        else ReadingProgress(lastEpOrder, lastEpTitle, lastPictureIndex, lastChapterPages)
 
     private companion object {
         const val READ_MARK_CHUNK = 500

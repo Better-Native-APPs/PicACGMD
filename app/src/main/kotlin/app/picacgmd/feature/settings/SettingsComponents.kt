@@ -24,11 +24,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.ListItemShapes
 import androidx.compose.material3.MaterialTheme
@@ -38,8 +36,6 @@ import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.toShape
@@ -64,6 +60,8 @@ import app.picacgmd.R
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.data.settings.SettingsRepository
 import app.picacgmd.core.designsystem.component.AppSwitch
+import app.picacgmd.core.designsystem.component.AppTextButton
+import app.picacgmd.core.designsystem.component.ConnectedChoiceGroup
 import app.picacgmd.core.designsystem.component.withoutSelectedShape
 import app.picacgmd.core.designsystem.component.withoutSelectedTint
 import app.picacgmd.di.LocalAppContainer
@@ -209,7 +207,7 @@ internal fun SettingsSwitchRow(
         checked = checked,
         onCheckedChange = onCheckedChange,
         shapes = remember(shapes) { shapes.withoutSelectedShape() },
-        modifier = modifier,
+        modifier = modifier.semantics { role = Role.Switch },
         enabled = enabled,
         leadingContent = leading,
         supportingContent = summary?.let { { Text(it) } },
@@ -232,7 +230,6 @@ internal fun SettingsNoteRow(
     content: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
     SegmentedListItem(
-        onClick = {},
         shapes = shapes,
         modifier = modifier,
         enabled = false,
@@ -282,36 +279,16 @@ internal fun <T> ConnectedChoice(
     icon: ((T) -> ImageVector?)? = null,
     enabled: Boolean = true,
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
-    ) {
-        options.forEachIndexed { index, option ->
-            ToggleButton(
-                checked = option == selected,
-                onCheckedChange = { onSelect(option) },
-                enabled = enabled,
-                modifier = Modifier
-                    .weight(1f)
-                    .semantics { role = Role.RadioButton },
-                shapes = when (index) {
-                    0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                    options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                },
-                contentPadding = PaddingValues(horizontal = 8.dp),
-            ) {
-                val vector = icon?.invoke(option)
-                if (vector != null) {
-                    Icon(vector, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.size(6.dp))
-                }
-                Text(label(option), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-        }
-    }
+    ConnectedChoiceGroup(
+        options = options,
+        selected = selected,
+        onSelect = onSelect,
+        label = label,
+        modifier = modifier,
+        role = Role.RadioButton,
+        icon = icon,
+        enabled = { enabled },
+    )
 }
 
 /** A labelled ButtonGroup sitting on a segmented container, for the most changed choices. */
@@ -328,7 +305,6 @@ internal fun <T> SettingsChoiceRow(
     icon: ((T) -> ImageVector?)? = null,
 ) {
     SegmentedListItem(
-        onClick = {},
         shapes = shapes,
         enabled = true,
         supportingContent = {
@@ -406,7 +382,7 @@ internal fun <T> ChoiceDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.library_action_cancel)) }
+            AppTextButton(onClick = onDismiss) { Text(stringResource(R.string.library_action_cancel)) }
         },
     )
 }

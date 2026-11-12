@@ -14,11 +14,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.WifiOff
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
@@ -36,7 +33,6 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -109,7 +105,7 @@ fun StatusPane(
         }
         Text(
             text = title,
-            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+            style = MaterialTheme.typography.titleLargeEmphasized,
             color = colors.onSurface,
             textAlign = TextAlign.Center,
             modifier = Modifier
@@ -182,11 +178,11 @@ fun ErrorState(
         modifier = modifier,
         actions = {
             if (secondaryActionLabel != null && onSecondaryAction != null) {
-                FilledTonalButton(onClick = onSecondaryAction, shapes = ButtonDefaults.shapes()) {
+                AppFilledTonalButton(onClick = onSecondaryAction) {
                     Text(secondaryActionLabel)
                 }
             }
-            Button(onClick = onRetry, shapes = ButtonDefaults.shapes()) {
+            AppButton(onClick = onRetry) {
                 Text(stringResource(R.string.designsystem_retry))
             }
         },
@@ -213,7 +209,7 @@ fun EmptyState(
         modifier = modifier,
         actions = if (actionLabel != null && onAction != null) {
             {
-                FilledTonalButton(onClick = onAction, shapes = ButtonDefaults.shapes()) {
+                AppFilledTonalButton(onClick = onAction) {
                     Text(actionLabel)
                 }
             }
@@ -241,11 +237,11 @@ fun OfflineState(
         modifier = modifier,
         actions = {
             if (onOpenNetworkSettings != null) {
-                FilledTonalButton(onClick = onOpenNetworkSettings, shapes = ButtonDefaults.shapes()) {
+                AppFilledTonalButton(onClick = onOpenNetworkSettings) {
                     Text(stringResource(R.string.designsystem_network_settings))
                 }
             }
-            Button(onClick = onRetry, shapes = ButtonDefaults.shapes()) {
+            AppButton(onClick = onRetry) {
                 Text(stringResource(R.string.designsystem_retry))
             }
         },

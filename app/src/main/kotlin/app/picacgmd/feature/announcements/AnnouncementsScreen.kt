@@ -27,8 +27,8 @@ import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import app.picacgmd.core.designsystem.component.ExpressivePullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,13 +42,16 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.picacgmd.core.designsystem.component.TonalAsyncImage
+import app.picacgmd.core.designsystem.component.AppTextButton
 import app.picacgmd.core.designsystem.component.EmptyState
 import app.picacgmd.core.designsystem.component.ErrorState
+import app.picacgmd.core.designsystem.component.LoadingState
 import app.picacgmd.core.network.Announcement
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.bookshelf.safeImageUrl
@@ -102,6 +105,7 @@ fun AnnouncementsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     var refreshing by remember { mutableStateOf(false) }
     var openId by rememberSaveable { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     fun load(page: Int) {
         state = state.copy(loading = true, error = null)
@@ -153,7 +157,16 @@ fun AnnouncementsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             AnnouncementDetail(detail, onBack = back)
             return@PredictiveBackContent
         }
-        Scaffold(topBar = { TopAppBar(title = { Text("公告") }, navigationIcon = { BackButton(onBack) }) }) { padding ->
+        Scaffold(
+            modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+            topBar = {
+                TopAppBar(
+                    title = { Text("公告") },
+                    navigationIcon = { BackButton(onBack) },
+                    scrollBehavior = scrollBehavior,
+                )
+            },
+        ) { padding ->
             ExpressivePullToRefreshBox(
                 isRefreshing = refreshing,
                 onRefresh = { refreshing = true; load(1) },
@@ -162,7 +175,7 @@ fun AnnouncementsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 when {
                     // A pulled refresh already shows its own indicator.
                     state.items.isEmpty() && state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        if (!refreshing) LoadingIndicator()
+                        if (!refreshing) LoadingState(Modifier.fillMaxSize())
                     }
                     state.items.isEmpty() && state.error != null -> ErrorState(onRetry = { load(1) }, description = state.error, modifier = Modifier.fillMaxSize())
                     state.items.isEmpty() -> EmptyState(
@@ -185,7 +198,7 @@ fun AnnouncementsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                                 when {
                                     refreshing -> Unit
                                     state.loading -> LoadingIndicator(Modifier.size(40.dp))
-                                    state.error != null -> TextButton(onClick = { load(state.page + 1) }) { Text("加载失败，重试") }
+                                    state.error != null -> AppTextButton(onClick = { load(state.page + 1) }) { Text("加载失败，重试") }
                                     state.page >= state.pages -> Text(
                                         "没有更多",
                                         style = MaterialTheme.typography.bodySmall,
@@ -247,7 +260,17 @@ private fun AnnouncementDetail(announcement: Announcement, onBack: () -> Unit) {
     val container = LocalAppContainer.current
     val thumb = remember(announcement.thumb) { container.safeImageUrl(announcement.thumb) }
     val body = remember(announcement.content) { announcementText(announcement.content) }
-    Scaffold(topBar = { TopAppBar(title = { Text("公告") }, navigationIcon = { BackButton(onBack) }) }) { padding ->
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            TopAppBar(
+                title = { Text("公告") },
+                navigationIcon = { BackButton(onBack) },
+                scrollBehavior = scrollBehavior,
+            )
+        },
+    ) { padding ->
         Column(
             Modifier
                 .fillMaxSize()

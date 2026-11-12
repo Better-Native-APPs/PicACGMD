@@ -2,44 +2,42 @@ package app.picacgmd.feature.account
 
 import android.content.Context
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -49,12 +47,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.picacgmd.core.data.settings.AppSettings
+import app.picacgmd.core.designsystem.component.AppButton
+import app.picacgmd.core.designsystem.component.AppFilledTonalButton
+import app.picacgmd.core.designsystem.component.AppIconButton
+import app.picacgmd.core.designsystem.component.AppTextButton
 import app.picacgmd.core.designsystem.component.BackButton
 import app.picacgmd.core.designsystem.component.PredictiveBackContent
 import app.picacgmd.core.domain.session.SessionState
@@ -71,6 +74,9 @@ fun LoginScreen(onBack: (() -> Unit)? = null) {
     val onboarding = remember(context) { context.getSharedPreferences("onboarding", Context.MODE_PRIVATE) }
     var page by rememberSaveable { mutableStateOf(if (onboarding.getBoolean("notice_accepted", false)) "login" else "notice") }
     var network by rememberSaveable { mutableStateOf(false) }
+    // A completed form must not be restored when starting another registration.
+    var registrationAttempt by rememberSaveable { mutableStateOf(0) }
+    var registeredAccount by rememberSaveable { mutableStateOf<String?>(null) }
     PredictiveBackContent(
         current = page,
         previous = "login",
@@ -82,9 +88,21 @@ fun LoginScreen(onBack: (() -> Unit)? = null) {
                 onboarding.edit().putBoolean("notice_accepted", true).apply()
                 page = "login"
             }
-            "register" -> RegisterScreen(onBack = back, onRegistered = { page = "login" })
+            "register" -> key(registrationAttempt) {
+                RegisterScreen(onBack = back, onRegistered = { registeredAccount = it })
+            }
             "forgot" -> ForgotPasswordScreen(onBack = back)
-            else -> LoginForm(onBack, { page = "register" }, { page = "forgot" }, { network = true })
+            else -> LoginForm(
+                onBack = onBack,
+                onRegister = {
+                    registrationAttempt++
+                    page = "register"
+                },
+                onForgot = { page = "forgot" },
+                onNetwork = { network = true },
+                registeredAccount = registeredAccount,
+                onRegisteredAccountConsumed = { registeredAccount = null },
+            )
         }
     }
     if (network) RoutePickerDialog(onDismiss = { network = false })
@@ -101,7 +119,7 @@ private fun NoticeScreen(onBack: (() -> Unit)?, onContinue: () -> Unit) {
                 .background(MaterialTheme.colorScheme.primaryContainer).padding(24.dp),
             tint = MaterialTheme.colorScheme.onPrimaryContainer,
         )
-        Text("欢迎使用 PicACG", style = MaterialTheme.typography.headlineLarge)
+        Text("欢迎使用 PicACG", style = MaterialTheme.typography.headlineLargeEmphasized)
         Text("使用须知", color = MaterialTheme.colorScheme.onSurfaceVariant)
         Card {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -113,17 +131,28 @@ private fun NoticeScreen(onBack: (() -> Unit)?, onContinue: () -> Unit) {
                 Text("不收集使用数据，记录只保存在本机")
             }
         }
-        Row(Modifier.fillMaxWidth().clickable { adult = !adult }, verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(adult, { adult = it })
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                .toggleable(value = adult, role = Role.Checkbox, onValueChange = { adult = it }),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(adult, onCheckedChange = null)
             Text("我已年满 18 岁，并同意遵守当地法律法规", Modifier.weight(1f))
         }
-        Button(onContinue, Modifier.fillMaxWidth(), enabled = adult) { Text("继续") }
+        AppButton(onContinue, Modifier.fillMaxWidth(), enabled = adult) { Text("继续") }
     }
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun LoginForm(onBack: (() -> Unit)?, onRegister: () -> Unit, onForgot: () -> Unit, onNetwork: () -> Unit) {
+private fun LoginForm(
+    onBack: (() -> Unit)?,
+    onRegister: () -> Unit,
+    onForgot: () -> Unit,
+    onNetwork: () -> Unit,
+    registeredAccount: String?,
+    onRegisteredAccountConsumed: () -> Unit,
+) {
     val container = LocalAppContainer.current
     val settings by container.settingsRepository.settings.collectAsStateWithLifecycle(AppSettings.DEFAULT)
     val session by container.sessionManager.state.collectAsStateWithLifecycle()
@@ -135,6 +164,14 @@ private fun LoginForm(onBack: (() -> Unit)?, onRegister: () -> Unit, onForgot: (
     val busy = submitting || session == SessionState.SigningIn
     val scope = rememberCoroutineScope()
     LaunchedEffect(settings.accountEmail) { if (account.isBlank()) account = settings.accountEmail }
+    LaunchedEffect(registeredAccount) {
+        if (registeredAccount != null) {
+            account = registeredAccount
+            password = ""
+            error = null
+            onRegisteredAccountConsumed()
+        }
+    }
     AccountScaffold(onBack = onBack) {
         Icon(
             Icons.Outlined.AutoAwesome, null,
@@ -142,7 +179,7 @@ private fun LoginForm(onBack: (() -> Unit)?, onRegister: () -> Unit, onForgot: (
                 .background(MaterialTheme.colorScheme.primary).padding(20.dp),
             tint = MaterialTheme.colorScheme.onPrimary,
         )
-        Text("登录账号", style = MaterialTheme.typography.headlineLarge)
+        Text("登录账号", style = MaterialTheme.typography.headlineLargeEmphasized)
         Text("使用哔咔账号登录", color = MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedTextField(
             account, { account = it; error = null }, Modifier.fillMaxWidth(), label = { Text("账号") },
@@ -150,15 +187,23 @@ private fun LoginForm(onBack: (() -> Unit)?, onRegister: () -> Unit, onForgot: (
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
         )
         PasswordField(password, { password = it; error = null }, enabled = !busy, isError = error != null)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(rememberCredentials, { rememberCredentials = it }, enabled = !busy)
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(
+                value = rememberCredentials,
+                enabled = !busy,
+                role = Role.Checkbox,
+                onValueChange = { rememberCredentials = it },
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(rememberCredentials, onCheckedChange = null, enabled = !busy)
             Text("记住账号和密码（本机加密保存）", style = MaterialTheme.typography.bodyMedium)
         }
         error?.let {
             AccountError(it)
-            TextButton(onNetwork) { Text("切换分流") }
+            AppTextButton(onNetwork) { Text("切换分流") }
         }
-        Button(
+        AppButton(
             onClick = {
                 submitting = true
                 error = null
@@ -183,8 +228,8 @@ private fun LoginForm(onBack: (() -> Unit)?, onRegister: () -> Unit, onForgot: (
             Text(if (busy) "正在登录" else "登录")
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            TextButton(onRegister, enabled = !busy) { Text("注册账号") }
-            TextButton(onForgot, enabled = !busy) { Text("忘记密码") }
+            AppTextButton(onRegister, enabled = !busy) { Text("注册账号") }
+            AppTextButton(onForgot, enabled = !busy) { Text("忘记密码") }
         }
         Card(Modifier.fillMaxWidth()) {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -199,7 +244,7 @@ private fun LoginForm(onBack: (() -> Unit)?, onRegister: () -> Unit, onForgot: (
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                FilledTonalButton(onNetwork, enabled = !busy) { Text("更改") }
+                AppFilledTonalButton(onNetwork, enabled = !busy) { Text("更改") }
             }
         }
     }
@@ -237,7 +282,7 @@ internal fun PasswordField(value: String, onChange: (String) -> Unit, label: Str
         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         trailingIcon = {
-            IconButton({ visible = !visible }) {
+            AppIconButton({ visible = !visible }) {
                 Icon(if (visible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, if (visible) "隐藏密码" else "显示密码")
             }
         },

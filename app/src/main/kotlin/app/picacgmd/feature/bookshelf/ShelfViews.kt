@@ -27,7 +27,6 @@ import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -35,14 +34,15 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import app.picacgmd.core.designsystem.component.AppButton
+import app.picacgmd.core.designsystem.component.AppIconButton
+import app.picacgmd.core.designsystem.component.AppTextButton
 import app.picacgmd.core.designsystem.component.ExpressivePullToRefreshBox
 import app.picacgmd.core.designsystem.component.rememberCoverListState
 import androidx.compose.material3.rememberSwipeToDismissBoxState
@@ -118,7 +118,7 @@ internal fun OnlineFavouritesView(
                 )
                 var menu by remember { mutableStateOf(false) }
                 Box {
-                    TextButton(onClick = { menu = true }) {
+                    AppTextButton(onClick = { menu = true }) {
                         Icon(Icons.AutoMirrored.Outlined.Sort, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
                         Text(if (sort == ComicSort.OLDEST) "旧到新" else "新到旧")
@@ -203,6 +203,7 @@ internal fun FollowView(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun FollowHeader(sorted: List<Subscription>, onRefresh: () -> Unit) {
     val container = LocalAppContainer.current
@@ -232,12 +233,13 @@ private fun FollowHeader(sorted: List<Subscription>, onRefresh: () -> Unit) {
         )
         // No spinner while checking: a check walks every subscription in turn and can take minutes,
         // and the count on the left plus the bar below already show how far it got.
-        TextButton(onClick = onRefresh, enabled = sorted.isNotEmpty() && !checking) { Text("检查更新") }
+        AppTextButton(onClick = onRefresh, enabled = sorted.isNotEmpty() && !checking) { Text("检查更新") }
     }
     if (checkState is SubscriptionCheckState.Checking && checkState.total > 0) {
-        LinearProgressIndicator(
+        LinearWavyProgressIndicator(
             progress = { checkState.completed.toFloat() / checkState.total },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
+            waveSpeed = 0.dp,
         )
     }
 }
@@ -369,7 +371,7 @@ private fun ContinueCard(
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             ComicCover(coverUrl = coverUrl, contentDescription = null, modifier = Modifier.width(76.dp), shape = MaterialTheme.shapes.large)
             Column(Modifier.weight(1f).padding(start = 16.dp)) {
-                Text("接着读", style = MaterialTheme.typography.labelLarge, color = colors.primary)
+                Text("接着读", style = MaterialTheme.typography.labelLarge, color = colors.onPrimaryContainer)
                 Text(
                     history.title,
                     style = MaterialTheme.typography.titleLarge,
@@ -377,8 +379,20 @@ private fun ContinueCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(history.progressText(), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp))
+                // Board 22 / SPEC 1059: the wavy bar shows how far into the chapter this record is.
+                // Only drawn once the chapter length is known (0 = record written before the field),
+                // and still (waveSpeed = 0) so it costs nothing while the card sits idle.
+                if (history.lastChapterPages > 0 && history.lastEpOrder >= 1 && history.lastPictureIndex >= 1) {
+                    LinearWavyProgressIndicator(
+                        progress = { (history.lastPictureIndex.toFloat() / history.lastChapterPages).coerceIn(0f, 1f) },
+                        color = colors.onPrimaryContainer,
+                        trackColor = colors.onPrimaryContainer.copy(alpha = 0.24f),
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        waveSpeed = 0.dp,
+                    )
+                }
                 Spacer(Modifier.height(12.dp))
-                Button(onClick = if (canContinue) onContinue else onOpen) {
+                AppButton(onClick = if (canContinue) onContinue else onOpen) {
                     Icon(Icons.Outlined.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(if (canContinue) "继续阅读" else "打开详情")
@@ -443,7 +457,7 @@ private fun HistoryRow(
                 trailingContent = if (selecting) null else {
                     {
                         Box {
-                            IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "更多操作") }
+                            AppIconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "更多操作") }
                             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, properties = securePopupProperties(focusable = true)) {
                                 DropdownMenuItem(
                                     text = { Text("继续阅读") },

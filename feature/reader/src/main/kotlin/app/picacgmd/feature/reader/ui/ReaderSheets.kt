@@ -50,7 +50,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.LocalPlatformContext
@@ -67,6 +66,7 @@ import coil3.size.Size as CoilSize
 private const val CHAPTERS_ABOVE_CURRENT = 3
 
 /** 章节: the whole list, opened on the current chapter, with read and downloaded chapters marked. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun ChapterSheet(
     chapters: List<ReaderChapter>,
@@ -89,7 +89,7 @@ internal fun ChapterSheet(
         ) {
             Text(
                 text = stringResource(R.string.reader_chapters_title, chapters.size),
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                style = MaterialTheme.typography.titleLargeEmphasized,
                 modifier = Modifier.weight(1f),
             )
             OrderChip(reversed) { reversed = !reversed }

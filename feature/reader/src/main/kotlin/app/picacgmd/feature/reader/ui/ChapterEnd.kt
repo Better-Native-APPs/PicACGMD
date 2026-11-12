@@ -2,10 +2,8 @@ package app.picacgmd.feature.reader.ui
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -37,17 +35,13 @@ import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.SwipeLeft
 import androidx.compose.material.icons.rounded.SwipeRight
 import androidx.compose.material.icons.rounded.SwipeUp
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -71,6 +65,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import app.picacgmd.core.designsystem.component.AppButton
+import app.picacgmd.core.designsystem.component.AppFilledTonalButton
+import app.picacgmd.core.designsystem.component.AppOutlinedButton
+import app.picacgmd.core.designsystem.component.AppTextButton
 import app.picacgmd.core.designsystem.window.secureDialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import coil3.compose.LocalPlatformContext
@@ -144,7 +142,7 @@ internal fun ChapterEndBlock(
                 Spacer(Modifier.height(8.dp))
                 NextChapterRow(info)
                 Spacer(Modifier.height(16.dp))
-                Button(
+                AppButton(
                     onClick = onNext,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -165,7 +163,7 @@ internal fun ChapterEndBlock(
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (onComments != null) {
-                        FilledTonalButton(onClick = onComments, modifier = Modifier.weight(1f)) {
+                        AppFilledTonalButton(onClick = onComments, modifier = Modifier.weight(1f)) {
                             Icon(
                                 imageVector = Icons.Rounded.Forum,
                                 contentDescription = null,
@@ -180,7 +178,7 @@ internal fun ChapterEndBlock(
                             )
                         }
                     }
-                    OutlinedButton(onClick = onFinish, modifier = Modifier.weight(1f)) {
+                    AppOutlinedButton(onClick = onFinish, modifier = Modifier.weight(1f)) {
                         Text(stringResource(R.string.reader_finish), maxLines = 1)
                     }
                 }
@@ -272,21 +270,23 @@ private fun ChapterCover(cover: PageImage) {
 }
 
 /** 「继续上滑直接进入下一话」; follows the finger, then says when letting go will leave the chapter. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun PullHint(pull: ChapterPullState, swipe: ForwardSwipe, muted: Color) {
     val density = LocalDensity.current
     val travel = with(density) { 10.dp.toPx() }
     val armed by remember(pull) { derivedStateOf { pull.armed } }
     val reduceMotion = LocalReaderReduceMotion.current
+    val motion = MaterialTheme.motionScheme
     // Follows the finger closely and settles back when a pull is let go without leaving.
     val shift by animateFloatAsState(
         targetValue = pull.progress,
-        animationSpec = if (reduceMotion) snap() else spring(stiffness = Spring.StiffnessHigh),
+        animationSpec = if (reduceMotion) snap() else motion.fastSpatialSpec(),
         label = "pull hint travel",
     )
     val color by animateColorAsState(
         targetValue = if (armed) MaterialTheme.colorScheme.primary else muted,
-        animationSpec = if (reduceMotion) snap() else spring(stiffness = Spring.StiffnessMediumLow),
+        animationSpec = if (reduceMotion) snap() else motion.fastEffectsSpec(),
         label = "pull hint",
     )
     val (icon: ImageVector, text: Int) = when (swipe) {
@@ -354,7 +354,7 @@ internal fun AllReadDialog(
                     textAlign = TextAlign.Center,
                 )
                 Spacer(Modifier.height(20.dp))
-                Button(
+                AppButton(
                     onClick = onBackToDetails,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -370,10 +370,10 @@ internal fun AllReadDialog(
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (onComments != null) {
-                            TextButton(onClick = onComments) { Text(stringResource(R.string.reader_see_comments)) }
+                            AppTextButton(onClick = onComments) { Text(stringResource(R.string.reader_see_comments)) }
                         }
                         if (onRelated != null) {
-                            TextButton(onClick = onRelated) { Text(stringResource(R.string.reader_related)) }
+                            AppTextButton(onClick = onRelated) { Text(stringResource(R.string.reader_related)) }
                         }
                     }
                 }

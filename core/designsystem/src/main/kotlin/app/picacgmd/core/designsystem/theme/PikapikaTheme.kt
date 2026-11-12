@@ -78,7 +78,17 @@ fun PikapikaTheme(
         if (dark && pureBlack) baseScheme.toPureBlack() else baseScheme
     }
     val typography = remember { pikapikaTypography() }
-    CompositionLocalProvider(LocalPikapikaExtendedColors provides extendedColors(themeChoice, dark)) {
+    val extended = remember(themeChoice, dark, colorScheme.primary) {
+        val base = extendedColors(themeChoice, dark)
+        // Under wallpaper colour the scheme itself is unknown until runtime, so the fixed
+        // success / warning set is rotated toward the live primary (see ColorHarmonize.kt).
+        if (themeChoice == ThemeChoice.Dynamic && isDynamicColorSupported) {
+            base.harmonisedToward(colorScheme.primary)
+        } else {
+            base
+        }
+    }
+    CompositionLocalProvider(LocalPikapikaExtendedColors provides extended) {
         MaterialExpressiveTheme(
             colorScheme = colorScheme,
             motionScheme = MotionScheme.expressive(),
@@ -105,8 +115,9 @@ fun staticColorScheme(themeChoice: ThemeChoice, dark: Boolean): ColorScheme = wh
 }
 
 /**
- * Success / warning roles. Wallpaper schemes reuse the brand set: harmonizing only shifts the hue
- * by a few degrees, and these roles are never the dominant color on screen.
+ * Success / warning roles. A fixed palette uses its own harmonised set from the design tokens;
+ * under dynamic colour the set is rotated toward the live wallpaper primary at runtime
+ * ([harmonisedToward]), so these roles are never the one colour left out of step with the scheme.
  */
 private fun extendedColors(themeChoice: ThemeChoice, dark: Boolean): PikapikaExtendedColors =
     when (themeChoice) {

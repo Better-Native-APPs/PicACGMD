@@ -1,6 +1,5 @@
 package app.picacgmd.feature.downloads
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,26 +23,22 @@ import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,12 +46,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.picacgmd.core.data.db.DownloadComic
 import app.picacgmd.core.data.db.DownloadEp
 import app.picacgmd.core.data.db.DownloadStatus
+import app.picacgmd.core.designsystem.component.AppButton
+import app.picacgmd.core.designsystem.component.AppFilledTonalButton
+import app.picacgmd.core.designsystem.component.AppIconButton
+import app.picacgmd.core.designsystem.component.AppOutlinedButton
+import app.picacgmd.core.designsystem.component.AppTextButton
 import app.picacgmd.core.designsystem.component.BackButton
 import app.picacgmd.core.designsystem.component.ComicCover
 import app.picacgmd.core.designsystem.component.LoadingState
@@ -112,15 +113,17 @@ fun DownloadDetailScreen(
         }
     }
 
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
                 title = { Text("下载详情") },
                 navigationIcon = { BackButton(onBack) },
+                scrollBehavior = scrollBehavior,
                 actions = {
                     if (comic != null) Box {
-                        IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, "更多操作") }
+                        AppIconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, "更多操作") }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, properties = securePopupProperties(focusable = true)) {
                             DropdownMenuItem(text = { Text("删除整本") }, leadingIcon = { Icon(Icons.Outlined.Delete, null) }, onClick = {
                                 menu = false
@@ -140,7 +143,7 @@ fun DownloadDetailScreen(
                 description = "这本漫画的下载已被删除",
                 icon = Icons.Outlined.Download,
                 modifier = Modifier.padding(padding).fillMaxSize(),
-                actions = { Button(onClick = onBack) { Text("返回") } },
+                actions = { AppButton(onClick = onBack) { Text("返回") } },
             )
             else -> LazyColumn(
                 modifier = Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize(),
@@ -220,13 +223,13 @@ private fun DownloadSnapshotHeader(
             }
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = onRead, enabled = canRead) {
+            AppButton(onClick = onRead, enabled = canRead) {
                 Icon(Icons.AutoMirrored.Outlined.MenuBook, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("继续阅读")
             }
-            OutlinedButton(onClick = onAddChapters) { Text("补充章节") }
-            if (onOpenComments != null) FilledTonalButton(onClick = onOpenComments) {
+            AppOutlinedButton(onClick = onAddChapters) { Text("补充章节") }
+            if (onOpenComments != null) AppFilledTonalButton(onClick = onOpenComments) {
                 Icon(Icons.Outlined.ChatBubbleOutline, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("评论")
@@ -254,8 +257,9 @@ private fun DownloadChapterRow(chapter: DownloadEp, onRead: () -> Unit, onRetry:
         DownloadChapterPhase.Deleting -> "删除中"
     }
     ListItem(
-        modifier = Modifier.clickable(enabled = phase == DownloadChapterPhase.Complete, onClick = onRead),
-        headlineContent = { Text(chapter.title) },
+        onClick = onRead,
+        enabled = phase == DownloadChapterPhase.Complete,
+        content = { Text(chapter.title) },
         supportingContent = {
             Column {
                 Text(if (chapter.selectedPictureCount > 0) "$label · ${chapter.completedPictureCount}/${chapter.selectedPictureCount} 张" else label,
@@ -273,8 +277,8 @@ private fun DownloadChapterRow(chapter: DownloadEp, onRead: () -> Unit, onRetry:
         },
         trailingContent = {
             Row {
-                if (phase == DownloadChapterPhase.Failed) TextButton(onClick = onRetry) { Text("重试") }
-                IconButton(onClick = onDelete) { Icon(Icons.Outlined.Delete, "删除${chapter.title}") }
+                if (phase == DownloadChapterPhase.Failed) AppTextButton(onClick = onRetry) { Text("重试") }
+                AppIconButton(onClick = onDelete) { Icon(Icons.Outlined.Delete, "删除${chapter.title}") }
             }
         },
     )
@@ -288,10 +292,10 @@ private fun DownloadDeleteDialog(title: String, description: String, onDismiss: 
         title = { Text(title) },
         text = { Text(description) },
         confirmButton = {
-            Button(onClick = onConfirm, colors = ButtonDefaults.buttonColors(
+            AppButton(onClick = onConfirm, colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError,
             )) { Text("删除") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        dismissButton = { AppTextButton(onClick = onDismiss) { Text("取消") } },
     )
 }

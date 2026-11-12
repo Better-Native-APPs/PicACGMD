@@ -25,9 +25,9 @@ import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import app.picacgmd.core.designsystem.component.AppIconButton
 import app.picacgmd.core.designsystem.component.ExpressivePullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -99,7 +99,7 @@ fun DiscoverScreen(
             trailingContent = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     // The same route icon as the top-right action of every list page.
-                    IconButton(onClick = onRouteClick) {
+                    AppIconButton(onClick = onRouteClick) {
                         Icon(Icons.Outlined.Route, contentDescription = stringResource(R.string.discover_route_switch))
                     }
                     if (showProfileEntry) {
@@ -188,6 +188,7 @@ internal fun categoryColumns(preferred: Int, widthDp: Float): Int = when {
 }
 
 /** Category grid placeholders shown on the very first load. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun DiscoverSkeleton(columns: Int) {
     Column(Modifier.fillMaxWidth()) {
@@ -197,7 +198,7 @@ private fun DiscoverSkeleton(columns: Int) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 repeat(columns) {
-                    SkeletonBlock(Modifier.weight(1f).height(88.dp), MaterialTheme.shapes.large)
+                    SkeletonBlock(Modifier.weight(1f).height(88.dp), MaterialTheme.shapes.largeIncreased)
                 }
             }
         }

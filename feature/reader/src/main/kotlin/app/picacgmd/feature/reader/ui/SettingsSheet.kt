@@ -2,6 +2,8 @@ package app.picacgmd.feature.reader.ui
 
 import androidx.compose.runtime.key
 import app.picacgmd.core.designsystem.component.AppSwitch
+import app.picacgmd.core.designsystem.component.AppTextButton
+import app.picacgmd.core.designsystem.component.ConnectedChoiceGroup
 import app.picacgmd.core.designsystem.component.withoutSelectedShape
 import app.picacgmd.core.designsystem.component.withoutSelectedTint
 import app.picacgmd.core.designsystem.window.secureModalBottomSheetProperties
@@ -23,7 +25,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -31,6 +32,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -56,7 +58,6 @@ import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.West
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -74,9 +75,6 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.ToggleButton
-import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -87,14 +85,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.picacgmd.feature.reader.ImageQuality
@@ -180,7 +179,7 @@ internal fun ReaderSettingsSheet(
             ) {
                 Text(
                     text = stringResource(R.string.reader_settings_title),
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.titleLargeEmphasized,
                     modifier = Modifier.weight(1f),
                 )
                 if (onOpenAllSettings != null) {
@@ -188,10 +187,12 @@ internal fun ReaderSettingsSheet(
                 }
             }
             SettingRow(Icons.Rounded.AutoStories, stringResource(R.string.reader_setting_mode)) {
-                ChoiceGroup(
+                ConnectedChoiceGroup(
                     options = ReaderMode.entries,
                     selected = config.mode,
                     onSelect = { onConfigChange(config.copy(mode = it)) },
+                    role = Role.RadioButton,
+                    contentPadding = ButtonDefaults.ExtraSmallContentPadding,
                 ) { mode ->
                     Text(
                         text = stringResource(
@@ -208,11 +209,13 @@ internal fun ReaderSettingsSheet(
             }
             SettingRow(Icons.Rounded.SwapVert, stringResource(R.string.reader_setting_direction)) {
                 val allowed = availableDirections(config.mode)
-                ChoiceGroup(
+                ConnectedChoiceGroup(
                     options = ReaderDirection.entries,
                     selected = effectiveDirection(config.mode, config.direction),
                     onSelect = { onConfigChange(config.copy(direction = it)) },
+                    role = Role.RadioButton,
                     enabled = { it in allowed },
+                    contentPadding = ButtonDefaults.ExtraSmallContentPadding,
                 ) { direction ->
                     val (icon, label) = when (direction) {
                         ReaderDirection.TopToBottom -> Icons.Rounded.South to R.string.reader_direction_ttb
@@ -226,10 +229,12 @@ internal fun ReaderSettingsSheet(
             ExpandingRow(visible = config.mode == ReaderMode.DoublePage) {
                 Column {
                     SettingRow(Icons.AutoMirrored.Rounded.MenuBook, stringResource(R.string.reader_setting_arrangement)) {
-                        ChoiceGroup(
+                        ConnectedChoiceGroup(
                             options = TwoPageArrangement.entries,
                             selected = config.twoPageArrangement,
                             onSelect = { onConfigChange(config.copy(twoPageArrangement = it)) },
+                            role = Role.RadioButton,
+                            contentPadding = ButtonDefaults.ExtraSmallContentPadding,
                         ) { arrangement ->
                             Text(
                                 text = stringResource(
@@ -275,10 +280,12 @@ internal fun ReaderSettingsSheet(
                 BackgroundChoice(config.background) { onConfigChange(config.copy(background = it)) }
             }
             SettingRow(Icons.Rounded.PhotoFilter, stringResource(R.string.reader_setting_filter)) {
-                ChoiceGroup(
+                ConnectedChoiceGroup(
                     options = ReaderFilter.entries,
                     selected = config.filter,
                     onSelect = { onConfigChange(config.copy(filter = it)) },
+                    role = Role.RadioButton,
+                    contentPadding = ButtonDefaults.ExtraSmallContentPadding,
                 ) { filter ->
                     Text(
                         text = stringResource(
@@ -293,10 +300,12 @@ internal fun ReaderSettingsSheet(
                 }
             }
             SettingRow(Icons.Rounded.HighQuality, stringResource(R.string.reader_setting_quality)) {
-                ChoiceGroup(
+                ConnectedChoiceGroup(
                     options = ImageQuality.entries,
                     selected = config.quality,
                     onSelect = { onConfigChange(config.copy(quality = it)) },
+                    role = Role.RadioButton,
+                    contentPadding = ButtonDefaults.ExtraSmallContentPadding,
                 ) { quality ->
                     Text(
                         text = stringResource(
@@ -439,13 +448,17 @@ private fun AutoScrollSpeedSlider(step: Int, onChange: (Int) -> Unit) {
 }
 
 /** A row that belongs to the setting above it (a switch, or the mode) and only shows while it applies. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ColumnScope.ExpandingRow(visible: Boolean, content: @Composable () -> Unit) {
     val reduceMotion = LocalReaderReduceMotion.current
+    val motion = MaterialTheme.motionScheme
     AnimatedVisibility(
         visible = visible,
-        enter = if (reduceMotion) EnterTransition.None else fadeIn() + expandVertically(),
-        exit = if (reduceMotion) ExitTransition.None else fadeOut() + shrinkVertically(),
+        enter = if (reduceMotion) EnterTransition.None else
+            fadeIn(motion.defaultEffectsSpec()) + expandVertically(motion.defaultSpatialSpec()),
+        exit = if (reduceMotion) ExitTransition.None else
+            fadeOut(motion.fastEffectsSpec()) + shrinkVertically(motion.defaultSpatialSpec()),
     ) {
         content()
     }
@@ -511,7 +524,7 @@ private fun RoutePill(label: String, onClick: () -> Unit) {
 
 @Composable
 private fun SmallTextButton(text: String, onClick: () -> Unit) {
-    TextButton(
+    AppTextButton(
         onClick = onClick,
         modifier = Modifier.heightIn(min = ButtonDefaults.ExtraSmallContainerHeight),
         contentPadding = ButtonDefaults.ExtraSmallContentPadding,
@@ -539,70 +552,33 @@ private fun SettingRow(icon: ImageVector, label: String, content: @Composable ()
     }
 }
 
-/** Connected buttons, one of which is on; the selected one rounds out into a pill. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun <T> ChoiceGroup(
-    options: List<T>,
-    selected: T,
-    onSelect: (T) -> Unit,
-    enabled: (T) -> Boolean = { true },
-    content: @Composable RowScope.(T) -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
-    ) {
-        val last = options.lastIndex
-        options.forEachIndexed { index, option ->
-            ToggleButton(
-                checked = option == selected,
-                onCheckedChange = { if (it) onSelect(option) },
-                modifier = Modifier
-                    .weight(1f)
-                    .semantics { role = Role.RadioButton },
-                enabled = enabled(option),
-                shapes = when (index) {
-                    0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                    last -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                },
-                colors = ToggleButtonDefaults.colors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                ),
-                contentPadding = ButtonDefaults.ExtraSmallContentPadding,
-            ) {
-                content(option)
-            }
-        }
-    }
-}
-
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun BackgroundChoice(selected: ReaderBackground, onSelect: (ReaderBackground) -> Unit) {
     val reduceMotion = LocalReaderReduceMotion.current
+    val density = LocalDensity.current
+    val swatchSize = with(density) { Size(36.dp.toPx(), 36.dp.toPx()) }
     Row(
         modifier = Modifier.selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         ReaderBackground.entries.forEach { background ->
             val isSelected = background == selected
+            val targetShape = if (isSelected) MaterialTheme.shapes.medium else MaterialTheme.shapes.largeIncreased
             val corner by animateDpAsState(
-                targetValue = if (isSelected) 12.dp else 18.dp,
+                targetValue = with(density) { targetShape.topStart.toPx(swatchSize, this).toDp() },
                 animationSpec = if (reduceMotion) snap() else MaterialTheme.motionScheme.fastSpatialSpec(),
                 label = "background shape",
             )
             val shape = RoundedCornerShape(corner)
             Column(
-                modifier = Modifier.selectable(
-                    selected = isSelected,
-                    role = Role.RadioButton,
-                    onClick = { onSelect(background) },
-                ),
+                modifier = Modifier
+                    .widthIn(min = 48.dp)
+                    .selectable(
+                        selected = isSelected,
+                        role = Role.RadioButton,
+                        onClick = { onSelect(background) },
+                    ),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
@@ -702,6 +678,7 @@ private fun SwitchRow(
     ListItem(
         checked = checked,
         onCheckedChange = onCheckedChange,
+        modifier = Modifier.semantics { role = Role.Switch },
         supportingContent = supporting?.let { text -> { Text(text) } },
         leadingContent = {
             if (icon != null) {

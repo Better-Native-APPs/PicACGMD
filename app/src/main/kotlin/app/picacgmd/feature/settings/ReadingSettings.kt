@@ -13,7 +13,6 @@ import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -34,6 +33,7 @@ import app.picacgmd.core.data.settings.ReaderScrollMode
 import app.picacgmd.core.data.settings.ReaderSliderPosition
 import app.picacgmd.core.data.settings.ReaderTapZones
 import app.picacgmd.core.data.settings.TwoPagePlacement
+import app.picacgmd.core.designsystem.component.AppTextButton
 import app.picacgmd.di.LocalAppContainer
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -224,7 +224,6 @@ internal fun SliderRow(
     var local by remember { mutableFloatStateOf(value) }
     val shown = if (dragging) local else value
     SegmentedListItem(
-        onClick = {},
         shapes = shapes,
         enabled = enabled,
         trailingContent = {
@@ -277,9 +276,9 @@ private fun ZoomDialog(
             }
         },
         confirmButton = {
-            TextButton(enabled = valid, onClick = { onSave(min, max, double); onDismiss() }) { Text("保存") }
+            AppTextButton(enabled = valid, onClick = { onSave(min, max, double); onDismiss() }) { Text("保存") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        dismissButton = { AppTextButton(onClick = onDismiss) { Text("取消") } },
     )
 }
 

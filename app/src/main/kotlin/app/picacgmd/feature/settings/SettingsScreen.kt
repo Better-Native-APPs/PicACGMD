@@ -28,7 +28,6 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
@@ -54,6 +53,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.graphics.shapes.RoundedPolygon
 import app.picacgmd.R
+import app.picacgmd.core.designsystem.component.AppIconButton
 import app.picacgmd.core.designsystem.component.PredictiveBackContent
 
 /**
@@ -265,7 +265,7 @@ fun SettingsScreen(
                     leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
                     trailingIcon = if (query.isNotEmpty()) {
                         {
-                            IconButton(onClick = { query = ""; searching = false }) {
+                            AppIconButton(onClick = { query = ""; searching = false }) {
                                 Icon(Icons.Outlined.Close, contentDescription = "清除")
                             }
                         }
@@ -363,7 +363,8 @@ private fun PageGroup(
 
 /**
  * One settings sub page. [onOpenDownloads] opens the downloads tab from the storage card;
- * [onOpenPage] lets the about entry etc. jump between pages.
+ * [onOpenCategories] opens 「分类管理」 from the browsing page; [onOpenPage] lets the about entry
+ * etc. jump between pages.
  */
 @Composable
 fun SettingsPageScreen(
@@ -371,10 +372,11 @@ fun SettingsPageScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     onOpenDownloads: () -> Unit = {},
+    onOpenCategories: () -> Unit = {},
 ) {
     when (page) {
         SettingsPage.Appearance -> AppearanceSettingsPage(onBack, modifier)
-        SettingsPage.Browsing -> BrowsingSettingsPage(onBack, modifier)
+        SettingsPage.Browsing -> BrowsingSettingsPage(onBack, onOpenCategories, modifier)
         SettingsPage.Reading -> ReadingSettingsPage(onBack, modifier)
         SettingsPage.Downloads -> app.picacgmd.feature.downloads.DownloadSettingsScreen(onBack, modifier)
         SettingsPage.Network -> NetworkSettingsPage(onBack, modifier)
@@ -395,6 +397,7 @@ fun SettingsHost(
     modifier: Modifier = Modifier,
     initialPage: SettingsPage? = null,
     onOpenDownloads: () -> Unit = {},
+    onOpenCategories: () -> Unit = {},
 ) {
     val stack = rememberSaveable(
         saver = listSaver(save = { list -> list.map { it.name } }, restore = { names -> mutableStateListOf(*names.map(SettingsPage::valueOf).toTypedArray()) }),
@@ -414,7 +417,12 @@ fun SettingsHost(
         if (key == "home") {
             SettingsScreen(onBack = onBack, onOpenPage = { stack.add(it) })
         } else {
-            SettingsPageScreen(page = SettingsPage.valueOf(key), onBack = back, onOpenDownloads = onOpenDownloads)
+            SettingsPageScreen(
+                page = SettingsPage.valueOf(key),
+                onBack = back,
+                onOpenDownloads = onOpenDownloads,
+                onOpenCategories = onOpenCategories,
+            )
         }
     }
 }

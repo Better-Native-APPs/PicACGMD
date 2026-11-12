@@ -6,12 +6,13 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.os.Build
 import android.os.PersistableBundle
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -27,8 +28,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import app.picacgmd.core.designsystem.component.AppButton
 import app.picacgmd.di.LocalAppContainer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -50,10 +53,18 @@ internal fun ForgotPasswordScreen(onBack: () -> Unit) {
         if (questions.isEmpty()) Text("输入账号查看安全问题")
         if (questions.isNotEmpty() && newPassword == null) {
             Text("选择一个安全问题", style = MaterialTheme.typography.titleMedium)
-            Card {
+            Card(Modifier.selectableGroup()) {
                 questions.forEachIndexed { index, label ->
-                    Row(Modifier.fillMaxWidth().clickable(enabled = !busy) { question = index }.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(question == index, { question = index }, enabled = !busy)
+                    Row(
+                        Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(
+                            selected = question == index,
+                            enabled = !busy,
+                            role = Role.RadioButton,
+                            onClick = { question = index },
+                        ).padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(question == index, onClick = null, enabled = !busy)
                         Text(label, Modifier.weight(1f))
                     }
                 }
@@ -70,7 +81,7 @@ internal fun ForgotPasswordScreen(onBack: () -> Unit) {
             }
         }
         error?.let { AccountError(it) }
-        Button(
+        AppButton(
             onClick = {
                 if (newPassword != null) onBack() else {
                     busy = true
