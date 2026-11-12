@@ -234,12 +234,11 @@ fun DownloadSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         ListItem(
             onClick = { changeLocation(null) },
             content = { Text("应用内部存储") },
-            supportingContent = { Text("无需目录授权") },
             leadingContent = { RadioButton(selected = treeUri == null, onClick = null) },
         )
         ListItem(
             content = { Text(if (treeUri == null) "选择文件夹" else "更改文件夹") },
-            supportingContent = { Text(folderName ?: "使用系统文件选择器") },
+            supportingContent = folderName?.let { name -> { Text(name) } },
             leadingContent = { Icon(Icons.Outlined.FolderOpen, null) },
             onClick = {
                 choosingLocation = false

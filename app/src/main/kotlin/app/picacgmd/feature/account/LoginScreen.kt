@@ -127,8 +127,6 @@ private fun NoticeScreen(onBack: (() -> Unit)?, onContinue: () -> Unit) {
                 Text("可能含限制级内容，仅限 18 岁及以上用户")
                 Text("独立客户端", style = MaterialTheme.typography.titleMedium)
                 Text("与内容平台无隶属关系，账号和内容由平台提供")
-                Text("本机隐私", style = MaterialTheme.typography.titleMedium)
-                Text("不收集使用数据，记录只保存在本机")
             }
         }
         Row(
@@ -197,7 +195,7 @@ private fun LoginForm(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Checkbox(rememberCredentials, onCheckedChange = null, enabled = !busy)
-            Text("记住账号和密码（本机加密保存）", style = MaterialTheme.typography.bodyMedium)
+            Text("记住账号和密码", style = MaterialTheme.typography.bodyMedium)
         }
         error?.let {
             AccountError(it)

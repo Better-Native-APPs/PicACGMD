@@ -545,11 +545,6 @@ private fun PasswordDialog(onSave: (String, String) -> Unit, onDismiss: () -> Un
                     )
                 }
                 if (error != null) Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                Text(
-                    "本机保存的登录密码同步更新",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
         },
         confirmButton = {

@@ -156,7 +156,7 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: (String) -> Unit) 
                                     val message = exception.localizedMessage ?: "注册失败"
                                     val detail = (exception as? PicaException)?.detail?.toString().orEmpty()
                                     error = when {
-                                        registered -> "账号已注册，但本机登录信息未能更新：$message"
+                                        registered -> "账号已注册，请返回登录"
                                         message.contains("email is already exist", ignoreCase = true) -> "账号已存在，请直接登录或更换账号"
                                         message.contains("name is already exist", ignoreCase = true) -> "昵称已被使用，请换一个昵称"
                                         message.equals("validation error", ignoreCase = true) -> when {
