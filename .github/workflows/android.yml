@@ -83,6 +83,16 @@ jobs:
           cp app/build/outputs/apk/debug/app-debug.apk "dist/PicACGMD-v${{ steps.version.outputs.name }}-debug.apk"
           sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
 
+      # The release page shows what changed: the version's CHANGELOG.md section plus install steps.
+      - name: Release notes
+        if: github.ref_type == 'tag'
+        env:
+          SIGNED: ${{ env.KEYSTORE_BASE64 != '' }}
+        run: |
+          bash .github/scripts/release-notes.sh "${{ steps.version.outputs.name }}" \
+            "dist/PicACGMD-v${{ steps.version.outputs.name }}.apk" > dist/RELEASE_NOTES.md
+          cat dist/RELEASE_NOTES.md
+
       - uses: actions/upload-artifact@v7
         with:
           name: PicACGMD-v${{ steps.version.outputs.name }}-${{ github.sha }}
@@ -114,7 +124,9 @@ jobs:
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
+        # --generate-notes appends GitHub's "Full Changelog" compare link below our own notes.
         run: |
           gh release create "$GITHUB_REF_NAME" \
             "dist/PicACGMD-v${{ needs.build.outputs.version }}.apk" dist/SHA256SUMS.txt \
-            --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes --verify-tag
+            --repo "$GITHUB_REPOSITORY" --title "PicACGMD $GITHUB_REF_NAME" \
+            --notes-file dist/RELEASE_NOTES.md --generate-notes --verify-tag
