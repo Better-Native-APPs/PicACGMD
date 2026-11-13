@@ -9,20 +9,11 @@
     <string name="nav_downloads">下载</string>
     <string name="nav_me">我的</string>
     <string name="nav_search">搜索</string>
-    <string name="action_back">返回</string>
 
     <!-- Page titles -->
     <string name="title_settings">设置</string>
-    <string name="title_search">搜索</string>
-    <string name="title_search_keyword">搜索「%1$s」</string>
-    <string name="title_comic_list">漫画列表</string>
-    <string name="title_comic_detail">漫画详情</string>
     <string name="title_reader">阅读</string>
-    <string name="title_rankings">排行榜</string>
-    <string name="title_random">随机本子</string>
-    <string name="title_games">游戏专区</string>
     <string name="title_categories">全分类</string>
-    <string name="title_login">登录</string>
 
     <!-- Discover -->
     <string name="discover_search_placeholder">搜索漫画、作者、标签</string>
@@ -31,7 +22,6 @@
     <string name="discover_channel_random">随机</string>
     <string name="discover_channel_games">游戏专区</string>
     <string name="discover_section_categories">分类</string>
-    <string name="discover_action_all">全部</string>
     <string name="discover_action_manage_categories">分类管理</string>
 
     <!-- Discover preview content. -->
