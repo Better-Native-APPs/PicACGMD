@@ -1,6 +1,7 @@
 package app.picacgmd.feature.games
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
@@ -17,11 +18,11 @@ import kotlinx.coroutines.launch
 internal class GamesViewModel(private val repository: GameRepository) : ViewModel() {
     var games by mutableStateOf<List<GameSimple>>(emptyList())
         private set
-    var page by mutableStateOf(0)
+    var page by mutableIntStateOf(0)
         private set
-    var pages by mutableStateOf(0)
+    var pages by mutableIntStateOf(0)
         private set
-    var total by mutableStateOf(0)
+    var total by mutableIntStateOf(0)
         private set
     var loading by mutableStateOf(false)
         private set

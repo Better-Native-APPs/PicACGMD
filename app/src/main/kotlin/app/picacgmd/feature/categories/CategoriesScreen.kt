@@ -312,6 +312,8 @@ private fun PinToggle(pinned: Boolean, name: String, onPin: (String, Boolean) ->
     }
 }
 
+// This modifier belongs to the drag handle, not the row.
+@Suppress("ModifierParameter")
 @Composable
 private fun CategoryRow(
     category: Category,

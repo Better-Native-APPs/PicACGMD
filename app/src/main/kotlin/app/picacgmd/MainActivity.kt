@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
+import androidx.core.content.edit
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -145,7 +146,7 @@ class MainActivity : ComponentActivity() {
                 if (!locked && settings != null && Build.VERSION.SDK_INT >= 33 && session is SessionState.SignedIn && downloadsActive) {
                     val history = getSharedPreferences("system_permissions", MODE_PRIVATE)
                     if (!history.getBoolean("notifications_requested", false)) {
-                        history.edit().putBoolean("notifications_requested", true).apply()
+                        history.edit { putBoolean("notifications_requested", true) }
                         if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                             permission.launch(Manifest.permission.POST_NOTIFICATIONS)
                         }

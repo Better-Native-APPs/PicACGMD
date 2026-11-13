@@ -40,6 +40,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -74,7 +75,7 @@ fun GameDetailScreen(gameId: String, onBack: () -> Unit, onComments: (String) ->
     val repository = LocalAppContainer.current.gameRepository
     var game by remember(gameId) { mutableStateOf<GameInfo?>(null) }
     var error by remember(gameId) { mutableStateOf<String?>(null) }
-    var attempt by remember { mutableStateOf(0) }
+    var attempt by remember { mutableIntStateOf(0) }
     var loading by remember { mutableStateOf(true) }
     var links by remember { mutableStateOf(false) }
     var screenshot by remember { mutableStateOf<PicaImage?>(null) }

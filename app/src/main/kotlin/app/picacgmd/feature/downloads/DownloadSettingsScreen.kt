@@ -2,7 +2,6 @@ package app.picacgmd.feature.downloads
 
 import android.app.Activity
 import android.content.Intent
-import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -28,6 +27,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,6 +50,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -98,7 +99,7 @@ fun DownloadSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val folderName by produceState<String?>(null, treeUri) {
         value = treeUri?.let { selected -> withContext(Dispatchers.IO) {
             try {
-                val tree = Uri.parse(selected)
+                val tree = selected.toUri()
                 val document = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
                 context.contentResolver.query(document, arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME), null, null, null)
                     ?.use { if (it.moveToFirst()) it.getString(0) else "目录不可用" } ?: "目录不可用"
@@ -245,7 +246,7 @@ fun DownloadSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 picker.launch(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
                         Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION or Intent.FLAG_GRANT_PREFIX_URI_PERMISSION)
-                    treeUri?.let { putExtra(DocumentsContract.EXTRA_INITIAL_URI, Uri.parse(it)) }
+                    treeUri?.let { putExtra(DocumentsContract.EXTRA_INITIAL_URI, it.toUri()) }
                 })
             },
         )
@@ -284,8 +285,11 @@ private fun ThreadCountCard(threads: Int, defaultThreads: Int, onCommit: (Int) -
                         modifier = Modifier.padding(start = 12.dp),
                     )
                 }
+                val position = if (dragging) local else threads.toFloat()
+                val sliderState = remember { SliderState(value = position, steps = 14, trackRange = 1f..16f) }
+                sliderState.value = position
                 Slider(
-                    value = if (dragging) local else threads.toFloat(),
+                    state = sliderState,
                     onValueChange = {
                         dragging = true
                         local = it
@@ -294,8 +298,6 @@ private fun ThreadCountCard(threads: Int, defaultThreads: Int, onCommit: (Int) -
                         dragging = false
                         onCommit(local.roundToInt().coerceIn(1, 16))
                     },
-                    valueRange = 1f..16f,
-                    steps = 14,
                     modifier = Modifier
                         .padding(top = 12.dp)
                         .semantics {

@@ -1,6 +1,7 @@
 package app.picacgmd.feature.games
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
@@ -28,9 +29,9 @@ internal class GameCommentsViewModel(
 ) : ViewModel() {
     var comments by mutableStateOf<List<Comment>>(emptyList())
         private set
-    var page by mutableStateOf(0)
+    var page by mutableIntStateOf(0)
         private set
-    var pages by mutableStateOf(0)
+    var pages by mutableIntStateOf(0)
         private set
     var loading by mutableStateOf(false)
         private set

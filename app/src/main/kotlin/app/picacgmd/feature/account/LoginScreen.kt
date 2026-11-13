@@ -38,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -52,6 +53,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.core.content.edit
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.designsystem.component.AppButton
@@ -75,7 +77,7 @@ fun LoginScreen(onBack: (() -> Unit)? = null) {
     var page by rememberSaveable { mutableStateOf(if (onboarding.getBoolean("notice_accepted", false)) "login" else "notice") }
     var network by rememberSaveable { mutableStateOf(false) }
     // A completed form must not be restored when starting another registration.
-    var registrationAttempt by rememberSaveable { mutableStateOf(0) }
+    var registrationAttempt by rememberSaveable { mutableIntStateOf(0) }
     var registeredAccount by rememberSaveable { mutableStateOf<String?>(null) }
     PredictiveBackContent(
         current = page,
@@ -85,7 +87,7 @@ fun LoginScreen(onBack: (() -> Unit)? = null) {
     ) { current, back ->
         when (current) {
             "notice" -> NoticeScreen(onBack) {
-                onboarding.edit().putBoolean("notice_accepted", true).apply()
+                onboarding.edit { putBoolean("notice_accepted", true) }
                 page = "login"
             }
             "register" -> key(registrationAttempt) {

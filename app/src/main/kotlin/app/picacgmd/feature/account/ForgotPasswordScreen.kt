@@ -2,8 +2,6 @@ package app.picacgmd.feature.account
 
 import android.content.ClipData
 import android.content.ClipDescription
-import android.content.ClipboardManager
-import android.content.Context
 import android.os.Build
 import android.os.PersistableBundle
 import androidx.compose.foundation.layout.Column
@@ -20,6 +18,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -27,7 +26,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -39,11 +39,11 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun ForgotPasswordScreen(onBack: () -> Unit) {
     val container = LocalAppContainer.current
-    val context = LocalContext.current
+    val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
     var email by rememberSaveable { mutableStateOf("") }
     var questions by remember { mutableStateOf<List<String>>(emptyList()) }
-    var question by rememberSaveable { mutableStateOf(0) }
+    var question by rememberSaveable { mutableIntStateOf(0) }
     var answer by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -101,7 +101,7 @@ internal fun ForgotPasswordScreen(onBack: () -> Unit) {
                                 if (Build.VERSION.SDK_INT >= 33) {
                                     clip.description.extras = PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true) }
                                 }
-                                (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(clip)
+                                clipboard.setClipEntry(ClipEntry(clip))
                             }
                         } catch (exception: CancellationException) {
                             throw exception

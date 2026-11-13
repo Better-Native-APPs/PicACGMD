@@ -6,7 +6,6 @@ import app.picacgmd.core.designsystem.window.secureModalBottomSheetProperties
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.StatFs
 import android.text.format.Formatter
 import androidx.compose.animation.core.animateFloatAsState
@@ -51,9 +50,10 @@ import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -73,6 +73,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
+import androidx.core.net.toUri
 import coil3.ImageLoader
 import app.picacgmd.core.data.db.PicaDatabase
 import app.picacgmd.core.data.settings.CacheCleanupInterval
@@ -316,7 +317,7 @@ private fun CleanCacheSheet(
     onClean: (images: Boolean, api: Boolean, history: Boolean) -> Unit,
 ) {
     val context = LocalContext.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
     val scope = rememberCoroutineScope()
     var images by rememberSaveable { mutableStateOf(true) }
     var api by rememberSaveable { mutableStateOf(true) }
@@ -403,7 +404,7 @@ internal fun AboutSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier
 
     fun openBrowser(url: String) {
         try {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE))
+            context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()).addCategory(Intent.CATEGORY_BROWSABLE))
         } catch (_: ActivityNotFoundException) {
             scope.launch { snackbar.showSnackbar("打开失败：无可用浏览器") }
         }

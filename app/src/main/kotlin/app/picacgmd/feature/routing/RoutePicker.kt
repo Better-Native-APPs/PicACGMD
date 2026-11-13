@@ -41,7 +41,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -58,6 +57,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.picacgmd.core.designsystem.component.AppButton
 import app.picacgmd.core.designsystem.component.AppFilledTonalButton
 import app.picacgmd.core.designsystem.component.AppIconButton
@@ -74,9 +74,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /** Current selection of both route lists, for the settings row, menus and the reader. */
@@ -89,21 +89,22 @@ data class RouteSummary(val apiLabel: String, val imageLabel: String) {
 @Composable
 fun rememberRouteSummary(): RouteSummary? {
     val routing = LocalAppContainer.current.routingRepository
-    val api by routing.apiRoutes.collectAsState(initial = null)
-    val image by routing.imageRoutes.collectAsState(initial = null)
+    val api by routing.apiRoutes.collectAsStateWithLifecycle(initialValue = null)
+    val image by routing.imageRoutes.collectAsStateWithLifecycle(initialValue = null)
     return RouteSummary(api?.selected?.label ?: return null, image?.selected?.label ?: return null)
 }
 
 /** 「今天 14:05」「11月2日 09:30」「2025年3月1日」. */
 internal fun formatSyncTime(millis: Long, now: Long = System.currentTimeMillis()): String {
-    val then = Calendar.getInstance().apply { timeInMillis = millis }
-    val today = Calendar.getInstance().apply { timeInMillis = now }
+    val zone = ZoneId.systemDefault()
+    val then = Instant.ofEpochMilli(millis).atZone(zone)
+    val today = Instant.ofEpochMilli(now).atZone(zone)
     val pattern = when {
-        then.get(Calendar.YEAR) != today.get(Calendar.YEAR) -> "yyyy年M月d日"
-        then.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR) -> "今天 HH:mm"
+        then.year != today.year -> "yyyy年M月d日"
+        then.dayOfYear == today.dayOfYear -> "今天 HH:mm"
         else -> "M月d日 HH:mm"
     }
-    return SimpleDateFormat(pattern, Locale.CHINA).format(Date(millis))
+    return DateTimeFormatter.ofPattern(pattern, Locale.CHINA).format(then)
 }
 
 private enum class RouteWork { Switching, Syncing }
@@ -122,9 +123,9 @@ private data class RouteMessage(val text: String, val tone: RouteTone = RouteTon
 fun RoutePickerDialog(onDismiss: () -> Unit) {
     val container = LocalAppContainer.current
     val routing = container.routingRepository
-    val settings by container.settingsRepository.settings.collectAsState(initial = null)
-    val apiState by routing.apiRoutes.collectAsState(initial = null)
-    val imageState by routing.imageRoutes.collectAsState(initial = null)
+    val settings by container.settingsRepository.settings.collectAsStateWithLifecycle(initialValue = null)
+    val apiState by routing.apiRoutes.collectAsStateWithLifecycle(initialValue = null)
+    val imageState by routing.imageRoutes.collectAsStateWithLifecycle(initialValue = null)
     val api = apiState ?: return
     val image = imageState ?: return
     val proxyOn = settings?.proxyUrl?.isNotBlank() == true
