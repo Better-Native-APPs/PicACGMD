@@ -31,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -126,7 +127,7 @@ fun ComicCover(
 ) {
     var failed by remember(coverUrl) { mutableStateOf(false) }
     var loaded by remember(coverUrl) { mutableStateOf(false) }
-    var attempt by remember(coverUrl) { mutableStateOf(0) }
+    var attempt by remember(coverUrl) { mutableIntStateOf(0) }
     val loading = !coverUrl.isNullOrEmpty() && !failed && !loaded
     val composedAt = remember { System.nanoTime() }
     Box(

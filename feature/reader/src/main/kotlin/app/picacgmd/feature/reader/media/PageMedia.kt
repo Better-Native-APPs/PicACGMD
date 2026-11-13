@@ -9,11 +9,11 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.BitmapRegionDecoder
 import android.graphics.Rect
-import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
+import androidx.core.net.toUri
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import coil3.request.CachePolicy
@@ -151,7 +151,7 @@ private suspend fun <T> withPageFile(
             // Media actions need a seekable original file; normal reading streams directly through Coil.
             val temporary = File.createTempFile(".document-page.", ".image", context.cacheDir)
             try {
-                context.contentResolver.openInputStream(Uri.parse(image.uri))?.use { input ->
+                context.contentResolver.openInputStream(image.uri.toUri())?.use { input ->
                     temporary.outputStream().use { input.copyTo(it, 64 * 1024) }
                 } ?: throw IOException("无法读取下载文件，请重新授权下载目录")
                 block(temporary)

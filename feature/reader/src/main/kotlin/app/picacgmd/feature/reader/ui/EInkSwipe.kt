@@ -9,7 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import app.picacgmd.feature.reader.logic.eInkSwipeStep
 
 /** One discrete step on release. Leaves taps, child retry gestures and two-finger zoom alone. */
@@ -22,7 +22,7 @@ internal fun Modifier.eInkSwipe(
     onStep: (Boolean) -> Unit,
 ): Modifier {
     if (!enabled) return this
-    val metrics = LocalContext.current.resources.displayMetrics
+    val metrics = LocalResources.current.displayMetrics
     val dpi = if (vertical) metrics.ydpi else metrics.xdpi
     val step by rememberUpdatedState(onStep)
     return pointerInput(vertical, rightToLeft, triggerCm, dpi) {

@@ -9,6 +9,7 @@ android {
 
 dependencies {
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.core)
     api(platform(libs.compose.bom))
     api(libs.compose.material3)
     implementation(libs.compose.foundation)
