@@ -3,8 +3,13 @@ package app.picacgmd.feature.comics
 import app.picacgmd.core.data.settings.PaginationMode
 import app.picacgmd.core.domain.repository.FilteredPage
 import app.picacgmd.core.network.ComicSimple
+import app.picacgmd.paging.Dedupe
+import app.picacgmd.paging.PageAccumulator
+import app.picacgmd.paging.PageData
+import app.picacgmd.paging.PageWrite
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,7 +42,10 @@ data class ComicPageState(
     val appending: Boolean = false,
     val appendError: String? = null,
 ) {
-    val comics: List<ComicSimple> get() = entries.mapNotNull { (it as? ComicEntry.Comic)?.comic }
+    // Keep this outside the constructor so equality, hashCode, and copy ignore the cached value.
+    val comics: List<ComicSimple> by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        entries.mapNotNull { (it as? ComicEntry.Comic)?.comic }
+    }
     val hasNextPage: Boolean get() = page < pages
     val isEmpty: Boolean get() = !loading && error == null && entries.none { it is ComicEntry.Comic }
 }
@@ -54,6 +62,13 @@ class ComicPager(
     val state: StateFlow<ComicPageState> = mutableState.asStateFlow()
     var mode: PaginationMode = PaginationMode.INFINITE
     private var job: Job? = null
+    private val accumulator = PageAccumulator<ComicEntry, String, Int>(
+        initial = PageData(items = emptyList(), page = 0, pages = 0, total = 0, meta = 0),
+        keyOf = { (it as? ComicEntry.Comic)?.comic?.id },
+        replaceDedupe = Dedupe.NONE,
+        appendDedupe = Dedupe.AGAINST_OLD,
+        appendMeta = { old, added -> old + added },
+    )
 
     fun reload() = jumpTo(1)
 
@@ -63,17 +78,12 @@ class ComicPager(
         job = scope.launch {
             try {
                 val result = fetch(page.coerceAtLeast(1))
-                mutableState.value = ComicPageState(
-                    entries = result.toEntries(),
-                    page = result.page,
-                    pages = result.pages,
-                    total = result.total,
-                    hiddenCount = result.hiddenCount,
-                    loading = false,
-                )
+                ensureActive()
+                publishPage(result, PageWrite.REPLACE)
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (error: Exception) {
+                ensureActive()
                 mutableState.update { it.copy(loading = false, error = error.readable()) }
             }
         }
@@ -97,29 +107,49 @@ class ComicPager(
         job = scope.launch {
             try {
                 val result = fetch(next)
-                mutableState.update { state ->
-                    val known = state.entries.mapNotNullTo(HashSet()) { (it as? ComicEntry.Comic)?.comic?.id }
-                    state.copy(
-                        entries = state.entries + result.toEntries { it.id !in known },
-                        page = result.page,
-                        pages = result.pages,
-                        total = result.total,
-                        hiddenCount = state.hiddenCount + result.hiddenCount,
-                        appending = false,
-                    )
-                }
+                ensureActive()
+                publishPage(result, PageWrite.APPEND)
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (error: Exception) {
+                ensureActive()
                 mutableState.update { it.copy(appending = false, appendError = error.readable()) }
+            }
+        }
+    }
+
+    // Keep merge and publication in one non-suspending step after the cancellation check.
+    private fun publishPage(result: FilteredPage<ComicSimple>, write: PageWrite) {
+        val data = accumulator.commit(
+            PageData(result.toEntries(), result.page, result.pages, result.total, result.hiddenCount),
+            write,
+        ).data
+        when (write) {
+            PageWrite.REPLACE -> mutableState.value = ComicPageState(
+                entries = data.items,
+                page = data.page,
+                pages = data.pages,
+                total = data.total,
+                hiddenCount = data.meta,
+                loading = false,
+            )
+            PageWrite.APPEND -> mutableState.update {
+                it.copy(
+                    entries = data.items,
+                    page = data.page,
+                    pages = data.pages,
+                    total = data.total,
+                    hiddenCount = data.meta,
+                    appending = false,
+                )
             }
         }
     }
 }
 
-private fun FilteredPage<ComicSimple>.toEntries(keep: (ComicSimple) -> Boolean = { true }): List<ComicEntry> = buildList {
+private fun FilteredPage<ComicSimple>.toEntries(): List<ComicEntry> = buildList {
     if (hiddenCount > 0) add(ComicEntry.Hidden(page, hiddenCount))
-    items.filter(keep).forEach { add(ComicEntry.Comic(it, page)) }
+    items.forEach { add(ComicEntry.Comic(it, page)) }
 }
 
 internal fun Throwable.readable(): String = message?.takeIf { it.isNotBlank() } ?: javaClass.simpleName
