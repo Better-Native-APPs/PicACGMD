@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -46,7 +45,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -71,7 +69,7 @@ import app.picacgmd.core.network.Comment
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.comics.formatCount
 import app.picacgmd.feature.comics.rememberImageUrl
-import kotlinx.coroutines.flow.distinctUntilChanged
+import app.picacgmd.paging.LoadMoreEffect
 
 /**
  * Board 17: comments of a comic — pinned group, latest comments, replies sheet, composer, likes, reports.
@@ -91,7 +89,8 @@ fun CommentsScreen(comicId: String, onBack: () -> Unit, modifier: Modifier = Mod
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     var reportTarget by remember { mutableStateOf<Comment?>(null) }
     LaunchedEffect(viewModel) { viewModel.messages.collect { snackbar.showSnackbar(it) } }
-    LoadMoreEffect(listState, state.items.size, viewModel::loadNext)
+    val endKeys = remember(state.items) { state.items.takeLast(3).map { it.id } }
+    LoadMoreEffect(listState, state.page, state.canLoadNext, endKeys, viewModel::loadNext)
 
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -180,16 +179,6 @@ fun CommentsScreen(comicId: String, onBack: () -> Unit, modifier: Modifier = Mod
                 viewModel.report(target.id, confirmation)
             },
         )
-    }
-}
-
-@Composable
-private fun LoadMoreEffect(listState: LazyListState, size: Int, onLoad: () -> Unit) {
-    LaunchedEffect(listState, size) {
-        snapshotFlow {
-            val info = listState.layoutInfo
-            (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 4
-        }.distinctUntilChanged().collect { if (it) onLoad() }
     }
 }
 
@@ -314,7 +303,8 @@ private fun RepliesSheet(
 ) {
     val listState = rememberLazyListState()
     // Further pages come in by themselves as the end scrolls into view; only a failed page waits for a tap.
-    LoadMoreEffect(listState, thread.replies.size, onLoadMore)
+    val endKeys = remember(thread.replies) { thread.replies.takeLast(3).map { it.id } }
+    LoadMoreEffect(listState, thread.page, thread.canLoadMore, endKeys, onLoadMore)
     val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, contentWindowInsets = { WindowInsets(0) }, properties = secureModalBottomSheetProperties()) {
         Column(Modifier.fillMaxWidth()) {

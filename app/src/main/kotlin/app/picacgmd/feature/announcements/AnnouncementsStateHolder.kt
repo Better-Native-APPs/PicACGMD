@@ -20,7 +20,10 @@ internal data class AnnouncementsState(
     val pages: Int = 1,
     val loading: Boolean = true,
     val error: String? = null,
-)
+) {
+    /** Scrolling may ask for the next page: nothing is in flight, and a failed page waits for a retry. */
+    val canLoadNext: Boolean get() = !loading && error == null && page in 1 until pages
+}
 
 internal class AnnouncementsStateHolder(
     private val scope: CoroutineScope,
@@ -78,4 +81,10 @@ internal class AnnouncementsStateHolder(
     fun retryFirstLoad() = load(1)
 
     fun retryTail() = load(state.page + 1)
+
+    /** The next page, as scrolling asks for it. */
+    fun loadNext() {
+        val current = state
+        if (current.canLoadNext) load(current.page + 1)
+    }
 }

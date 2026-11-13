@@ -83,6 +83,45 @@ internal class AnnouncementsStateHolderTest {
     }
 
     @Test
+    fun scrollingAsksForTheNextPageOnlyWhenIdleWithoutAnErrorAndBeforeTheLastPage() = runTest {
+        val fixture = fixture()
+        val holder = fixture.holder
+        assertFalse(holder.state.canLoadNext)
+        holder.loadNext()                                       // nothing applied yet
+        assertEquals(0, pica.requestCount)
+
+        pica.enqueue(pageJson(1, 3, "a1"), delayMillis = 150)
+        val first = fixture.load(1)
+        holder.loadNext()                                       // busy
+        expectPage(1)
+        first.join()
+        assertTrue(holder.state.canLoadNext)
+
+        pica.enqueueFailure()
+        val failed = fixture.loadNext()
+        assertFalse(holder.state.canLoadNext)
+        expectPage(2)
+        failed.join()
+        holder.assertState(listOf("a1"), page = 1, pages = 3, loading = false, error = "failure")
+        assertFalse(holder.state.canLoadNext)
+        holder.loadNext()                                       // a failed page waits for the retry
+        assertEquals(2, pica.requestCount)
+
+        pica.enqueue(pageJson(2, 3, "a2"))
+        val retry = fixture.retryTail()
+        expectPage(2)
+        retry.join()
+        pica.enqueue(pageJson(3, 3, "a3"))
+        val last = fixture.loadNext()
+        expectPage(3)
+        last.join()
+        holder.assertState(listOf("a1", "a2", "a3"), page = 3, pages = 3, loading = false)
+        assertFalse(holder.state.canLoadNext)
+        holder.loadNext()                                       // the last page is applied
+        assertEquals(4, pica.requestCount)
+    }
+
+    @Test
     fun appendFailureKeepsRowsAndTailRetryUsesCurrentPagePlusOne() = runTest {
         val fixture = fixture()
         pica.enqueue(pageJson(1, 3, "a1"))
@@ -467,6 +506,7 @@ internal class AnnouncementsStateHolderTest {
         fun refresh(): Job = start(holder::refresh)
         fun retryFirstLoad(): Job = start(holder::retryFirstLoad)
         fun retryTail(): Job = start(holder::retryTail)
+        fun loadNext(): Job = start(holder::loadNext)
 
         private fun start(action: () -> Unit): Job {
             action()

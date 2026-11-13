@@ -38,7 +38,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,7 +56,7 @@ import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.bookshelf.safeImageUrl
 import app.picacgmd.feature.settings.BackButton
 import app.picacgmd.core.designsystem.component.PredictiveBackContent
-import kotlinx.coroutines.flow.distinctUntilChanged
+import app.picacgmd.paging.LoadMoreEffect
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -101,17 +100,11 @@ fun AnnouncementsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     LaunchedEffect(Unit) { if (holder.state.page == 0) holder.load(1) }
-    LaunchedEffect(listState) {
-        snapshotFlow {
-            val info = listState.layoutInfo
-            (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 3
-        }.distinctUntilChanged().collect { nearEnd ->
-            val current = holder.state
-            if (nearEnd && !current.loading && current.error == null && current.page in 1 until current.pages) holder.load(current.page + 1)
-        }
-    }
 
     val opened = state.items.firstOrNull { it.id == openId }
+    // An open announcement takes the list off the screen, so nothing more is loaded behind it.
+    val endKeys = remember(state.items) { state.items.takeLast(2).map { it.id } }
+    LoadMoreEffect(listState, state.page, opened == null && state.canLoadNext, endKeys, holder::loadNext)
     PredictiveBackContent(
         current = opened?.id ?: "list",
         previous = "list",

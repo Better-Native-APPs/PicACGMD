@@ -34,7 +34,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -47,7 +46,7 @@ import app.picacgmd.core.designsystem.component.LoadingState
 import app.picacgmd.core.network.MyComment
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.settings.BackButton
-import kotlinx.coroutines.flow.distinctUntilChanged
+import app.picacgmd.paging.LoadMoreEffect
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -75,15 +74,8 @@ fun MyCommentsScreen(
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     LaunchedEffect(Unit) { holder.load(1) }
-    LaunchedEffect(listState) {
-        snapshotFlow {
-            val info = listState.layoutInfo
-            (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 4
-        }.distinctUntilChanged().collect { nearEnd ->
-            val current = holder.state
-            if (nearEnd && !current.loading && current.error == null && current.page in 1 until current.pages) holder.load(current.page + 1)
-        }
-    }
+    val endKeys = remember(state.items) { state.items.takeLast(3).map { it.id } }
+    LoadMoreEffect(listState, state.page, state.canLoadNext, endKeys, holder::loadNext)
 
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),

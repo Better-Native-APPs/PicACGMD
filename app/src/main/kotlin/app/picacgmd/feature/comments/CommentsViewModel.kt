@@ -31,6 +31,8 @@ data class CommentsState(
     val sending: Boolean = false,
 ) {
     val hasNext: Boolean get() = page < pages
+    /** Scrolling may ask for the next page: nothing is in flight, and a failed page waits for a retry. */
+    val canLoadNext: Boolean get() = !loading && !appending && hasNext && appendError == null
 }
 
 data class ReplyThread(
@@ -42,7 +44,10 @@ data class ReplyThread(
     val sending: Boolean = false,
     /** Why the last page failed; loading more then waits for 重试. */
     val error: String? = null,
-)
+) {
+    /** After a failure, scrolling must not fire the same request again and again; 重试 does it once. */
+    val canLoadMore: Boolean get() = !loading && error == null && page < pages
+}
 
 class CommentsViewModel(private val repository: CommentRepository, private val comicId: String) : ViewModel() {
     private val mutableState = MutableStateFlow(CommentsState())
@@ -80,8 +85,7 @@ class CommentsViewModel(private val repository: CommentRepository, private val c
     }
 
     fun loadNext() {
-        val s = mutableState.value
-        if (s.loading || s.appending || !s.hasNext || s.appendError != null) return
+        if (!mutableState.value.canLoadNext) return
         append()
     }
 
@@ -171,8 +175,7 @@ class CommentsViewModel(private val repository: CommentRepository, private val c
 
     fun loadMoreReplies() {
         val t = mutableReplies.value ?: return
-        // After a failure, scrolling must not fire the same request again and again; 重试 does it once.
-        if (t.loading || t.error != null || t.page >= t.pages) return
+        if (!t.canLoadMore) return
         loadReplies(t.page + 1)
     }
 

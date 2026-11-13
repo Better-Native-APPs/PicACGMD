@@ -47,6 +47,8 @@ data class ComicPageState(
         entries.mapNotNull { (it as? ComicEntry.Comic)?.comic }
     }
     val hasNextPage: Boolean get() = page < pages
+    /** Scrolling may ask for the next page: nothing is in flight, and a failed page waits for a retry. */
+    val canLoadNext: Boolean get() = !loading && !appending && hasNextPage && appendError == null
     val isEmpty: Boolean get() = !loading && error == null && entries.none { it is ComicEntry.Comic }
 }
 
@@ -90,9 +92,7 @@ class ComicPager(
     }
 
     fun loadNext() {
-        val current = mutableState.value
-        if (mode != PaginationMode.INFINITE || current.loading || current.appending || !current.hasNextPage) return
-        if (current.appendError != null) return
+        if (mode != PaginationMode.INFINITE || !mutableState.value.canLoadNext) return
         appendNext()
     }
 

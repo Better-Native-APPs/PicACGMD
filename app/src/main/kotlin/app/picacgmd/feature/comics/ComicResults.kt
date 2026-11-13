@@ -49,7 +49,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -76,7 +75,7 @@ import app.picacgmd.core.network.ComicSimple
 import app.picacgmd.core.network.ComicSort
 import app.picacgmd.core.network.PicaImage
 import app.picacgmd.di.LocalAppContainer
-import kotlinx.coroutines.flow.distinctUntilChanged
+import app.picacgmd.paging.LoadMoreEffect
 
 /** Resolves a PicACG image to a URL on the configured image server. */
 @Composable
@@ -149,12 +148,11 @@ fun ComicResults(
     fun toggle(id: String) = onSelectionChange(if (id in selection) selection - id else selection + id)
 
     if (paginationMode == PaginationMode.INFINITE) {
-        LaunchedEffect(gridState, state.entries.size) {
-            snapshotFlow {
-                val info = gridState.layoutInfo
-                (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 6
-            }.distinctUntilChanged().collect { nearEnd -> if (nearEnd) onLoadNext() }
+        // The empty state replaces the rows of pages that were hidden entirely, so there the end is always on screen.
+        val endKeys = remember(state.entries, state.isEmpty) {
+            if (state.isEmpty) emptyList() else state.entries.takeLast(5).map(ComicEntry::key)
         }
+        LoadMoreEffect(gridState, state.page, state.canLoadNext, endKeys, onLoadNext)
     }
     // A page jump starts from the top.
     LaunchedEffect(state.page, paginationMode) {
