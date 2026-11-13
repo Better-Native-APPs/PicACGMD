@@ -52,9 +52,6 @@ class SettingsRepository(
     }
 
     suspend fun setImageRouting(mode: RoutingMode) = setEnum(Keys.imageRoutingMode, mode)
-
-    /** Empty disables the proxy; supported URL validation/testing belongs to the network/settings UI. */
-    suspend fun setProxyUrl(value: String) = set(Keys.proxyUrl, value)
     suspend fun setImageQuality(value: ImageQuality) = setEnum(Keys.imageQuality, value)
 
     suspend fun setConnectTimeoutSeconds(value: Int) {

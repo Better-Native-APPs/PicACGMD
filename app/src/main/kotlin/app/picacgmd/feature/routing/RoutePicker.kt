@@ -109,7 +109,7 @@ internal fun formatSyncTime(millis: Long, now: Long = System.currentTimeMillis()
 
 private enum class RouteWork { Switching, Syncing }
 
-private enum class RouteTone { Hint, Done, Proxy, Error }
+private enum class RouteTone { Hint, Done, Error }
 
 private data class RouteMessage(val text: String, val tone: RouteTone = RouteTone.Done)
 
@@ -121,15 +121,11 @@ private data class RouteMessage(val text: String, val tone: RouteTone = RouteTon
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun RoutePickerDialog(onDismiss: () -> Unit) {
-    val container = LocalAppContainer.current
-    val routing = container.routingRepository
-    val settings by container.settingsRepository.settings.collectAsStateWithLifecycle(initialValue = null)
+    val routing = LocalAppContainer.current.routingRepository
     val apiState by routing.apiRoutes.collectAsStateWithLifecycle(initialValue = null)
     val imageState by routing.imageRoutes.collectAsStateWithLifecycle(initialValue = null)
     val api = apiState ?: return
     val image = imageState ?: return
-    val proxyOn = settings?.proxyUrl?.isNotBlank() == true
-    val usingProxy by rememberUpdatedState(proxyOn)
 
     val scope = rememberCoroutineScope()
     var round by remember { mutableIntStateOf(0) }
@@ -156,14 +152,12 @@ fun RoutePickerDialog(onDismiss: () -> Unit) {
     }
     // After a round, an unreachable selection moves to the fastest route that answered.
     val recover: suspend (String, suspend () -> RouteOption<*>?) -> Unit = { name, fallback ->
-        if (!usingProxy) {
-            try {
-                fallback()?.let { message = RouteMessage("当前${name}不可用，已切换至${it.label}") }
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: Exception) {
-                message = RouteMessage(exception.message ?: "自动切换失败，请点按分流重试", RouteTone.Error)
-            }
+        try {
+            fallback()?.let { message = RouteMessage("当前${name}不可用，已切换至${it.label}") }
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            message = RouteMessage(exception.message ?: "自动切换失败，请点按分流重试", RouteTone.Error)
         }
     }
     val apiLatencies = rememberRouteLatencies(api.options, round, routing::measureApiRoute) { results ->
@@ -182,8 +176,7 @@ fun RoutePickerDialog(onDismiss: () -> Unit) {
 
     val status = message ?: when {
         !measured -> RouteMessage("正在测速…", RouteTone.Hint)
-        apiFastest == null && imageFastest == null -> RouteMessage("暂无可用分流，请检查网络或代理后重新测速", RouteTone.Error)
-        proxyOn -> RouteMessage("直连测速；当前请求使用代理", RouteTone.Proxy)
+        apiFastest == null && imageFastest == null -> RouteMessage("暂无可用分流，请检查网络后重新测速", RouteTone.Error)
         else -> RouteMessage("点按立即切换", RouteTone.Hint)
     }
 
@@ -203,7 +196,6 @@ fun RoutePickerDialog(onDismiss: () -> Unit) {
                             color = when (status.tone) {
                                 RouteTone.Hint -> MaterialTheme.colorScheme.onSurfaceVariant
                                 RouteTone.Done -> latencyColor(RouteLatencyGrade.GOOD)
-                                RouteTone.Proxy -> MaterialTheme.colorScheme.tertiary
                                 RouteTone.Error -> MaterialTheme.colorScheme.error
                             },
                             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },

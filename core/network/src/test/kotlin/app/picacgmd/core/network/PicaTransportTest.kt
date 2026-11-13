@@ -1,13 +1,13 @@
 package app.picacgmd.core.network
 
 import java.net.InetAddress
-import java.net.InetSocketAddress
-import java.net.Proxy
+import java.net.ProxySelector
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import okhttp3.Dns
@@ -60,6 +60,8 @@ class PicaTransportTest {
         assertEquals(16, client.dispatcher.maxRequestsPerHost)
         assertEquals(false, client.retryOnConnectionFailure)
         assertEquals(false, client.followRedirects)
+        assertNull(client.proxy)
+        assertSame(ProxySelector.getDefault(), client.proxySelector)
     }
 
     @Test
@@ -67,20 +69,9 @@ class PicaTransportTest {
         val client = PicaClientFactory.imageClient()
         assertEquals(true, client.followRedirects)
         assertEquals(true, client.followSslRedirects)
+        assertNull(client.proxy)
+        assertSame(ProxySelector.getDefault(), client.proxySelector)
         assertEquals(false, PicaClientFactory.apiClient().followSslRedirects)
-    }
-
-    @Test
-    fun parsesExplicitHttpAndSocksProxies() {
-        val http = PicaClientFactory.parseProxy("http://127.0.0.1:8080")
-        assertEquals(Proxy.Type.HTTP, http.type())
-        assertEquals(8080, (http.address() as InetSocketAddress).port)
-        val socks = PicaClientFactory.parseProxy("socks5://localhost:1080")
-        assertEquals(Proxy.Type.SOCKS, socks.type())
-        assertEquals(1080, (socks.address() as InetSocketAddress).port)
-        assertFailsWith<IllegalArgumentException> { PicaClientFactory.parseProxy("https://localhost:8080") }
-        assertFailsWith<IllegalArgumentException> { PicaClientFactory.parseProxy("http://localhost") }
-        assertFailsWith<IllegalArgumentException> { PicaClientFactory.parseProxy("http://localhost:8080/path") }
     }
 
     @Test

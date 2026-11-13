@@ -504,7 +504,7 @@ downloadSummaryDownload() (汇总漫画状态：全部章节成功则标记 Down
   - `OkHttp 4.12+ / 5.x`:
     - 编写 `PicacgSignInterceptor`（`Interceptor`），在发送前统一计算时间戳、随机 Nonce 与 HMAC-SHA256 签名，动态追加全套请求头。
     - 实现 `okhttp3.Dns` 接口，拦截 `picaapi.picacomic.com` 域名的解析，优雅注入 Cloudflare 分流 IP（`172.67.7.24` 等），天然保留正确的 SNI 与 Host 校验。
-    - 代理配置直接使用 `OkHttpClient.Builder().proxy(Proxy(Proxy.Type.HTTP/SOCKS, ...))`。
+    - 代理：不调用 `OkHttpClient.Builder().proxy(...)`，OkHttp 默认经 `ProxySelector` 跟随系统代理；应用内不设代理配置。
 - **JSON 序列化**:
   - `kotlinx.serialization` 或 `Moshi`: 静态代码生成，无反射开销，针对模糊类型定义宽松解析策略。
 - **本地持久化**:

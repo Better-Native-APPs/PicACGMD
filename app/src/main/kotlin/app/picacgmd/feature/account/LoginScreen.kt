@@ -233,17 +233,12 @@ private fun LoginForm(
         }
         Card(Modifier.fillMaxWidth()) {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    val route = apiRouteState(settings).selected
-                    Text(
-                        listOfNotNull(route.label, route.address).joinToString(" · "),
-                        style = MaterialTheme.typography.titleSmall,
-                    )
-                    Text(
-                        if (settings.proxyUrl.isBlank()) "未设置代理" else "已启用代理，分流暂不生效",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
+                val route = apiRouteState(settings).selected
+                Text(
+                    listOfNotNull(route.label, route.address).joinToString(" · "),
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.weight(1f),
+                )
                 AppFilledTonalButton(onNetwork, enabled = !busy) { Text("更改") }
             }
         }
