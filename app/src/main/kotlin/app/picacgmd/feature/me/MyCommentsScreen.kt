@@ -32,11 +32,8 @@ import androidx.compose.material3.TopAppBarDefaults
 import app.picacgmd.core.designsystem.component.ExpressivePullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,20 +47,10 @@ import app.picacgmd.core.designsystem.component.LoadingState
 import app.picacgmd.core.network.MyComment
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.settings.BackButton
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.launch
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-
-private data class CommentsState(
-    val items: List<MyComment> = emptyList(),
-    val page: Int = 0,
-    val pages: Int = 1,
-    val loading: Boolean = true,
-    val error: String? = null,
-)
 
 private val DateFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
 
@@ -81,40 +68,20 @@ fun MyCommentsScreen(
 ) {
     val container = LocalAppContainer.current
     val scope = rememberCoroutineScope()
-    var state by remember { mutableStateOf(CommentsState()) }
-    var refreshing by remember { mutableStateOf(false) }
+    val holder = remember { MyCommentsStateHolder(scope, container.commentRepository) }
+    val state = holder.state
+    val refreshing = holder.refreshing
     val listState = rememberLazyListState()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
-    fun load(page: Int) {
-        state = state.copy(loading = true, error = null)
-        scope.launch {
-            try {
-                val result = container.commentRepository.myComments(page)
-                state = CommentsState(
-                    items = if (page == 1) result.docs else state.items + result.docs,
-                    page = result.page,
-                    pages = result.pages.coerceAtLeast(1),
-                    loading = false,
-                )
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: Exception) {
-                state = state.copy(loading = false, error = exception.message ?: "加载失败")
-            } finally {
-                refreshing = false
-            }
-        }
-    }
-
-    LaunchedEffect(Unit) { load(1) }
+    LaunchedEffect(Unit) { holder.load(1) }
     LaunchedEffect(listState) {
         snapshotFlow {
             val info = listState.layoutInfo
             (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 4
         }.distinctUntilChanged().collect { nearEnd ->
-            val current = state
-            if (nearEnd && !current.loading && current.error == null && current.page in 1 until current.pages) load(current.page + 1)
+            val current = holder.state
+            if (nearEnd && !current.loading && current.error == null && current.page in 1 until current.pages) holder.load(current.page + 1)
         }
     }
 
@@ -130,7 +97,7 @@ fun MyCommentsScreen(
     ) { padding ->
         ExpressivePullToRefreshBox(
             isRefreshing = refreshing,
-            onRefresh = { refreshing = true; load(1) },
+            onRefresh = holder::refresh,
             modifier = Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()),
         ) {
             when {
@@ -138,7 +105,7 @@ fun MyCommentsScreen(
                 state.items.isEmpty() && state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     if (!refreshing) LoadingState()
                 }
-                state.items.isEmpty() && state.error != null -> ErrorState(onRetry = { load(1) }, description = state.error, modifier = Modifier.fillMaxSize())
+                state.items.isEmpty() && state.error != null -> ErrorState(onRetry = holder::retryFirstLoad, description = state.error, modifier = Modifier.fillMaxSize())
                 state.items.isEmpty() -> EmptyState(
                     title = "还没有评论",
                     description = "在漫画详情页发表评论",
@@ -160,7 +127,7 @@ fun MyCommentsScreen(
                             when {
                                 refreshing -> Unit
                                 state.loading -> LoadingIndicator(Modifier.size(40.dp))
-                                state.error != null -> AppTextButton(onClick = { load(state.page + 1) }) { Text("加载失败，重试") }
+                                state.error != null -> AppTextButton(onClick = holder::retryTail) { Text("加载失败，重试") }
                                 state.page >= state.pages -> Text(
                                     "没有更多",
                                     style = MaterialTheme.typography.bodySmall,
