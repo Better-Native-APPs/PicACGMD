@@ -22,7 +22,7 @@
 ├── :feature:reader        # 核心阅读器模块（翻页、长条、自由缩放、双页、预加载）
 ├── :core:domain           # 业务逻辑层（会话管理、下载引擎、分流测速、历史与订阅）
 ├── :core:data             # 本地持久化层（Room 数据库 pikapika.db、DataStore 偏好）
-├── :core:network          # 纯 JVM 哔咔接口客户端（Retrofit/OkHttp, HMAC-SHA256 签名）
+├── :core:network          # 纯 JVM 哔咔接口客户端（OkHttp + kotlinx.serialization，HMAC-SHA256 签名）
 └── :core:designsystem     # 设计系统组件与主题（Material 3 Expressive, Loading Sheen）
 ```
 
