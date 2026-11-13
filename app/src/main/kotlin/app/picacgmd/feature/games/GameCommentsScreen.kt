@@ -35,9 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -46,128 +44,12 @@ import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.data.settings.PaginationMode
 import app.picacgmd.core.designsystem.component.AppIconButton
 import app.picacgmd.core.designsystem.component.AppTextButton
-import app.picacgmd.core.domain.repository.CommentRepository
-import app.picacgmd.core.domain.repository.GameRepository
 import app.picacgmd.core.network.Comment
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.comments.CommentComposer
 import app.picacgmd.feature.comments.CommentRow
 import app.picacgmd.feature.comments.ReportCommentDialog
-import app.picacgmd.feature.comments.commentLength
-import app.picacgmd.feature.comments.commentSendable
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.launch
-
-private class GameCommentsViewModel(
-    private val repository: GameRepository,
-    private val reports: CommentRepository,
-    private val gameId: String,
-    private val parentId: String?,
-) : ViewModel() {
-    var comments by mutableStateOf<List<Comment>>(emptyList())
-        private set
-    var page by mutableStateOf(0)
-        private set
-    var pages by mutableStateOf(0)
-        private set
-    var loading by mutableStateOf(false)
-        private set
-    var sending by mutableStateOf(false)
-        private set
-    var error by mutableStateOf<String?>(null)
-        private set
-    var liking by mutableStateOf<Set<String>>(emptySet())
-        private set
-    private val mutableMessages = MutableSharedFlow<String>(extraBufferCapacity = 4)
-    /** One-off results for the snackbar, such as a report going through. */
-    val messages: SharedFlow<String> = mutableMessages.asSharedFlow()
-
-    init { load(1, false) }
-
-    fun load(target: Int, append: Boolean) {
-        if (loading) return
-        loading = true
-        error = null
-        viewModelScope.launch {
-            try {
-                val result = if (parentId == null) repository.comments(gameId, target) else null
-                val pageResult = result?.comments ?: repository.replies(requireNotNull(parentId), target)
-                val incoming = (result?.topComments.orEmpty() + pageResult.docs).distinctBy { it.id }
-                comments = if (append) (comments + incoming).distinctBy { it.id } else incoming
-                page = pageResult.page
-                pages = pageResult.pages
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: Exception) {
-                error = exception.localizedMessage ?: "加载评论失败"
-            } finally {
-                loading = false
-            }
-        }
-    }
-
-    fun post(content: String, onSent: () -> Unit) {
-        if (sending || loading || !commentSendable(commentLength(content))) return
-        sending = true
-        error = null
-        viewModelScope.launch {
-            try {
-                if (parentId == null) repository.post(gameId, content) else repository.reply(parentId, content)
-                onSent()
-                load(1, false)
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: Exception) {
-                error = exception.localizedMessage ?: "发送失败"
-            } finally {
-                sending = false
-            }
-        }
-    }
-
-    fun toggleLike(comment: Comment) {
-        if (comment.id in liking) return
-        liking += comment.id
-        viewModelScope.launch {
-            try {
-                val liked = repository.toggleLikeComment(comment.id)
-                comments = comments.map {
-                    if (it.id == comment.id) it.copy(
-                        isLiked = liked,
-                        likesCount = (it.likesCount + if (liked == it.isLiked) 0 else if (liked) 1 else -1).coerceAtLeast(0),
-                    ) else it
-                }
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: Exception) {
-                error = exception.localizedMessage ?: "点赞失败"
-            } finally {
-                liking -= comment.id
-            }
-        }
-    }
-
-    /**
-     * Game comments and replies live in the same comment store as comic ones (likes and replies already
-     * go through the comment endpoints), so the comment report endpoint takes their ids too.
-     */
-    fun report(commentId: String, confirmation: String) {
-        viewModelScope.launch {
-            try {
-                reports.report(commentId)
-                mutableMessages.tryEmit(confirmation)
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: Exception) {
-                mutableMessages.tryEmit(exception.localizedMessage ?: "举报失败")
-            }
-        }
-    }
-}
 
 /**
  * Board 29's comment section: the same rows, reply flow, like toggle, report menu and composer as the

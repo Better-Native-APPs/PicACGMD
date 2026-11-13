@@ -51,9 +51,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -69,52 +67,10 @@ import app.picacgmd.core.data.settings.PaginationMode
 import app.picacgmd.core.designsystem.component.MetaIcons
 import app.picacgmd.core.designsystem.component.MetaInfo
 import app.picacgmd.core.designsystem.component.StatusPane
-import app.picacgmd.core.domain.repository.GameRepository
-import app.picacgmd.core.network.GameSimple
 import app.picacgmd.core.network.PicaImage
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.comics.formatCount
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.launch
-
-private class GamesViewModel(private val repository: GameRepository) : ViewModel() {
-    var games by mutableStateOf<List<GameSimple>>(emptyList())
-        private set
-    var page by mutableStateOf(0)
-        private set
-    var pages by mutableStateOf(0)
-        private set
-    var total by mutableStateOf(0)
-        private set
-    var loading by mutableStateOf(false)
-        private set
-    var error by mutableStateOf<String?>(null)
-        private set
-
-    init { load(1, append = false) }
-
-    fun load(target: Int, append: Boolean) {
-        if (loading) return
-        loading = true
-        error = null
-        viewModelScope.launch {
-            try {
-                val result = repository.games(target)
-                games = if (append) (games + result.docs).distinctBy { it.id } else result.docs
-                page = result.page
-                pages = result.pages
-                total = result.total
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: Exception) {
-                error = exception.localizedMessage ?: "加载游戏失败"
-            } finally {
-                loading = false
-            }
-        }
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable

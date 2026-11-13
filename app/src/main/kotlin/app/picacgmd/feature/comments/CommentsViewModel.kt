@@ -2,9 +2,14 @@ package app.picacgmd.feature.comments
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import app.picacgmd.core.domain.di.AppContainer
+import app.picacgmd.core.domain.repository.CommentRepository
 import app.picacgmd.core.network.Comment
 import app.picacgmd.feature.comics.readable
+import app.picacgmd.paging.Dedupe
+import app.picacgmd.paging.PageAccumulator
+import app.picacgmd.paging.PageData
+import app.picacgmd.paging.PageWrite
+import app.picacgmd.util.suspendRunCatching
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -39,24 +44,35 @@ data class ReplyThread(
     val error: String? = null,
 )
 
-class CommentsViewModel(container: AppContainer, private val comicId: String) : ViewModel() {
-    private val repository = container.commentRepository
+class CommentsViewModel(private val repository: CommentRepository, private val comicId: String) : ViewModel() {
     private val mutableState = MutableStateFlow(CommentsState())
     val state: StateFlow<CommentsState> = mutableState.asStateFlow()
     private val mutableReplies = MutableStateFlow<ReplyThread?>(null)
     val replies: StateFlow<ReplyThread?> = mutableReplies.asStateFlow()
     private val mutableMessages = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val messages: SharedFlow<String> = mutableMessages.asSharedFlow()
+    private val pages = PageAccumulator<Comment, String, List<Comment>>(
+        initial = PageData(emptyList(), 0, 0, 0, emptyList()),
+        keyOf = Comment::id,
+        replaceDedupe = Dedupe.NONE,
+        appendDedupe = Dedupe.AGAINST_OLD,
+        appendMeta = { old, _ -> old },
+    )
+    private var replyPages: PageAccumulator<Comment, String, Unit>? = null
 
     init { reload() }
 
     fun reload() {
         mutableState.update { it.copy(loading = true, error = null) }
         viewModelScope.launch {
-            runCatching { repository.comments(comicId, 1) }
+            suspendRunCatching { repository.comments(comicId, 1) }
                 .onSuccess { page ->
+                    val data = pages.commit(
+                        PageData(page.comments.docs, page.comments.page, page.comments.pages, page.comments.total, page.topComments),
+                        PageWrite.REPLACE,
+                    ).data
                     mutableState.update {
-                        it.copy(top = page.topComments, items = page.comments.docs, page = page.comments.page, pages = page.comments.pages, loading = false)
+                        it.copy(top = data.meta, items = data.items, page = data.page, pages = data.pages, loading = false)
                     }
                 }
                 .onFailure { error -> mutableState.update { it.copy(loading = false, error = error.readable()) } }
@@ -78,11 +94,14 @@ class CommentsViewModel(container: AppContainer, private val comicId: String) : 
         val next = mutableState.value.page + 1
         mutableState.update { it.copy(appending = true) }
         viewModelScope.launch {
-            runCatching { repository.comments(comicId, next) }
+            suspendRunCatching { repository.comments(comicId, next) }
                 .onSuccess { page ->
+                    val data = pages.commit(
+                        PageData(page.comments.docs, page.comments.page, page.comments.pages, page.comments.total, page.topComments),
+                        PageWrite.APPEND,
+                    ).data
                     mutableState.update { s ->
-                        val known = s.items.mapTo(HashSet(), Comment::id)
-                        s.copy(items = s.items + page.comments.docs.filter { it.id !in known }, page = page.comments.page, pages = page.comments.pages, appending = false)
+                        s.copy(items = data.items, page = data.page, pages = data.pages, appending = false)
                     }
                 }
                 .onFailure { error -> mutableState.update { it.copy(appending = false, appendError = error.readable()) } }
@@ -93,7 +112,7 @@ class CommentsViewModel(container: AppContainer, private val comicId: String) : 
         if (content.isBlank() || mutableState.value.sending) return
         mutableState.update { it.copy(sending = true) }
         viewModelScope.launch {
-            runCatching { repository.post(comicId, content.trim()) }
+            suspendRunCatching { repository.post(comicId, content.trim()) }
                 .onSuccess { onDone(); mutableState.update { it.copy(sending = false) }; reload() }
                 .onFailure { error -> mutableState.update { it.copy(sending = false) }; mutableMessages.tryEmit(error.readable()) }
         }
@@ -103,7 +122,7 @@ class CommentsViewModel(container: AppContainer, private val comicId: String) : 
         // Optimistic flip everywhere the comment appears.
         flip(commentId, null)
         viewModelScope.launch {
-            runCatching { repository.toggleLike(commentId) }
+            suspendRunCatching { repository.toggleLike(commentId) }
                 .onSuccess { liked -> flip(commentId, liked) }
                 .onFailure { error -> flip(commentId, null); mutableMessages.tryEmit(error.readable()) }
         }
@@ -116,25 +135,39 @@ class CommentsViewModel(container: AppContainer, private val comicId: String) : 
             if (liked == isLiked) return this
             return copy(isLiked = liked, likesCount = (likesCount + if (liked) 1 else -1).coerceAtLeast(0))
         }
-        mutableState.update { s -> s.copy(top = s.top.map { it.apply() }, items = s.items.map { it.apply() }) }
-        mutableReplies.update { t -> t?.copy(parent = t.parent.apply(), replies = t.replies.map { it.apply() }) }
+        val data = pages.update { page -> page.copy(meta = page.meta.map { it.apply() }, items = page.items.map { it.apply() }) }
+        mutableState.update { s -> s.copy(top = data.meta, items = data.items) }
+        replyPages?.let { accumulator ->
+            val replies = accumulator.update { page -> page.copy(items = page.items.map { it.apply() }) }
+            mutableReplies.update { t -> t?.copy(parent = t.parent.apply(), replies = replies.items) }
+        }
     }
 
     /** [confirmation] is the already localized text shown once the report has gone through. */
     fun report(commentId: String, confirmation: String) {
         viewModelScope.launch {
-            runCatching { repository.report(commentId) }
+            suspendRunCatching { repository.report(commentId) }
                 .onSuccess { mutableMessages.tryEmit(confirmation) }
                 .onFailure { error -> mutableMessages.tryEmit(error.readable()) }
         }
     }
 
     fun openReplies(comment: Comment) {
+        replyPages = PageAccumulator(
+            initial = PageData(emptyList(), 0, 1, 0, Unit),
+            keyOf = Comment::id,
+            replaceDedupe = Dedupe.NONE,
+            appendDedupe = Dedupe.AGAINST_OLD,
+            appendMeta = { _, _ -> },
+        )
         mutableReplies.value = ReplyThread(comment)
         loadReplies(1)
     }
 
-    fun closeReplies() { mutableReplies.value = null }
+    fun closeReplies() {
+        replyPages = null
+        mutableReplies.value = null
+    }
 
     fun loadMoreReplies() {
         val t = mutableReplies.value ?: return
@@ -154,13 +187,16 @@ class CommentsViewModel(container: AppContainer, private val comicId: String) : 
         val parentId = mutableReplies.value?.parent?.id ?: return
         mutableReplies.update { it?.copy(loading = true, error = null) }
         viewModelScope.launch {
-            runCatching { repository.replies(parentId, page) }
+            suspendRunCatching { repository.replies(parentId, page) }
                 .onSuccess { result ->
-                    mutableReplies.update { t ->
-                        if (t == null || t.parent.id != parentId) return@update t
-                        val base = if (page == 1) emptyList() else t.replies
-                        val known = base.mapTo(HashSet(), Comment::id)
-                        t.copy(replies = base + result.docs.filter { it.id !in known }, page = result.page, pages = result.pages, loading = false)
+                    val t = mutableReplies.value
+                    if (t == null || t.parent.id != parentId) return@onSuccess
+                    val data = requireNotNull(replyPages).commit(
+                        PageData(result.docs, result.page, result.pages, result.total, Unit),
+                        if (page == 1) PageWrite.REPLACE else PageWrite.APPEND,
+                    ).data
+                    mutableReplies.update { thread ->
+                        thread?.copy(replies = data.items, page = data.page, pages = data.pages, loading = false)
                     }
                 }
                 .onFailure { error ->
@@ -177,7 +213,7 @@ class CommentsViewModel(container: AppContainer, private val comicId: String) : 
         if (content.isBlank() || t.sending) return
         mutableReplies.update { it?.copy(sending = true) }
         viewModelScope.launch {
-            runCatching { repository.reply(t.parent.id, content.trim()) }
+            suspendRunCatching { repository.reply(t.parent.id, content.trim()) }
                 .onSuccess {
                     onDone()
                     mutableReplies.update { it?.copy(sending = false, parent = it.parent.copy(commentsCount = it.parent.commentsCount + 1)) }

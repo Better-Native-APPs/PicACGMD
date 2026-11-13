@@ -82,7 +82,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 @Composable
 fun CommentsScreen(comicId: String, onBack: () -> Unit, modifier: Modifier = Modifier, title: String? = null) {
     val container = LocalAppContainer.current
-    val viewModel = viewModel(key = "comments:$comicId") { CommentsViewModel(container, comicId) }
+    val viewModel = viewModel(key = "comments:$comicId") { CommentsViewModel(container.commentRepository, comicId) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val replies by viewModel.replies.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
