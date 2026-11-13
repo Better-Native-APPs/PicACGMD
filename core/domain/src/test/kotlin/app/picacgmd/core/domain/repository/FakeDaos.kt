@@ -49,6 +49,7 @@ internal class FakeSearchHistoryDao : SearchHistoryDao {
 
 internal class FakeViewHistoryDao : ViewHistoryDao {
     val entries = MutableStateFlow<Map<String, ViewHistory>>(emptyMap())
+    val upserts = mutableListOf<ViewHistory>()
     override fun observeAll(): Flow<List<ViewHistory>> = entries.map { it.values.toList() }
     override fun observePage(limit: Int, offset: Int): Flow<List<ViewHistory>> = observeAll().map { it.drop(offset).take(limit) }
     override fun observe(comicId: String): Flow<ViewHistory?> = entries.map { it[comicId] }
@@ -61,7 +62,10 @@ internal class FakeViewHistoryDao : ViewHistoryDao {
         return entries.map { values -> comicIds.mapNotNull { id -> values[id]?.let { ReadChapter(it.comicId, it.lastEpOrder) } } }
     }
     override suspend fun get(comicId: String): ViewHistory? = entries.value[comicId]
-    override suspend fun upsert(history: ViewHistory) { entries.value += history.comicId to history }
+    override suspend fun upsert(history: ViewHistory) {
+        upserts += history
+        entries.value += history.comicId to history
+    }
     override suspend fun updateProgress(comicId: String, epOrder: Int, epTitle: String, pictureIndex: Int, pageCount: Int, updatedAt: Long): Int {
         val previous = get(comicId) ?: return 0
         upsert(previous.copy(lastEpOrder = epOrder, lastEpTitle = epTitle, lastPictureIndex = pictureIndex, lastChapterPages = pageCount, updatedAt = updatedAt))

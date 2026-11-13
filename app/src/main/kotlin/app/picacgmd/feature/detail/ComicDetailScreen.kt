@@ -102,6 +102,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -131,6 +132,7 @@ import app.picacgmd.core.designsystem.component.ShapedAvatar
 import app.picacgmd.core.designsystem.component.SoftBackdrop
 import app.picacgmd.core.designsystem.theme.PicaTheme
 import app.picacgmd.core.designsystem.theme.withTabularFigures
+import app.picacgmd.core.domain.download.DownloadManagerOwner
 import app.picacgmd.core.domain.repository.ReadingProgress
 import app.picacgmd.core.domain.repository.containsKeyword
 import app.picacgmd.core.domain.repository.uploader
@@ -173,7 +175,8 @@ fun ComicDetailScreen(
     modifier: Modifier = Modifier,
 ) {
     val container = LocalAppContainer.current
-    val viewModel = viewModel(key = "detail:$comicId") { ComicDetailViewModel(container, comicId) }
+    val downloads = (LocalContext.current.applicationContext as DownloadManagerOwner).downloadManager
+    val viewModel = viewModel(key = "detail:$comicId") { ComicDetailViewModel(container, comicId, downloads) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val preferences by container.settingsRepository.settings.collectAsStateWithLifecycle(null)
     val library by viewModel.library.collectAsStateWithLifecycle()

@@ -65,6 +65,9 @@ class HistoryRepository(
 
     suspend fun setPinned(comicId: String, pinned: Boolean): Int = dao.setPinned(comicId, pinned)
     suspend fun delete(comicIds: List<String>): Int = dao.delete(comicIds)
+    suspend fun restore(items: List<ViewHistory>) {
+        items.forEach { dao.upsert(it) }
+    }
     suspend fun clear() = dao.clear()
 
     private fun snapshot(comic: ComicInfo, previous: ViewHistory?): ViewHistory {

@@ -16,6 +16,7 @@ import app.picacgmd.core.data.db.DownloadComic
 import app.picacgmd.core.data.db.DownloadCounts
 import app.picacgmd.core.data.db.DownloadDao
 import app.picacgmd.core.data.db.DownloadEp
+import app.picacgmd.core.data.db.DownloadPicture
 import app.picacgmd.core.data.settings.SettingsRepository
 import app.picacgmd.core.domain.R
 import app.picacgmd.core.network.ComicInfo
@@ -171,7 +172,11 @@ class DownloadManager(
 
     fun observeComic(comicId: String): Flow<DownloadComic?> = dao.observeComic(comicId)
 
+    suspend fun getComic(comicId: String): DownloadComic? = dao.getComic(comicId)
+
     fun observeChapters(comicId: String): Flow<List<DownloadEp>> = dao.observeEps(comicId)
+
+    fun observePictures(epId: String): Flow<List<DownloadPicture>> = dao.observePictures(epId)
 
     /** Call on application startup as well as after enqueue to recover work after process death. */
     suspend fun start() {

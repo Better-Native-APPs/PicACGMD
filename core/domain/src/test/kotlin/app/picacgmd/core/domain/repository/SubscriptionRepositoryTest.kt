@@ -199,13 +199,37 @@ class SubscriptionRepositoryTest {
         assertEquals(SubscriptionCheckState.Done(report), repository.checkState.value)
     }
 
-    private fun repository(scope: CoroutineScope): SubscriptionRepository {
+    @Test
+    fun restoreUpsertsEverySnapshotFieldInGivenOrderWithoutCheckingForUpdates() = runTest {
+        val first = Subscription("b", "Original", "Author", "server", "cover", lastKnownEpsCount = 18,
+            lastKnownUpdatedAt = 99L, unseen = true, newEpCount = 4, lastCheckedAt = 567L,
+            createdAt = 123L, updatedAt = 456L)
+        val items = listOf(first, first.copy(comicId = "a", unseen = false, lastKnownUpdatedAt = null,
+            lastCheckedAt = null, createdAt = 111L), first.copy(newEpCount = 5, updatedAt = 457L))
+        val repository = repository(backgroundScope, now = { error("Restoring a snapshot must not read the clock") })
+
+        repository.restore(items)
+
+        assertEquals(items, dao.upserts)
+        items.associateBy(Subscription::comicId).forEach { (id, row) -> assertEquals(row, dao.get(id)) }
+        assertEquals(SubscriptionCheckState.Idle, repository.checkState.value)
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun restoringAnEmptySubscriptionSnapshotMakesNoWritesOrRequests() = runTest {
+        repository(backgroundScope).restore(emptyList())
+        assertTrue(dao.upserts.isEmpty())
+        assertEquals(0, server.requestCount)
+    }
+
+    private fun repository(scope: CoroutineScope, now: () -> Long = { NOW }): SubscriptionRepository {
         val preferences = MemorySessionPreferences(AppSettings(authToken = "token", autoPunchIn = false))
         lateinit var session: SessionManager
         val api = PicaApi(tokenProvider = { session.token }, baseUrl = server.url("/").toString(), client = client)
         session = SessionManager(preferences, MemoryCredentialStore(), { api }, scope)
         val comics = ComicRepository(session, preferences.settings, FakeApiCacheDao(), FakeSearchHistoryDao(), FakeViewHistoryDao())
-        return SubscriptionRepository(dao, comics, preferences.settings, now = { NOW })
+        return SubscriptionRepository(dao, comics, preferences.settings, now = now)
     }
 
     private fun enqueueComic(id: String) {
@@ -220,11 +244,15 @@ class SubscriptionRepositoryTest {
 
 private class MemorySubscriptionDao : SubscriptionDao() {
     private val entries = MutableStateFlow<Map<String, Subscription>>(emptyMap())
+    val upserts = mutableListOf<Subscription>()
     override fun observeAll() = entries.map { it.values.toList() }
     override fun observe(comicId: String) = entries.map { it[comicId] }
     override fun observeUnseenCount() = entries.map { it.values.count(Subscription::unseen) }
     override suspend fun get(comicId: String) = entries.value[comicId]
-    override suspend fun upsert(subscription: Subscription) { entries.value += subscription.comicId to subscription }
+    override suspend fun upsert(subscription: Subscription) {
+        upserts += subscription
+        entries.value += subscription.comicId to subscription
+    }
     override suspend fun markSeen(comicId: String): Int {
         val current = get(comicId) ?: return 0
         upsert(current.copy(unseen = false, newEpCount = 0))

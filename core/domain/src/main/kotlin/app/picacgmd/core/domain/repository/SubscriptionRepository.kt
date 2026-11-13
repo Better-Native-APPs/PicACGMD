@@ -66,6 +66,9 @@ class SubscriptionRepository(
     }
 
     suspend fun unsubscribe(comicIds: List<String>): Int = dao.delete(comicIds)
+    suspend fun restore(items: List<Subscription>) {
+        items.forEach { dao.upsert(it) }
+    }
     suspend fun markSeen(comicId: String): Int = dao.markSeen(comicId)
     suspend fun clear() = dao.clear()
     suspend fun checkOnAppOpen(): SubscriptionCheckReport = check(staleOnly = true)

@@ -109,11 +109,10 @@ private class ReaderViewModel(
     }
 
     private suspend fun loadDownloaded(downloads: DownloadManager): ReaderStart {
-        val dao = container.database.downloadDao()
-        val comic = dao.getComic(comicId) ?: throw IOException("未找到已下载漫画")
+        val comic = downloads.getComic(comicId) ?: throw IOException("未找到已下载漫画")
         val source = DownloadedReaderSource(
             comic = comic,
-            downloadDao = dao,
+            downloads = downloads,
             files = downloads.files,
             historyRepository = container.historyRepository,
             onProgressError = { reportError("保存阅读进度失败", it) },

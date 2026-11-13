@@ -10,6 +10,7 @@ import app.picacgmd.core.domain.di.AppContainer
 import app.picacgmd.core.network.ComicSimple
 import app.picacgmd.core.network.ComicSort
 import app.picacgmd.feature.comics.ComicPager
+import app.picacgmd.util.suspendRunCatching
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -126,7 +127,7 @@ class BookshelfViewModel(private val container: AppContainer) : ViewModel() {
                 try {
                     val stillFavourite = container.comicRepository.toggleFavourite(id)
                     if (stillFavourite) container.comicRepository.toggleFavourite(id)
-                    if (deleteDownloads) runCatching { onDownloadsDelete(id) }
+                    if (deleteDownloads) suspendRunCatching { onDownloadsDelete(id) }
                 } catch (exception: CancellationException) {
                     throw exception
                 } catch (_: Exception) {
@@ -153,11 +154,11 @@ class BookshelfViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun restoreHistory(items: List<ViewHistory>) = run("撤销失败") {
-        items.forEach { database.viewHistoryDao().upsert(it) }
+        historyRepository.restore(items)
     }
 
     fun restoreSubscriptions(items: List<Subscription>) = run("撤销失败") {
-        items.forEach { database.subscriptionDao().upsert(it) }
+        subscriptionRepository.restore(items)
     }
 }
 
