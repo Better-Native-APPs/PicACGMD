@@ -161,7 +161,8 @@ fun DownloadsScreen(
     val snackbar = remember { SnackbarHostState() }
     var searching by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
-    val comics by remember(manager, query) { manager.observeQueue(search = query.trim()) }
+    val search = query.trim()
+    val comics by remember(manager, search) { manager.observeQueue(search = search) }
         .collectAsStateWithLifecycle(initialValue = null)
     var tabName by rememberSaveable { mutableStateOf<String?>(null) }
     var selection by rememberSaveable { mutableStateOf(emptySet<String>()) }
