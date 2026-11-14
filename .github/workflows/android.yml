@@ -67,8 +67,15 @@ jobs:
           } > keystore.properties
 
       - name: Signing notice
-        if: env.KEYSTORE_BASE64 == ''
+        if: env.KEYSTORE_BASE64 == '' && github.ref_type != 'tag'
         run: echo "::warning::No signing secrets configured - the release APK is signed with a throwaway debug key and cannot update an existing install."
+
+      # A release page must never offer an APK that cannot update the installs made from earlier releases.
+      - name: Require release signing
+        if: env.KEYSTORE_BASE64 == '' && github.ref_type == 'tag'
+        run: |
+          echo "::error::No signing secrets configured - a tag build publishes a release and has to be signed with the release key."
+          exit 1
 
       - name: Unit tests and lint
         run: ./gradlew test lintDebug
@@ -81,7 +88,8 @@ jobs:
           mkdir -p dist
           cp app/build/outputs/apk/release/app-release.apk "dist/PicACGMD-v${{ steps.version.outputs.name }}.apk"
           cp app/build/outputs/apk/debug/app-debug.apk "dist/PicACGMD-v${{ steps.version.outputs.name }}-debug.apk"
-          sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
+          # Only the APK that a release publishes, under its bare name, so `sha256sum -c` works next to the download.
+          (cd dist && sha256sum "PicACGMD-v${{ steps.version.outputs.name }}.apk" | tee SHA256SUMS.txt)
 
       # The release page shows what changed: the version's CHANGELOG.md section plus install steps.
       - name: Release notes

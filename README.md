@@ -117,7 +117,7 @@ keyPassword=你的密钥密码
 
 本仓库已在 GitHub Actions 里配置固定的发布密钥，所以每次 CI 构建和每个 Release 的安装包签名一致，可以直接覆盖安装、保留数据。
 
-没有配置密钥的仓库（例如 fork）构建出的 release 包用一次性的 debug 密钥签名：可以全新安装，但不能覆盖已有安装，每次构建的签名也互不相同。
+没有配置密钥的仓库（例如 fork）在分支和 PR 上构建出的 release 包用一次性的 debug 密钥签名：可以全新安装，但不能覆盖已有安装，每次构建的签名也互不相同。推送 `v*` 标签会发布 Release，这类构建必须先配置密钥，否则会直接失败，避免发布出无法覆盖安装的安装包。
 
 签名密钥通过仓库 Settings › Secrets and variables › Actions 里的四个 secret 提供：
 
