@@ -298,6 +298,7 @@ private fun ComicCell(
             progressDetail = mark?.detail,
             progressDetailShort = mark?.detailShort,
             selected = selected,
+            selectionMode = selecting,
             trailingContent = if (selecting) {
                 { SelectionMark(selected) }
             } else {
@@ -316,6 +317,8 @@ private fun ComicCell(
                 // While selecting, the bare 「已读」 keeps clear of the check in the opposite corner.
                 progressDetail = mark?.detail?.takeUnless { selecting },
                 progressDetailShort = mark?.detailShort?.takeUnless { selecting },
+                selected = selected,
+                selectionMode = selecting,
             )
             AnimatedVisibility(
                 visible = selecting,

@@ -187,6 +187,7 @@ internal fun FollowView(
                         null
                     },
                     selected = subscription.comicId in selection,
+                    selectionMode = selection.isNotEmpty(),
                     onClick = {
                         if (selection.isNotEmpty()) onToggle(subscription.comicId) else onOpenComic(subscription.comicId)
                     },
@@ -447,6 +448,7 @@ private fun HistoryRow(
                 subtitle = entry.progressText(),
                 tags = categories,
                 selected = selected,
+                selectionMode = selecting,
                 onClick = if (selecting) onToggle else onOpen,
                 onLongClick = onToggle,
                 leadingContent = if (entry.pinned) {
