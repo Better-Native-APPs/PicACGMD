@@ -20,4 +20,6 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.kotlin.test.junit)
+    // The HCT conversion of AndroidX Core reads colours through android.graphics.Color.
+    testImplementation(libs.robolectric)
 }

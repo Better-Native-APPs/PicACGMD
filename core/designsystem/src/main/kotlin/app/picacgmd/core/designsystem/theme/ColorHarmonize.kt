@@ -1,103 +1,91 @@
 package app.picacgmd.core.designsystem.theme
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.core.graphics.ColorUtils
 import kotlin.math.abs
-import kotlin.math.cbrt
+import kotlin.math.max
+import kotlin.math.min
 
 /*
- * Runtime harmonisation of the extended roles under dynamic colour.
+ * The success / warning roles under dynamic colour.
  *
- * The design pipeline harmonises the success / warning seed colours
- * toward each palette's seed and then rebuilds their tones; tokens.json therefore ships an already
- * harmonised set for every fixed palette. Under [ThemeChoice.Dynamic] the source colour is the
- * user's wallpaper, which is only known at runtime, so the same rule is applied here to the brand
- * set: rotate the custom hue toward the scheme's primary.
+ * For every fixed palette the colour-token generator harmonises the two custom colours toward the
+ * palette's seed with Material's rule and then builds the four roles of each from the harmonised hue;
+ * the result ships in ColorTokens.kt. Under [ThemeChoice.Dynamic] the colour to harmonise toward is the
+ * wallpaper's, known only at runtime, so the same two steps are done here, toward the scheme's primary
+ * (Material's own choice where a scheme is all there is).
  *
- * Material's harmonise changes the hue alone and by a very small amount (the angular difference is
- * cube-rooted and then halved, so even a 180° gap moves the hue under 3°). Chroma and tone are
- * kept, which is what makes the roles still read as "the same green" on a different wallpaper.
- * The hue is compared in HSL here rather than cam16 — with a shift this small the two hue scales
- * differ by a fraction of a degree, and HSL keeps the design system free of the colour-science
- * dependency the build-time generator uses.
+ * Material's rule: in HCT, turn the hue toward the other colour by half the angle between them, by
+ * 15 degrees at most; chroma and tone stay. The roles are then built from the hue and the chroma the
+ * harmonised colour really has, which can be less than was asked for where sRGB ends.
  */
 
-/** Below this saturation a colour is treated as neutral: it has no hue worth moving. */
-private const val NeutralSaturation = 0.01f
+/** The custom colours before harmonisation, as the generator has them. */
+private const val SuccessSeed = 0xFF2E9D5B.toInt()
+private const val WarningSeed = 0xFFC98A00.toInt()
 
-/** The M3 harmonise shift: cube-root the angular gap (signed) and take half of it. */
-private fun harmonisedHueDelta(degrees: Float): Float {
-    val signed = if (degrees < 0f) -cbrt(-degrees.toDouble()).toFloat() else cbrt(degrees.toDouble()).toFloat()
-    return 0.5f * signed
-}
+/** Material's limit for the turn of the hue. */
+private const val MaxHueTurn = 15f
 
-/** Shortest signed angle from [from] to [to], in (-180, 180]. */
-private fun shortestHueDelta(from: Float, to: Float): Float {
-    var delta = to - from
-    if (delta > 180f) delta -= 360f
-    if (delta < -180f) delta += 360f
-    return delta
-}
+/** The generator's floor for the chroma of a role and of its "on" colour. */
+private const val MinRoleChroma = 36f
 
-/** Hue in degrees plus saturation / lightness in 0..1; alpha is carried separately. */
-private data class Hsl(val hue: Float, val saturation: Float, val lightness: Float, val alpha: Float)
+private class Hct(argb: Int) {
+    val hue: Float
+    val chroma: Float
+    val tone: Float
 
-private fun Color.toHsl(): Hsl {
-    val r = red
-    val g = green
-    val b = blue
-    val max = maxOf(r, g, b)
-    val min = minOf(r, g, b)
-    val lightness = (max + min) / 2f
-    val span = max - min
-    if (span < 1e-6f) return Hsl(0f, 0f, lightness, alpha)
-    val saturation = if (lightness > 0.5f) span / (2f - max - min) else span / (max + min)
-    val hue = when (max) {
-        r -> 60f * (((g - b) / span) % 6f)
-        g -> 60f * (((b - r) / span) + 2f)
-        else -> 60f * (((r - g) / span) + 4f)
+    init {
+        val out = FloatArray(3)
+        ColorUtils.colorToM3HCT(argb, out)
+        hue = out[0]
+        chroma = out[1]
+        tone = out[2]
     }
-    return Hsl((hue + 360f) % 360f, saturation, lightness, alpha)
 }
 
-private fun fromHsl(hsl: Hsl): Color {
-    val c = (1f - abs(2f * hsl.lightness - 1f)) * hsl.saturation
-    val x = c * (1f - abs((hsl.hue / 60f) % 2f - 1f))
-    val m = hsl.lightness - c / 2f
-    val (r, g, b) = when {
-        hsl.hue < 60f -> Triple(c, x, 0f)
-        hsl.hue < 120f -> Triple(x, c, 0f)
-        hsl.hue < 180f -> Triple(0f, c, x)
-        hsl.hue < 240f -> Triple(0f, x, c)
-        hsl.hue < 300f -> Triple(x, 0f, c)
-        else -> Triple(c, 0f, x)
+private fun hct(hue: Float, chroma: Float, tone: Float): Color = Color(ColorUtils.M3HCTToColor(hue, chroma, tone))
+
+/** The hue of [design] turned toward the hue of [source] by Material's rule, in degrees from 0 up to 360. */
+internal fun harmonisedHue(design: Float, source: Float): Float {
+    val gap = 180f - abs(abs(design - source) - 180f)
+    val turn = min(gap * 0.5f, MaxHueTurn)
+    val direction = if ((source - design + 360f) % 360f <= 180f) 1f else -1f
+    return (design + turn * direction + 360f) % 360f
+}
+
+/** The four roles of one custom colour, with the tones and chromas the generator gives them. */
+private class CustomRoles(val color: Color, val on: Color, val container: Color, val onContainer: Color)
+
+private fun customRoles(seed: Int, source: Hct, dark: Boolean): CustomRoles {
+    val design = Hct(seed)
+    val harmonised = Hct(ColorUtils.M3HCTToColor(harmonisedHue(design.hue, source.hue), design.chroma, design.tone))
+    val hue = harmonised.hue
+    val chroma = max(harmonised.chroma, MinRoleChroma)
+    return if (dark) {
+        CustomRoles(hct(hue, chroma, 80f), hct(hue, chroma, 20f), hct(hue, 28f, 30f), hct(hue, 20f, 90f))
+    } else {
+        CustomRoles(hct(hue, chroma, 40f), hct(hue, chroma, 100f), hct(hue, 22f, 90f), hct(hue, chroma, 10f))
     }
-    return Color(red = r + m, green = g + m, blue = b + m, alpha = hsl.alpha)
 }
 
 /**
- * Moves this colour's hue toward [source] by the Material harmonise rule, keeping saturation,
- * lightness and alpha. A neutral colour on either side is returned unchanged.
+ * The success / warning roles harmonised toward [source], built the way the generator builds the set of a
+ * fixed palette from that palette's seed.
  */
-internal fun Color.harmonisedToward(source: Color): Color {
-    val hsl = toHsl()
-    if (hsl.saturation < NeutralSaturation) return this
-    val sourceHsl = source.toHsl()
-    if (sourceHsl.saturation < NeutralSaturation) return this
-    val shift = harmonisedHueDelta(shortestHueDelta(hsl.hue, sourceHsl.hue))
-    return fromHsl(hsl.copy(hue = (hsl.hue + shift + 360f) % 360f))
+internal fun harmonisedExtendedColors(source: Color, dark: Boolean): PicaExtendedColors {
+    val toward = Hct(source.toArgb())
+    val success = customRoles(SuccessSeed, toward, dark)
+    val warning = customRoles(WarningSeed, toward, dark)
+    return PicaExtendedColors(
+        success = success.color,
+        onSuccess = success.on,
+        successContainer = success.container,
+        onSuccessContainer = success.onContainer,
+        warning = warning.color,
+        onWarning = warning.on,
+        warningContainer = warning.container,
+        onWarningContainer = warning.onContainer,
+    )
 }
-
-/**
- * Harmonises every extended role toward [source] (the live scheme's primary under dynamic colour),
- * so green and amber drift with the wallpaper like the rest of the scheme.
- */
-internal fun PicaExtendedColors.harmonisedToward(source: Color): PicaExtendedColors = PicaExtendedColors(
-    success = success.harmonisedToward(source),
-    onSuccess = onSuccess.harmonisedToward(source),
-    successContainer = successContainer.harmonisedToward(source),
-    onSuccessContainer = onSuccessContainer.harmonisedToward(source),
-    warning = warning.harmonisedToward(source),
-    onWarning = onWarning.harmonisedToward(source),
-    warningContainer = warningContainer.harmonisedToward(source),
-    onWarningContainer = onWarningContainer.harmonisedToward(source),
-)

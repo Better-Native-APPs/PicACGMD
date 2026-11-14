@@ -79,13 +79,12 @@ fun PicaTheme(
     }
     val typography = remember { picaTypography() }
     val extended = remember(themeChoice, dark, colorScheme.primary) {
-        val base = extendedColors(themeChoice, dark)
-        // Under wallpaper colour the scheme itself is unknown until runtime, so the fixed
-        // success / warning set is rotated toward the live primary (see ColorHarmonize.kt).
+        // Under wallpaper colour the scheme itself is unknown until runtime, so the success / warning
+        // set is harmonised toward the live primary there (see ColorHarmonize.kt).
         if (themeChoice == ThemeChoice.Dynamic && isDynamicColorSupported) {
-            base.harmonisedToward(colorScheme.primary)
+            harmonisedExtendedColors(colorScheme.primary, dark)
         } else {
-            base
+            extendedColors(themeChoice, dark)
         }
     }
     CompositionLocalProvider(LocalPicaExtendedColors provides extended) {
@@ -116,8 +115,8 @@ fun staticColorScheme(themeChoice: ThemeChoice, dark: Boolean): ColorScheme = wh
 
 /**
  * Success / warning roles. A fixed palette uses its own harmonised set from the design tokens;
- * under dynamic colour the set is rotated toward the live wallpaper primary at runtime
- * ([harmonisedToward]), so these roles are never the one colour left out of step with the scheme.
+ * under dynamic colour the set is built at runtime, harmonised toward the live wallpaper primary
+ * ([harmonisedExtendedColors]), so these roles are never the one colour left out of step with the scheme.
  */
 private fun extendedColors(themeChoice: ThemeChoice, dark: Boolean): PicaExtendedColors =
     when (themeChoice) {
