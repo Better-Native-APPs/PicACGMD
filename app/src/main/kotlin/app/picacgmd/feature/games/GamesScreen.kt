@@ -137,7 +137,7 @@ fun GamesScreen(onBack: () -> Unit, onGameClick: (String) -> Unit) {
                             if (model.loading) LoadingIndicator()
                             model.error?.let { message ->
                                 Text(message, color = MaterialTheme.colorScheme.error)
-                                AppFilledTonalButton({ model.load(if (infinite) model.page + 1 else model.page, infinite) }) { Text("重试") }
+                                AppFilledTonalButton({ model.retry() }) { Text("重试") }
                             }
                             if (infinite && !model.loading && model.error == null) {
                                 if (model.page < model.pages) AppTextButton({ model.load(model.page + 1, true) }) { Text("加载更多") }

@@ -73,12 +73,6 @@ internal class GameCommentsViewModelTest {
         return model
     }
 
-    /** This is the footer's existing decision, not a last-failed-target retry. */
-    private fun GameCommentsViewModel.retryTail(infinite: Boolean) {
-        if (infinite && page < pages) load(page + 1, true)
-        else load(page.coerceAtLeast(1), false)
-    }
-
     @Test
     fun firstLoadRejectsBusyActionsAndMergesPinnedBeforeDedupingBothWrites() = runTest(main.dispatcher) {
         val model = create()
@@ -138,7 +132,7 @@ internal class GameCommentsViewModelTest {
     }
 
     @Test
-    fun appendFailureKeepsContentAndTailRetryAsksForCurrentPlusOne() = runTest(main.dispatcher) {
+    fun appendFailureKeepsContentAndRetriesTheSameAppend() = runTest(main.dispatcher) {
         val model = loaded()
         val first = model.snapshot()
         model.load(2, true)
@@ -147,7 +141,7 @@ internal class GameCommentsViewModelTest {
         pica.enqueueFailure(body = """{"code":500,"message":"tail failed"}""")
         main.awaitState { !model.loading }
         assertEquals(first.copy(error = "tail failed"), model.snapshot())
-        model.retryTail(true)
+        model.retry()
         assertEquals(first.copy(loading = true), model.snapshot())
         main.take(pica, "GET /games/game/comments?page=2")
         pica.enqueue(commentPage(page = 2, docs = listOf(comment("b"))))
@@ -157,7 +151,8 @@ internal class GameCommentsViewModelTest {
     }
 
     @Test
-    fun infiniteRetryAfterFailedJumpAppendsCurrentPlusOneNotTheFailedTarget() = runTest(main.dispatcher) {
+    fun failedJumpInButtonModeRetriesTheFailedTarget() = runTest(main.dispatcher) {
+        pica.preferences.settings.value = pica.preferences.settings.value.copy(paginationMode = PaginationMode.BUTTONS)
         val model = loaded(pages = 5)
         val first = model.snapshot()
         model.load(4, false)
@@ -165,36 +160,77 @@ internal class GameCommentsViewModelTest {
         pica.enqueueFailure(body = """{"code":500,"message":"jump failed"}""")
         main.awaitState { !model.loading }
         assertEquals(first.copy(error = "jump failed"), model.snapshot())
-        model.retryTail(true)
-        main.take(pica, "GET /games/game/comments?page=2")
-        pica.enqueue(commentPage(page = 2, pages = 5, docs = listOf(comment("b"))))
+        model.retry()
+        main.take(pica, "GET /games/game/comments?page=4")
+        pica.enqueue(commentPage(page = 4, pages = 5, docs = listOf(comment("b"))))
         main.awaitState { !model.loading }
-        assertEquals(listOf("a", "b"), model.comments.map { it.id })
+        assertEquals(first.copy(comments = listOf(comment("b")), page = 4), model.snapshot())
         assertEquals(3, pica.requestCount)
     }
 
     @Test
-    fun buttonRetryReloadsCurrentPageAndInfiniteRetryAtTheEndDoesTheSame() = runTest(main.dispatcher) {
-        val model = loaded(page = 2, pages = 2)
-        model.load(1, false)
+    fun failedRefreshRetriesPageOneAsAReplacementInEitherMode() = runTest(main.dispatcher) {
+        for (mode in listOf(PaginationMode.BUTTONS, PaginationMode.INFINITE)) {
+            pica.preferences.settings.value = pica.preferences.settings.value.copy(paginationMode = mode)
+            val requests = pica.requestCount
+            val model = loaded(page = 2, pages = 2)
+            val first = model.snapshot()
+            model.load(1, false)
+            main.take(pica, "GET /games/game/comments?page=1")
+            pica.enqueueFailure(body = """{"code":500,"message":"refresh failed"}""")
+            main.awaitState { !model.loading }
+            assertEquals(first.copy(error = "refresh failed"), model.snapshot())
+            model.retry()
+            assertEquals(first.copy(loading = true), model.snapshot())
+            main.take(pica, "GET /games/game/comments?page=1")
+            pica.enqueue(commentPage(page = 1, pages = 2, docs = listOf(comment("fresh"))))
+            main.awaitState { !model.loading }
+            assertEquals(first.copy(comments = listOf(comment("fresh")), page = 1), model.snapshot())
+            assertEquals(requests + 3, pica.requestCount)
+        }
+    }
+
+    @Test
+    fun retryWhileLoadingSendsNoRequestAndIgnoredLoadsDoNotChangeTheRetry() = runTest(main.dispatcher) {
+        val model = loaded()
+        val first = model.snapshot()
+        model.load(3, true)
+        main.take(pica, "GET /games/game/comments?page=3")
+        model.load(4, false)
+        model.retry()
+        main.dispatcher.scheduler.runCurrent()
+        assertEquals(first.copy(loading = true), model.snapshot())
+        assertNull(pica.pollRequest(50))
+        assertEquals(2, pica.requestCount)
+        pica.enqueueFailure(body = """{"code":500,"message":"append failed"}""")
+        main.awaitState { !model.loading }
+        model.retry()
+        main.take(pica, "GET /games/game/comments?page=3")
+        pica.enqueue(commentPage(page = 3, docs = listOf(comment("b"))))
+        main.awaitState { !model.loading }
+        assertEquals(first.copy(comments = first.comments + comment("b"), page = 3), model.snapshot())
+        assertEquals(3, pica.requestCount)
+    }
+
+    @Test
+    fun failedPostReloadRetriesPageOneAsAReplacement() = runTest(main.dispatcher) {
+        val model = loaded(page = 2)
+        val first = model.snapshot()
+        var sent = false
+        model.post("draft") { sent = true }
+        main.take(pica, "POST /games/game/comments")
+        pica.enqueue("{}")
         main.take(pica, "GET /games/game/comments?page=1")
-        pica.enqueueFailure(body = """{"code":500,"message":"refresh failed"}""")
+        assertTrue(sent)
+        pica.enqueueFailure(body = """{"code":500,"message":"reload failed"}""")
         main.awaitState { !model.loading }
-        model.retryTail(false)
-        main.take(pica, "GET /games/game/comments?page=2")
-        pica.enqueue(commentPage(page = 2, pages = 2, docs = listOf(comment("button"))))
-        main.awaitState { !model.loading }
-        assertEquals(listOf("button"), model.comments.map { it.id })
-        model.load(1, false)
+        assertEquals(first.copy(error = "reload failed"), model.snapshot())
+        model.retry()
         main.take(pica, "GET /games/game/comments?page=1")
-        pica.enqueueFailure(body = """{"code":500,"message":"refresh failed again"}""")
+        pica.enqueue(commentPage(docs = listOf(comment("fresh"))))
         main.awaitState { !model.loading }
-        model.retryTail(true)
-        main.take(pica, "GET /games/game/comments?page=2")
-        pica.enqueue(commentPage(page = 2, pages = 2, docs = listOf(comment("end"))))
-        main.awaitState { !model.loading }
-        assertEquals(listOf("end"), model.comments.map { it.id })
-        assertEquals(5, pica.requestCount)
+        assertEquals(first.copy(comments = listOf(comment("fresh")), page = 1), model.snapshot())
+        assertEquals(4, pica.requestCount)
     }
 
     @Test

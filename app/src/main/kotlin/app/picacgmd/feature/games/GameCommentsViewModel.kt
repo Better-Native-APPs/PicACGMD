@@ -52,10 +52,17 @@ internal class GameCommentsViewModel(
         appendMeta = { _, _ -> },
     )
 
+    private var lastTarget = 1
+    private var lastAppend = false
+
     init { load(1, false) }
+
+    fun retry() = load(lastTarget, lastAppend)
 
     fun load(target: Int, append: Boolean) {
         if (loading) return
+        lastTarget = target
+        lastAppend = append
         loading = true
         error = null
         viewModelScope.launch {

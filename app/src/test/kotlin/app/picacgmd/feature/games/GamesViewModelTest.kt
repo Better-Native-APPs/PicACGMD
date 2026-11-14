@@ -54,9 +54,6 @@ internal class GamesViewModelTest {
         return model
     }
 
-    /** Kept identical to the existing content-error footer. */
-    private fun GamesViewModel.retryTail(infinite: Boolean) = load(if (infinite) page + 1 else page, infinite)
-
     @Test
     fun firstLoadIgnoresBusyLoadsReplaceKeepsDuplicatesAndAppendDedupesTheWholeList() = runTest(main.dispatcher) {
         val model = create()
@@ -110,7 +107,7 @@ internal class GamesViewModelTest {
     }
 
     @Test
-    fun appendFailureKeepsContentAndInfiniteTailRetryAsksForCurrentPlusOne() = runTest(main.dispatcher) {
+    fun appendFailureKeepsContentAndRetriesTheSameAppend() = runTest(main.dispatcher) {
         val model = loaded()
         val first = model.snapshot()
         model.load(2, true)
@@ -119,7 +116,7 @@ internal class GamesViewModelTest {
         pica.enqueueFailure(body = """{"code":500,"message":"tail failed"}""")
         main.awaitState { !model.loading }
         assertEquals(first.copy(error = "tail failed"), model.snapshot())
-        model.retryTail(true)
+        model.retry()
         assertEquals(first.copy(loading = true), model.snapshot())
         main.take(pica, "GET /games?page=2")
         val b = GameSimple(id = "b")
@@ -130,7 +127,8 @@ internal class GamesViewModelTest {
     }
 
     @Test
-    fun failedJumpInButtonModeRetriesCurrentPageNotTheFailedTarget() = runTest(main.dispatcher) {
+    fun failedJumpInButtonModeRetriesTheFailedTarget() = runTest(main.dispatcher) {
+        pica.preferences.settings.value = pica.preferences.settings.value.copy(paginationMode = PaginationMode.BUTTONS)
         val model = loaded(page = 2, pages = 5)
         val first = model.snapshot()
         model.load(4, false)
@@ -138,47 +136,58 @@ internal class GamesViewModelTest {
         pica.enqueueFailure(body = """{"code":500,"message":"jump failed"}""")
         main.awaitState { !model.loading }
         assertEquals(first.copy(error = "jump failed"), model.snapshot())
-        model.retryTail(false)
-        main.take(pica, "GET /games?page=2")
+        model.retry()
+        main.take(pica, "GET /games?page=4")
         val fresh = GameSimple(id = "fresh")
-        pica.enqueue(gamesPage(page = 2, pages = 5, docs = listOf(fresh)))
+        pica.enqueue(gamesPage(page = 4, pages = 5, docs = listOf(fresh)))
         main.awaitState { !model.loading }
-        assertEquals(first.copy(games = listOf(fresh)), model.snapshot())
+        assertEquals(first.copy(games = listOf(fresh), page = 4), model.snapshot())
         assertEquals(3, pica.requestCount)
     }
 
     @Test
-    fun failedRefreshInInfiniteModeAppendsCurrentPlusOneInsteadOfRetryingOne() = runTest(main.dispatcher) {
-        val model = loaded(page = 2, pages = 4)
+    fun failedRefreshRetriesPageOneAsAReplacementInEitherMode() = runTest(main.dispatcher) {
+        for (mode in listOf(PaginationMode.BUTTONS, PaginationMode.INFINITE)) {
+            pica.preferences.settings.value = pica.preferences.settings.value.copy(paginationMode = mode)
+            val requests = pica.requestCount
+            val model = loaded(page = 2, pages = 2)
+            val first = model.snapshot()
+            model.load(1, false)
+            main.take(pica, "GET /games?page=1")
+            pica.enqueueFailure(body = """{"code":500,"message":"refresh failed"}""")
+            main.awaitState { !model.loading }
+            assertEquals(first.copy(error = "refresh failed"), model.snapshot())
+            model.retry()
+            assertEquals(first.copy(loading = true), model.snapshot())
+            main.take(pica, "GET /games?page=1")
+            val fresh = GameSimple(id = "fresh")
+            pica.enqueue(gamesPage(page = 1, pages = 2, docs = listOf(fresh)))
+            main.awaitState { !model.loading }
+            assertEquals(first.copy(games = listOf(fresh), page = 1), model.snapshot())
+            assertEquals(requests + 3, pica.requestCount)
+        }
+    }
+
+    @Test
+    fun retryWhileLoadingSendsNoRequestAndIgnoredLoadsDoNotChangeTheRetry() = runTest(main.dispatcher) {
+        val model = loaded()
         val first = model.snapshot()
-        model.load(1, false)
-        main.take(pica, "GET /games?page=1")
-        pica.enqueueFailure(body = """{"code":500,"message":"refresh failed"}""")
+        model.load(3, true)
+        main.take(pica, "GET /games?page=3")
+        model.load(4, false)
+        model.retry()
+        main.dispatcher.scheduler.runCurrent()
+        assertEquals(first.copy(loading = true), model.snapshot())
+        assertNull(pica.pollRequest(50))
+        assertEquals(2, pica.requestCount)
+        pica.enqueueFailure(body = """{"code":500,"message":"append failed"}""")
         main.awaitState { !model.loading }
-        assertEquals(first.copy(error = "refresh failed"), model.snapshot())
-        model.retryTail(true)
+        model.retry()
         main.take(pica, "GET /games?page=3")
         val b = GameSimple(id = "b")
         pica.enqueue(gamesPage(page = 3, pages = 4, docs = listOf(b)))
         main.awaitState { !model.loading }
         assertEquals(first.copy(games = first.games + b, page = 3), model.snapshot())
-        assertEquals(3, pica.requestCount)
-    }
-
-    @Test
-    fun infiniteRetryStillAppendsAfterAnErrorWithContentAtTheLastPage() = runTest(main.dispatcher) {
-        val model = loaded(page = 2, pages = 2)
-        model.load(1, false)
-        main.take(pica, "GET /games?page=1")
-        pica.enqueueFailure(body = """{"code":500,"message":"refresh failed"}""")
-        main.awaitState { !model.loading }
-        model.retryTail(true)
-        main.take(pica, "GET /games?page=3")
-        pica.enqueue(gamesPage(page = 3, pages = 2))
-        main.awaitState { !model.loading }
-        assertEquals(listOf("a"), model.games.map { it.id })
-        assertEquals(3, model.page)
-        assertEquals(2, model.pages)
         assertEquals(3, pica.requestCount)
     }
 

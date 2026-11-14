@@ -139,10 +139,7 @@ fun GameCommentsScreen(
                                 model.loading -> LoadingIndicator()
                                 model.error != null -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(model.error.orEmpty(), color = MaterialTheme.colorScheme.error)
-                                    AppTextButton({
-                                        if (infinite && model.page < model.pages) model.load(model.page + 1, true)
-                                        else model.load(model.page.coerceAtLeast(1), false)
-                                    }) { Text(stringResource(R.string.comics_load_more_failed)) }
+                                    AppTextButton({ model.retry() }) { Text(stringResource(R.string.comics_load_more_failed)) }
                                 }
                                 infinite && model.page < model.pages -> AppTextButton({ model.load(model.page + 1, true) }) { Text("加载更多") }
                                 infinite -> Text(
