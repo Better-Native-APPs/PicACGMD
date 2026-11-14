@@ -93,6 +93,26 @@ private fun categoryKey(name: String): String = when (val trimmed = name.trim())
     else -> trimmed
 }
 
+/**
+ * The saved names with the ones on screen put in their new order. A saved name the page does not show,
+ * because the server does not list that category at the moment, keeps its place.
+ */
+internal fun reorderedNames(saved: List<String>, shown: List<String>): List<String> {
+    val shownNames = shown.distinctBy(::categoryKey)
+    val shownKeys = shownNames.map(::categoryKey).toSet()
+    val savedKeys = mutableSetOf<String>()
+    val nextShown = shownNames.iterator()
+    return buildList {
+        saved.forEach { name ->
+            val key = categoryKey(name)
+            if (savedKeys.add(key)) {
+                add(if (key in shownKeys) nextShown.next() else name)
+            }
+        }
+        addAll(nextShown.asSequence())
+    }
+}
+
 class CategoriesViewModel(private val container: AppContainer) : ViewModel() {
     private val repository = container.settingsRepository
     val settings: StateFlow<AppSettings> =
@@ -120,8 +140,12 @@ class CategoriesViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun setColumnCount(value: Int) = viewModelScope.launch { repository.setCategoryColumnCount(value) }
-    fun reorderPinned(names: List<String>) = viewModelScope.launch { repository.setPinnedHomeCategories(names) }
-    fun reorderCategories(names: List<String>) = viewModelScope.launch { repository.setCategoryOrder(names) }
+    fun reorderPinned(names: List<String>) = viewModelScope.launch {
+        repository.setPinnedHomeCategories(reorderedNames(settings.value.pinnedHomeCategories, names))
+    }
+    fun reorderCategories(names: List<String>) = viewModelScope.launch {
+        repository.setCategoryOrder(reorderedNames(settings.value.categoryOrder, names))
+    }
 }
 
 /**
@@ -368,7 +392,7 @@ private fun CategoryRow(
  * order can be changed without a drag gesture.
  */
 @Composable
-private fun <T> ReorderableColumn(
+internal fun <T> ReorderableColumn(
     items: List<T>,
     keyOf: (T) -> Any,
     nameOf: (T) -> String,
@@ -376,11 +400,14 @@ private fun <T> ReorderableColumn(
     onMoved: (List<T>) -> Unit,
     row: @Composable (item: T, handle: Modifier) -> Unit,
 ) {
-    var order by remember(items) { mutableStateOf(items) }
-    var draggingKey by remember { mutableStateOf<Any?>(null) }
+    val orderState = remember(items) { mutableStateOf(items) }
+    var order by orderState
+    // New items end a drag in progress: its handler is restarted below without a drag end or cancel, and
+    // the row must not stay lifted.
+    var draggingKey by remember(items) { mutableStateOf<Any?>(null) }
     var movedKey by remember { mutableStateOf<Any?>(null) }
-    var offset by remember { mutableFloatStateOf(0f) }
-    var moved by remember { mutableStateOf(false) }
+    var offset by remember(items) { mutableFloatStateOf(0f) }
+    var moved by remember(items) { mutableStateOf(false) }
     val heightPx = with(LocalDensity.current) { itemHeight.toPx() }
     val haptics = LocalHapticFeedback.current
     val latestOnMoved by rememberUpdatedState(onMoved)
@@ -405,7 +432,8 @@ private fun <T> ReorderableColumn(
                     }
                 }
                 val handle = Modifier
-                    .pointerInput(itemKey) {
+                    // Restart the drag handler when the list replaces its order state.
+                    .pointerInput(itemKey, orderState) {
                         detectDragGestures(
                             onDragStart = {
                                 draggingKey = itemKey
