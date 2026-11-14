@@ -10,6 +10,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -309,6 +311,12 @@ fun DownloadsScreen(
                         ) { current ->
                             val items = byTab[current].orEmpty()
                             val bottom = PaddingValues(bottom = padding.calculateBottomPadding() + 24.dp)
+                            // Room for the batch toolbar so the last row can clear it; the shelf lists reserve the same.
+                            val doneBottom = if (selecting && tab == DownloadTab.Done) {
+                                PaddingValues(bottom = padding.calculateBottomPadding() + 112.dp)
+                            } else {
+                                bottom
+                            }
                             when (current) {
                                 DownloadTab.Active -> ActiveList(
                                     items = items,
@@ -324,7 +332,7 @@ fun DownloadsScreen(
                                 DownloadTab.Done -> DoneList(
                                     items = items,
                                     selection = selection,
-                                    contentPadding = bottom,
+                                    contentPadding = doneBottom,
                                     onToggle = { id -> selection = if (id in selection) selection - id else selection + id },
                                     onOpen = onReadDownloaded,
                                     onOpenDetail = onOpenDetail,
@@ -634,6 +642,7 @@ private fun DownloadRow(
     subtitle: String,
     modifier: Modifier = Modifier,
     subtitleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    selecting: Boolean = false,
     selected: Boolean = false,
     progressBar: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
@@ -652,10 +661,7 @@ private fun DownloadRow(
             .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box {
-            ComicCover(coverUrl = cover, contentDescription = null, modifier = Modifier.width(56.dp))
-            SelectionMark(selected, Modifier.align(Alignment.TopEnd).padding(2.dp))
-        }
+        DownloadCover(coverUrl = cover, selecting = selecting, selected = selected)
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Text(comic.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
@@ -672,6 +678,21 @@ private fun DownloadRow(
             }
         }
         trailing?.invoke()
+    }
+}
+
+/** The row's cover; the selection mark sits on it only while the list is selecting, as on the comic covers. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun DownloadCover(coverUrl: String?, selecting: Boolean, selected: Boolean) {
+    Box {
+        ComicCover(coverUrl = coverUrl, contentDescription = null, modifier = Modifier.width(56.dp))
+        AnimatedVisibility(
+            visible = selecting,
+            enter = scaleIn(MaterialTheme.motionScheme.fastSpatialSpec()),
+            exit = scaleOut(MaterialTheme.motionScheme.fastSpatialSpec()),
+            modifier = Modifier.align(Alignment.TopEnd).padding(2.dp),
+        ) { SelectionMark(selected) }
     }
 }
 
@@ -763,6 +784,7 @@ private fun DoneList(
                     if (comic.author.isNotBlank()) append(comic.author).append(" · ")
                     append("${comic.completedEpCount} 话 · ${context.formatBytes(comic.downloadedBytes)}")
                 },
+                selecting = selecting,
                 selected = comic.comicId in selection,
                 onClick = { if (selecting) onToggle(comic.comicId) else onOpenDetail(comic.comicId) },
                 onLongClick = { onToggle(comic.comicId) },
