@@ -43,6 +43,12 @@ android {
     }
 
     androidResources { localeFilters += "zh-rCN" }
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 composeCompiler {
@@ -78,4 +84,6 @@ dependencies {
     testImplementation(libs.kotlin.test.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.compose.ui.test.junit4)
 }
