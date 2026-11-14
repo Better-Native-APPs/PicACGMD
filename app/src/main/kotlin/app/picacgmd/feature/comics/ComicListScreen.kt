@@ -39,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -152,6 +153,13 @@ private fun ComicListContent(
     val sort by viewModel.sort.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     var selection by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    // Loading or failed pages are not settled lists, so restored selections must wait for the first page to return.
+    LaunchedEffect(state.comics, state.loading, state.error) {
+        if (!state.loading && state.error == null) {
+            val kept = listedSelection(selection, state.comics)
+            if (kept !== selection) selection = kept
+        }
+    }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val motion = MaterialTheme.motionScheme
 
