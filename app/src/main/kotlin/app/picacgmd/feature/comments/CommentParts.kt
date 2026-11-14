@@ -36,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -44,6 +45,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.picacgmd.R
@@ -100,14 +103,49 @@ internal fun CommentGroupLabel(text: String, pinned: Boolean) {
 }
 
 /**
+ * Follows the draft while [sent] is on its way, to tell what the field holds once the send has gone out.
+ *
+ * Text typed behind the sent text is the beginning of the next comment, so only the sent part is taken off.
+ * A draft whose sent part was edited, or that was written anew, is something else and stays whole. Comparing
+ * the two texts at the end cannot tell these apart: a new draft may begin with the very words that were sent,
+ * and the sent words may have been deleted and typed again.
+ *
+ * So every change of the field is looked at as it happens. The sent part stops counting as untouched when
+ * text changes with the cursor inside it or arriving inside it (deleting backwards leaves the cursor where the
+ * deletion began), and when a selection reaches into it: what replaces a selection may be the same words, and
+ * then nothing but the selection shows that it happened. Merely placing the cursor there changes nothing.
+ */
+internal class DraftInFlight(private val sent: String) {
+    private var continued = true
+
+    /** The field went from the selection [previous] to [draft] with the selection [current]. */
+    fun changed(draft: String, textChanged: Boolean, previous: TextRange, current: TextRange) {
+        // The selection before counts as well: it may have been there when the send began.
+        val selectedInside = (!previous.collapsed && previous.min < sent.length) ||
+            (!current.collapsed && current.min < sent.length)
+        val editedInside = textChanged && (previous.min < sent.length || current.min < sent.length)
+        if (selectedInside || editedInside || !draft.startsWith(sent)) continued = false
+    }
+
+    /** What stays of [draft] now that the send has gone out. */
+    fun remaining(draft: String): String =
+        if (continued && draft.startsWith(sent)) draft.substring(sent.length) else draft
+}
+
+/** Saves the draft's text and nothing else: after a restore the cursor starts where it does in a new field. */
+private val DraftTextSaver = Saver<TextFieldValue, String>(save = { it.text }, restore = { TextFieldValue(it) })
+
+/**
  * The bottom input bar of board 17: a pill field over `surfaceContainer`, the live counter sitting on
  * the send button it gates, and the send button disabled until the draft is sendable.
- * [onSend] is handed the draft plus the callback that clears the field once the send has gone out.
+ * [onSend] is handed the draft plus the callback that removes the sent text once the send has gone out.
  */
 @Composable
 internal fun CommentComposer(hint: String, sending: Boolean, onSend: (String, () -> Unit) -> Unit) {
-    var text by rememberSaveable { mutableStateOf("") }
-    val length = commentLength(text)
+    // The selection is held with the text: it shows which part of the draft an edit made during a send touched.
+    var field by rememberSaveable(stateSaver = DraftTextSaver) { mutableStateOf(TextFieldValue()) }
+    var inFlight by remember { mutableStateOf<DraftInFlight?>(null) }
+    val length = commentLength(field.text)
     Surface(color = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = 2.dp) {
         Row(
             Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(horizontal = 12.dp, vertical = 8.dp),
@@ -115,8 +153,13 @@ internal fun CommentComposer(hint: String, sending: Boolean, onSend: (String, ()
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             TextField(
-                value = text,
-                onValueChange = { text = it.take(COMMENT_DRAFT_CAP) },
+                value = field,
+                onValueChange = { next ->
+                    // Copying by text drops the styles a paste may carry: a comment is plain text.
+                    val capped = next.copy(text = next.text.take(COMMENT_DRAFT_CAP))
+                    inFlight?.changed(capped.text, capped.text != field.text, field.selection, capped.selection)
+                    field = capped
+                },
                 placeholder = { Text(hint) },
                 maxLines = 4,
                 isError = length > COMMENT_MAX_LENGTH,
@@ -134,7 +177,29 @@ internal fun CommentComposer(hint: String, sending: Boolean, onSend: (String, ()
             // The count sits on the button it gates, so a disabled send explains itself.
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 CommentLengthCounter(length)
-                AppFilledIconButton(onClick = { onSend(text) { text = "" } }, enabled = commentSendable(length) && !sending) {
+                AppFilledIconButton(
+                    onClick = {
+                        val sent = field.text
+                        val flight = DraftInFlight(sent)
+                        inFlight = flight
+                        onSend(sent) {
+                            // A send that was followed by another no longer saw the edits, so it leaves the draft alone.
+                            if (inFlight === flight) {
+                                inFlight = null
+                                val rest = flight.remaining(field.text)
+                                val removed = field.text.length - rest.length
+                                if (removed > 0) {
+                                    val selection = field.selection
+                                    field = TextFieldValue(
+                                        rest,
+                                        TextRange((selection.start - removed).coerceAtLeast(0), (selection.end - removed).coerceAtLeast(0)),
+                                    )
+                                }
+                            }
+                        }
+                    },
+                    enabled = commentSendable(length) && !sending,
+                ) {
                     Icon(Icons.AutoMirrored.Outlined.Send, stringResource(R.string.comments_send))
                 }
             }
