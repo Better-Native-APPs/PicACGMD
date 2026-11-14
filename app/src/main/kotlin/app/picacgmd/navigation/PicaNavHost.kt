@@ -3,6 +3,7 @@ package app.picacgmd.navigation
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -103,11 +104,28 @@ fun PicaNavHost(
     val onReaderMessage: (String) -> Unit = { message -> scope.launch { snackbar.showSnackbar(message) } }
     // The exit specs below say whether a transition is a pop, so only a popped page and the one it
     // uncovers get the back preview; in every other transition the frames stay idle. This holds
-    // for a back gesture too: NavHost picks popExitTransition as soon as the gesture starts and
+    // for a back gesture too: NavHost picks the pop exit transition as soon as the gesture starts and
     // builds the spec in the composition that follows, before it seeks the first frame. Nothing
     // resets the flag when a gesture is cancelled, and nothing has to: the pages are back at rest,
     // and the next transition, whichever it is, builds its specs again.
     val backPreview = rememberBackPreviewState()
+    val popEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
+        if (isTabSwitch(compact.value)) {
+            fadeIn(fadeSpec)
+        } else {
+            EnterTransition.None
+        }
+    }
+    val popExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
+        backPreview.popping = !isTabSwitch(compact.value)
+        if (isTabSwitch(compact.value)) {
+            fadeOut(fastFadeSpec)
+        } else {
+            // No motion from the host: BackPreviewFrame moves the page, off the same
+            // timeline, so there is nothing here for the gesture to seek twice.
+            predictiveBackExit()
+        }
+    }
 
     Box(modifier.fillMaxSize()) {
         CompositionLocalProvider(LocalBackPreview provides backPreview) {
@@ -130,23 +148,12 @@ fun PicaNavHost(
                         slideOutHorizontally(slideSpec) { -it / 16 } + fadeOut(fastFadeSpec)
                     }
                 },
-                popEnterTransition = {
-                    if (isTabSwitch(compact.value)) {
-                        fadeIn(fadeSpec)
-                    } else {
-                        EnterTransition.None
-                    }
-                },
-                popExitTransition = {
-                    backPreview.popping = !isTabSwitch(compact.value)
-                    if (isTabSwitch(compact.value)) {
-                        fadeOut(fastFadeSpec)
-                    } else {
-                        // No motion from the host: BackPreviewFrame moves the page, off the same
-                        // timeline, so there is nothing here for the gesture to seek twice.
-                        predictiveBackExit()
-                    }
-                },
+                popEnterTransition = popEnter,
+                popExitTransition = popExit,
+                // The host asks for the transition of a back gesture apart from the one of a finished back,
+                // and would otherwise play its own. Here they are one: the gesture seeks what back plays.
+                predictivePopEnterTransition = { popEnter() },
+                predictivePopExitTransition = { popExit() },
                 sizeTransform = null,
             ) {
                 topLevelGraphs(navController, compact, rootBack)
