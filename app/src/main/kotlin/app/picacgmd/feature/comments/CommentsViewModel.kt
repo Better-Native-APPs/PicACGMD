@@ -29,6 +29,11 @@ data class CommentsState(
     val appending: Boolean = false,
     val appendError: String? = null,
     val sending: Boolean = false,
+    /**
+     * Goes up whenever a load ends, whatever came of it. A request made by scrolling names the revision it saw
+     * and is made once for each.
+     */
+    val revision: Int = 0,
 ) {
     val hasNext: Boolean get() = page < pages
     /** Scrolling may ask for the next page: nothing is in flight, and a failed page waits for a retry. */
@@ -44,6 +49,11 @@ data class ReplyThread(
     val sending: Boolean = false,
     /** Why the last page failed; loading more then waits for 重试. */
     val error: String? = null,
+    /**
+     * Goes up whenever a load of replies ends, whatever came of it, and never starts over: the thread opened
+     * next goes on from where this one stopped, so that a request for one is never taken for the other.
+     */
+    val revision: Int = 0,
 ) {
     /** After a failure, scrolling must not fire the same request again and again; 重试 does it once. */
     val canLoadMore: Boolean get() = !loading && error == null && page < pages
@@ -64,6 +74,7 @@ class CommentsViewModel(private val repository: CommentRepository, private val c
         appendMeta = { old, _ -> old },
     )
     private var replyPages: PageAccumulator<Comment, String, Unit>? = null
+    private var replyRevision = 0
 
     init { reload() }
 
@@ -77,15 +88,28 @@ class CommentsViewModel(private val repository: CommentRepository, private val c
                         PageWrite.REPLACE,
                     ).data
                     mutableState.update {
-                        it.copy(top = data.meta, items = data.items, page = data.page, pages = data.pages, loading = false)
+                        it.copy(
+                            top = data.meta, items = data.items, page = data.page, pages = data.pages,
+                            loading = false, revision = it.revision + 1,
+                        )
                     }
                 }
-                .onFailure { error -> mutableState.update { it.copy(loading = false, error = error.readable()) } }
+                .onFailure { error ->
+                    mutableState.update { it.copy(loading = false, error = error.readable(), revision = it.revision + 1) }
+                }
         }
     }
 
-    fun loadNext() {
-        if (!mutableState.value.canLoadNext) return
+    /**
+     * The next page, as scrolling asks for it. [revision] is the one the list on screen was at: a request made
+     * for an earlier one is turned down, because the rows that were scrolled to are no longer the rows there are.
+     * Nor does scrolling go on where the next page was answered with an earlier one, see
+     * [PageAccumulator.nextPageStalled].
+     */
+    fun loadNext(revision: Int = mutableState.value.revision) {
+        val current = mutableState.value
+        if (revision != current.revision || !current.canLoadNext) return
+        if (pages.nextPageStalled) return
         append()
     }
 
@@ -103,12 +127,17 @@ class CommentsViewModel(private val repository: CommentRepository, private val c
                     val data = pages.commit(
                         PageData(page.comments.docs, page.comments.page, page.comments.pages, page.comments.total, page.topComments),
                         PageWrite.APPEND,
+                        requested = next,
                     ).data
                     mutableState.update { s ->
-                        s.copy(items = data.items, page = data.page, pages = data.pages, appending = false)
+                        s.copy(items = data.items, page = data.page, pages = data.pages, appending = false, revision = s.revision + 1)
                     }
                 }
-                .onFailure { error -> mutableState.update { it.copy(appending = false, appendError = error.readable()) } }
+                .onFailure { error ->
+                    mutableState.update {
+                        it.copy(appending = false, appendError = error.readable(), revision = it.revision + 1)
+                    }
+                }
         }
     }
 
@@ -164,7 +193,7 @@ class CommentsViewModel(private val repository: CommentRepository, private val c
             appendDedupe = Dedupe.AGAINST_OLD,
             appendMeta = { _, _ -> },
         )
-        mutableReplies.value = ReplyThread(comment)
+        mutableReplies.value = ReplyThread(comment, revision = replyRevision)
         loadReplies(1)
     }
 
@@ -173,9 +202,14 @@ class CommentsViewModel(private val repository: CommentRepository, private val c
         mutableReplies.value = null
     }
 
-    fun loadMoreReplies() {
+    /** The next page of replies, as scrolling asks for it; [revision] as in [loadNext]. */
+    fun loadMoreReplies(revision: Int = mutableReplies.value?.revision ?: replyRevision) {
         val t = mutableReplies.value ?: return
-        if (!t.canLoadMore) return
+        if (revision != t.revision || !t.canLoadMore) return
+        // The first page is asked for by opening the thread and by 重试. An answer that is numbered before it
+        // would otherwise be asked for again by every answer, because the first page replaces what is there.
+        if (t.page < 1) return
+        if (replyPages?.nextPageStalled != false) return
         loadReplies(t.page + 1)
     }
 
@@ -197,15 +231,18 @@ class CommentsViewModel(private val repository: CommentRepository, private val c
                     val data = requireNotNull(replyPages).commit(
                         PageData(result.docs, result.page, result.pages, result.total, Unit),
                         if (page == 1) PageWrite.REPLACE else PageWrite.APPEND,
+                        requested = page,
                     ).data
+                    val revision = ++replyRevision
                     mutableReplies.update { thread ->
-                        thread?.copy(replies = data.items, page = data.page, pages = data.pages, loading = false)
+                        thread?.copy(replies = data.items, page = data.page, pages = data.pages, loading = false, revision = revision)
                     }
                 }
                 .onFailure { error ->
                     // Shown in the sheet with a retry; the page count stays, so the retry knows where to go on.
+                    val revision = ++replyRevision
                     mutableReplies.update { t ->
-                        if (t == null || t.parent.id != parentId) t else t.copy(loading = false, error = error.readable())
+                        if (t == null || t.parent.id != parentId) t else t.copy(loading = false, error = error.readable(), revision = revision)
                     }
                 }
         }

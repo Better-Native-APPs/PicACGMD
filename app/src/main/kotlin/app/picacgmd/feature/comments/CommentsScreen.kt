@@ -70,6 +70,7 @@ import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.comics.formatCount
 import app.picacgmd.feature.comics.rememberImageUrl
 import app.picacgmd.paging.LoadMoreEffect
+import app.picacgmd.paging.RowsWatch
 
 /**
  * Board 17: comments of a comic — pinned group, latest comments, replies sheet, composer, likes, reports.
@@ -89,8 +90,10 @@ fun CommentsScreen(comicId: String, onBack: () -> Unit, modifier: Modifier = Mod
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     var reportTarget by remember { mutableStateOf<Comment?>(null) }
     LaunchedEffect(viewModel) { viewModel.messages.collect { snackbar.showSnackbar(it) } }
-    val endKeys = remember(state.items) { state.items.takeLast(3).map { it.id } }
-    LoadMoreEffect(listState, state.page, state.canLoadNext, endKeys, viewModel::loadNext)
+    val rowsWatch = remember { RowsWatch() }
+    // Pinned comments alone keep the list on screen.
+    val listShown = state.items.isNotEmpty() || (!state.loading && state.error == null && state.top.isNotEmpty())
+    LoadMoreEffect(listState, rowsWatch, state, state.revision, state.canLoadNext, endZone = 4, onLoadMore = viewModel::loadNext, listShown = listShown)
 
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -114,10 +117,11 @@ fun CommentsScreen(comicId: String, onBack: () -> Unit, modifier: Modifier = Mod
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             when {
-                state.loading && state.items.isEmpty() -> LoadingState()
-                state.error != null && state.items.isEmpty() -> ErrorState(onRetry = viewModel::reload, description = state.error)
-                state.items.isEmpty() && state.top.isEmpty() -> EmptyState(title = stringResource(R.string.comments_empty))
-                else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+                !listShown && state.loading -> LoadingState()
+                !listShown && state.error != null -> ErrorState(onRetry = viewModel::reload, description = state.error)
+                !listShown -> EmptyState(title = stringResource(R.string.comments_empty))
+                else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize().then(rowsWatch.measured)) {
+                    rowsWatch.rows(state)
                     if (state.top.isNotEmpty()) {
                         item(key = "top-header") { CommentGroupLabel(stringResource(R.string.comments_top), pinned = true) }
                         items(state.top, key = { "top-${it.id}" }) { comment ->
@@ -297,14 +301,14 @@ private fun RepliesSheet(
     onDismiss: () -> Unit,
     onLike: (String) -> Unit,
     onReport: (Comment) -> Unit,
-    onLoadMore: () -> Unit,
+    onLoadMore: (revision: Int) -> Unit,
     onRetry: () -> Unit,
     onSend: (String, () -> Unit) -> Unit,
 ) {
     val listState = rememberLazyListState()
+    val rowsWatch = remember { RowsWatch() }
     // Further pages come in by themselves as the end scrolls into view; only a failed page waits for a tap.
-    val endKeys = remember(thread.replies) { thread.replies.takeLast(3).map { it.id } }
-    LoadMoreEffect(listState, thread.page, thread.canLoadMore, endKeys, onLoadMore)
+    LoadMoreEffect(listState, rowsWatch, thread, thread.revision, thread.canLoadMore, endZone = 4, onLoadMore = onLoadMore)
     val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, contentWindowInsets = { WindowInsets(0) }, properties = secureModalBottomSheetProperties()) {
         Column(Modifier.fillMaxWidth()) {
@@ -312,7 +316,8 @@ private fun RepliesSheet(
             CommentRow(thread.parent, onLike = { onLike(thread.parent.id) }, onReport = { onReport(thread.parent) })
             HorizontalDivider()
             Box(Modifier.weight(1f, fill = false)) {
-                LazyColumn(state = listState) {
+                LazyColumn(state = listState, modifier = rowsWatch.measured) {
+                    rowsWatch.rows(thread)
                     items(thread.replies, key = { it.id }) { reply ->
                         CommentRow(reply, modifier = Modifier.padding(start = 24.dp), onLike = { onLike(reply.id) }, onReport = { onReport(reply) })
                     }

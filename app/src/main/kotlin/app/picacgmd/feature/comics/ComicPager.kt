@@ -41,6 +41,11 @@ data class ComicPageState(
     val error: String? = null,
     val appending: Boolean = false,
     val appendError: String? = null,
+    /**
+     * Goes up whenever a load ends, whatever came of it, and when the paging mode changes. A request made by
+     * scrolling names the revision it saw and is made once for each.
+     */
+    val revision: Int = 0,
 ) {
     // Keep this outside the constructor so equality, hashCode, and copy ignore the cached value.
     val comics: List<ComicSimple> by lazy(LazyThreadSafetyMode.PUBLICATION) {
@@ -62,7 +67,13 @@ class ComicPager(
 ) {
     private val mutableState = MutableStateFlow(ComicPageState())
     val state: StateFlow<ComicPageState> = mutableState.asStateFlow()
+    /** What scrolling may ask for depends on the mode, so a change of it is a new revision. */
     var mode: PaginationMode = PaginationMode.INFINITE
+        set(value) {
+            if (field == value) return
+            field = value
+            mutableState.update { it.copy(revision = it.revision + 1) }
+        }
     private var job: Job? = null
     private val accumulator = PageAccumulator<ComicEntry, String, Int>(
         initial = PageData(items = emptyList(), page = 0, pages = 0, total = 0, meta = 0),
@@ -86,13 +97,21 @@ class ComicPager(
                 throw cancel
             } catch (error: Exception) {
                 ensureActive()
-                mutableState.update { it.copy(loading = false, error = error.readable()) }
+                mutableState.update { it.copy(loading = false, error = error.readable(), revision = it.revision + 1) }
             }
         }
     }
 
-    fun loadNext() {
-        if (mode != PaginationMode.INFINITE || !mutableState.value.canLoadNext) return
+    /**
+     * The next page, as scrolling asks for it. [revision] is the one the list on screen was at: a request made
+     * for an earlier one is turned down, because the rows that were scrolled to are no longer the rows there are.
+     * Nor does scrolling go on where the next page was answered with an earlier one, see
+     * [PageAccumulator.nextPageStalled].
+     */
+    fun loadNext(revision: Int = mutableState.value.revision) {
+        val current = mutableState.value
+        if (mode != PaginationMode.INFINITE || revision != current.revision || !current.canLoadNext) return
+        if (accumulator.nextPageStalled) return
         appendNext()
     }
 
@@ -108,21 +127,22 @@ class ComicPager(
             try {
                 val result = fetch(next)
                 ensureActive()
-                publishPage(result, PageWrite.APPEND)
+                publishPage(result, PageWrite.APPEND, requested = next)
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (error: Exception) {
                 ensureActive()
-                mutableState.update { it.copy(appending = false, appendError = error.readable()) }
+                mutableState.update { it.copy(appending = false, appendError = error.readable(), revision = it.revision + 1) }
             }
         }
     }
 
     // Keep merge and publication in one non-suspending step after the cancellation check.
-    private fun publishPage(result: FilteredPage<ComicSimple>, write: PageWrite) {
+    private fun publishPage(result: FilteredPage<ComicSimple>, write: PageWrite, requested: Int = result.page) {
         val data = accumulator.commit(
             PageData(result.toEntries(), result.page, result.pages, result.total, result.hiddenCount),
             write,
+            requested,
         ).data
         when (write) {
             PageWrite.REPLACE -> mutableState.value = ComicPageState(
@@ -132,6 +152,7 @@ class ComicPager(
                 total = data.total,
                 hiddenCount = data.meta,
                 loading = false,
+                revision = mutableState.value.revision + 1,
             )
             PageWrite.APPEND -> mutableState.update {
                 it.copy(
@@ -141,6 +162,7 @@ class ComicPager(
                     total = data.total,
                     hiddenCount = data.meta,
                     appending = false,
+                    revision = it.revision + 1,
                 )
             }
         }

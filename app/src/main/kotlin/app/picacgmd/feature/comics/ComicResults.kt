@@ -76,6 +76,7 @@ import app.picacgmd.core.network.ComicSort
 import app.picacgmd.core.network.PicaImage
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.paging.LoadMoreEffect
+import app.picacgmd.paging.RowsWatch
 
 /** Resolves a PicACG image to a URL on the configured image server. */
 @Composable
@@ -128,7 +129,7 @@ fun ComicResults(
     selection: Set<String>,
     onSelectionChange: (Set<String>) -> Unit,
     onComicClick: (String) -> Unit,
-    onLoadNext: () -> Unit,
+    onLoadNext: (revision: Int) -> Unit,
     onRetryAppend: () -> Unit,
     onRetry: () -> Unit,
     onJumpTo: (Int) -> Unit,
@@ -147,13 +148,13 @@ fun ComicResults(
     val selecting = selection.isNotEmpty()
     fun toggle(id: String) = onSelectionChange(if (id in selection) selection - id else selection + id)
 
-    if (paginationMode == PaginationMode.INFINITE) {
-        // The empty state replaces the rows of pages that were hidden entirely, so there the end is always on screen.
-        val endKeys = remember(state.entries, state.isEmpty) {
-            if (state.isEmpty) emptyList() else state.entries.takeLast(5).map(ComicEntry::key)
-        }
-        LoadMoreEffect(gridState, state.page, state.canLoadNext, endKeys, onLoadNext)
-    }
+    val infinite = paginationMode == PaginationMode.INFINITE
+    val rowsWatch = remember { RowsWatch() }
+    // The grid's rows are the state's, a footer in infinite mode and the caller's header: another object stands
+    // for them whenever one of the three changes. The empty item that replaces the rows of pages that were
+    // hidden entirely is a row of the grid too, so the end is on screen there and the next page follows.
+    val rows = remember(state, infinite, header != null) { Any() }
+    LoadMoreEffect(gridState, rowsWatch, rows, state.revision, infinite && state.canLoadNext, endZone = 6, onLoadMore = onLoadNext)
     // A page jump starts from the top.
     LaunchedEffect(state.page, paginationMode) {
         if (paginationMode == PaginationMode.BUTTONS) gridState.scrollToItem(0)
@@ -184,8 +185,9 @@ fun ComicResults(
             ),
             horizontalArrangement = Arrangement.spacedBy(if (layout == ListLayout.DETAILS) 0.dp else 8.dp),
             verticalArrangement = Arrangement.spacedBy(if (layout == ListLayout.DETAILS) 0.dp else 12.dp),
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().then(rowsWatch.measured),
         ) {
+            rowsWatch.rows(rows)
             if (header != null) {
                 item(key = "header", span = { GridItemSpan(maxLineSpan) }, contentType = "header") { header() }
             }
@@ -222,7 +224,7 @@ fun ComicResults(
                             )
                         }
                     }
-                    if (paginationMode == PaginationMode.INFINITE) {
+                    if (infinite) {
                         item(key = "footer", span = { GridItemSpan(maxLineSpan) }, contentType = "footer") {
                             AppendFooter(state, onRetryAppend, pullToRetry)
                         }

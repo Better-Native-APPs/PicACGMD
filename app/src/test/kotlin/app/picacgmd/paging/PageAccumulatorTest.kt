@@ -514,6 +514,103 @@ class PageAccumulatorTest {
         }
     }
 
+    @Test
+    fun replacedContentHasNoAppendHistoryAndReadingItDoesNotChangeState() {
+        val pager = accumulator()
+        val commit = pager.commit(page(listOf(Row(1, "first")), page = 1), PageWrite.REPLACE)
+
+        assertFalse(pager.nextPageStalled)
+        assertFalse(pager.nextPageStalled)
+        assertSame(commit.data, pager.current)
+    }
+
+    @Test
+    fun appendHistoryUsesThePageBeforeTheAnswer() {
+        for ((responsePage, alreadyAppended) in listOf(3 to false, 2 to true, 1 to true)) {
+            val old = Row(1, "old")
+            val added = Row(2, "added")
+            val pager = accumulator(initial = page(listOf(old), page = 2))
+
+            pager.commit(page(listOf(added), page = responsePage), PageWrite.APPEND)
+
+            assertEquals(responsePage, pager.current.page)
+            assertEquals(listOf(old, added), pager.current.items)
+            assertEquals(alreadyAppended, pager.nextPageStalled, "response page $responsePage")
+            assertEquals(alreadyAppended, pager.nextPageStalled, "second read of response page $responsePage")
+        }
+    }
+
+    @Test
+    fun appendHistoryKeepsTheFurthestPageUntilTheCurrentPagePassesIt() {
+        val pager = accumulator(initial = page(page = 1))
+        assertFalse(pager.nextPageStalled)
+
+        pager.commit(page(page = 2), PageWrite.APPEND)
+        assertFalse(pager.nextPageStalled)
+        pager.commit(page(page = 1), PageWrite.APPEND)
+        assertTrue(pager.nextPageStalled)
+        pager.commit(page(page = 2), PageWrite.APPEND)
+        assertTrue(pager.nextPageStalled)
+        pager.commit(page(page = 3), PageWrite.APPEND)
+        assertFalse(pager.nextPageStalled)
+        assertFalse(pager.nextPageStalled)
+    }
+
+    @Test
+    fun anAnswerWithTheNumberThatWasAskedForNeverStallsHoweverLateItArrives() {
+        val pager = accumulator(initial = page(page = 1))
+        pager.commit(page(page = 2), PageWrite.APPEND, requested = 2)
+        // The same page was asked for twice; the second answer finds the current page already there.
+        pager.commit(page(page = 2), PageWrite.APPEND, requested = 2)
+        assertEquals(2, pager.current.page)
+        assertFalse(pager.nextPageStalled)
+
+        pager.commit(page(page = 3), PageWrite.APPEND, requested = 3)
+        pager.commit(page(page = 2), PageWrite.APPEND, requested = 2)
+        assertEquals(2, pager.current.page)
+        assertFalse(pager.nextPageStalled)
+    }
+
+    @Test
+    fun anAnswerNumberedBeforeThePageAskedForStallsThePageTheRequestWentOnFrom() {
+        val pager = accumulator(initial = page(page = 2))
+        pager.commit(page(page = 2), PageWrite.APPEND, requested = 3)
+        assertTrue(pager.nextPageStalled)
+
+        val first = accumulator(initial = page(page = 0))
+        first.commit(page(page = 0), PageWrite.APPEND, requested = 1)
+        assertTrue(first.nextPageStalled)
+    }
+
+    @Test
+    fun replacingContentClearsAppendHistoryAlsoAtAnEarlierPage() {
+        val pager = accumulator(initial = page(page = 4))
+        pager.commit(page(page = 4), PageWrite.APPEND)
+        assertTrue(pager.nextPageStalled)
+
+        pager.commit(page(listOf(Row(4, "replacement")), page = 4), PageWrite.REPLACE)
+        assertFalse(pager.nextPageStalled)
+        assertFalse(pager.nextPageStalled)
+        pager.commit(page(page = 4), PageWrite.APPEND)
+        assertTrue(pager.nextPageStalled)
+        pager.commit(page(listOf(Row(1, "earlier replacement")), page = 1), PageWrite.REPLACE)
+        assertFalse(pager.nextPageStalled)
+        assertFalse(pager.nextPageStalled)
+    }
+
+    @Test
+    fun updatingRowsDoesNotResetAppendHistory() {
+        val pager = accumulator(initial = page(listOf(Row(1, "before")), page = 2))
+        pager.update { it.copy(items = it.items.map { row -> row.copy(label = "edited") }) }
+        assertFalse(pager.nextPageStalled)
+        pager.commit(page(listOf(Row(2, "added")), page = 2), PageWrite.APPEND)
+        assertTrue(pager.nextPageStalled)
+        pager.update { it.copy(items = it.items.map { row -> row.copy(label = "liked") }) }
+        assertEquals(listOf(Row(1, "liked"), Row(2, "liked")), pager.current.items)
+        assertTrue(pager.nextPageStalled)
+        assertTrue(pager.nextPageStalled)
+    }
+
     private data class Row(val key: Int?, val label: String)
 
     private fun page(

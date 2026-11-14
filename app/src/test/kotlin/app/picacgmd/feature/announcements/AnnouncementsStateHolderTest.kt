@@ -7,6 +7,8 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CancellationException
@@ -489,6 +491,193 @@ internal class AnnouncementsStateHolderTest {
         assertEquals(2, pica.requestCount)
     }
 
+    @Test
+    fun anAppendWithTheSamePageNumberStopsScrollingUntilRefresh() = runTest {
+        val fixture = fixture()
+        val holder = fixture.holder
+        val firstPage = pageJson(1, 3, "a", "a")
+        val repeatedPage = pageJson(1, 3, "a", "b", "b")
+        pica.enqueue(firstPage)
+        val firstLoad = fixture.load(1)
+        expectPage(1)
+        firstLoad.join()
+        val first = holder.state
+        assertEquals(1, first.revision)
+
+        pica.enqueue(repeatedPage)
+        val append = fixture.loadNext(first.revision)
+        expectPage(2)
+        append.join()
+        holder.assertState(listOf("a", "b"), page = 1, pages = 3, loading = false)
+        val stalled = holder.state
+        assertEquals(2, stalled.revision)
+        assertTrue(stalled.canLoadNext)
+        holder.loadNext(stalled.revision)
+        testScheduler.runCurrent()
+        assertNull(withContext(Dispatchers.IO) { pica.pollRequest(50) })
+        assertEquals(2, pica.requestCount)
+        assertEquals(stalled, holder.state)
+
+        pica.enqueue(firstPage)
+        val refresh = fixture.refresh()
+        expectPage(1)
+        refresh.join()
+        val refreshed = first.copy(revision = 3)
+        assertEquals(refreshed, holder.state)
+        pica.enqueueFailure()
+        val failedAppend = fixture.loadNext(refreshed.revision)
+        expectPage(2)
+        failedAppend.join()
+        val failed = refreshed.copy(error = "failure", revision = 4)
+        assertEquals(failed, holder.state)
+        assertFalse(failed.canLoadNext)
+        holder.loadNext(failed.revision)
+        testScheduler.runCurrent()
+        assertNull(withContext(Dispatchers.IO) { pica.pollRequest(50) })
+        assertEquals(4, pica.requestCount)
+        assertEquals(failed, holder.state)
+
+        pica.enqueue(repeatedPage)
+        val retry = fixture.retryTail()
+        expectPage(2)
+        retry.join()
+        val retried = stalled.copy(revision = 5)
+        assertEquals(retried, holder.state)
+        assertTrue(retried.canLoadNext)
+        holder.loadNext(retried.revision)
+        testScheduler.runCurrent()
+        assertNull(withContext(Dispatchers.IO) { pica.pollRequest(50) })
+        assertEquals(5, pica.requestCount)
+        assertEquals(retried, holder.state)
+    }
+
+    @Test
+    fun twoAnswersForTheSameNextPageLeaveTheFollowingPageRequestable() = runTest {
+        for (lateAnswerFirst in listOf(false, true)) {
+            val fixture = fixture()
+            val holder = fixture.holder
+            pica.enqueue(pageJson(1, 3, "a"))
+            val first = fixture.load(1)
+            expectPage(1)
+            first.join()
+
+            // A next page is on its way when a refresh comes back, and scrolling then asks for the next page again.
+            pica.enqueue(pageJson(2, 3, "b"), delayMillis = if (lateAnswerFirst) 600 else 1500)
+            val pending = fixture.loadNext()
+            expectPage(2)
+            pica.enqueue(pageJson(1, 3, "a"))
+            val refresh = fixture.refresh()
+            expectPage(1)
+            refresh.join()
+            assertTrue(pending.isActive)
+            pica.enqueue(pageJson(2, 3, "b"), delayMillis = if (lateAnswerFirst) 1500 else 0)
+            val again = fixture.loadNext()
+            expectPage(2)
+            pending.join()
+            again.join()
+            holder.assertState(listOf("a", "b"), page = 2, pages = 3, loading = false)
+            assertTrue(holder.state.canLoadNext)
+
+            pica.enqueue(pageJson(3, 3, "c"))
+            val last = fixture.loadNext()
+            expectPage(3)
+            last.join()
+            holder.assertState(listOf("a", "b", "c"), page = 3, pages = 3, loading = false)
+            fixture.scope.cancel()
+        }
+        assertEquals(10, pica.requestCount)
+    }
+
+    @Test
+    fun everyFinishedLoadChangesTheRevisionExactlyOnce() = runTest {
+        val fixture = fixture()
+        val holder = fixture.holder
+        assertEquals(0, holder.state.revision)
+
+        pica.enqueue(pageJson(1, 4, "a"))
+        val first = fixture.load(1)
+        assertEquals(0, holder.state.revision)
+        expectPage(1)
+        first.join()
+        assertEquals(1, holder.state.revision)
+
+        pica.enqueue(pageJson(2, 4, "b"))
+        val append = fixture.loadNext(1)
+        assertEquals(1, holder.state.revision)
+        expectPage(2)
+        append.join()
+        assertEquals(2, holder.state.revision)
+
+        pica.enqueueFailure()
+        val refresh = fixture.refresh()
+        assertEquals(2, holder.state.revision)
+        expectPage(1)
+        refresh.join()
+        assertEquals(3, holder.state.revision)
+
+        pica.enqueueFailure()
+        val failedAppend = fixture.retryTail()
+        assertEquals(3, holder.state.revision)
+        expectPage(3)
+        failedAppend.join()
+        assertEquals(4, holder.state.revision)
+        assertEquals(4, pica.requestCount)
+    }
+
+    @Test
+    fun aRefreshWithEqualRowsAndPageStillChangesTheState() = runTest {
+        val fixture = fixture()
+        pica.enqueue(pageJson(1, 3, "a"))
+        val firstLoad = fixture.load(1)
+        expectPage(1)
+        firstLoad.join()
+        val first = fixture.holder.state
+        assertEquals(1, first.revision)
+
+        pica.enqueue(pageJson(1, 3, "a"))
+        val refresh = fixture.refresh()
+        assertEquals(first.copy(loading = true), fixture.holder.state)
+        expectPage(1)
+        refresh.join()
+
+        assertNotEquals(first, fixture.holder.state)
+        assertEquals(first.copy(revision = 2), fixture.holder.state)
+        assertEquals(2, pica.requestCount)
+    }
+
+    @Test
+    fun requestsForAnEarlierRevisionDoNotLoadOrChangeState() = runTest {
+        val fixture = fixture()
+        val holder = fixture.holder
+        pica.enqueue(pageJson(1, 3, "a"))
+        val first = fixture.load(1)
+        expectPage(1)
+        first.join()
+        val earlierRevision = holder.state.revision
+        pica.enqueue(pageJson(1, 3, "a"))
+        val refresh = fixture.refresh()
+        expectPage(1)
+        refresh.join()
+        val current = holder.state
+        assertEquals(2, current.revision)
+        assertTrue(current.canLoadNext)
+
+        holder.loadNext(earlierRevision)
+        testScheduler.runCurrent()
+        assertNull(withContext(Dispatchers.IO) { pica.pollRequest(50) })
+        assertEquals(2, pica.requestCount)
+        assertEquals(current, holder.state)
+
+        pica.enqueue(pageJson(2, 3, "b"))
+        val append = fixture.loadNext(current.revision)
+        assertEquals(current.copy(loading = true), holder.state)
+        expectPage(2)
+        append.join()
+        assertEquals(3, holder.state.revision)
+        assertEquals(listOf("a", "b"), holder.state.items.map { it.id })
+        assertEquals(3, pica.requestCount)
+    }
+
     private fun TestScope.fixture(
         repository: AnnouncementRepository = AnnouncementRepository(pica.session(backgroundScope)),
         writer: suspend (String) -> Unit = {},
@@ -506,7 +695,7 @@ internal class AnnouncementsStateHolderTest {
         fun refresh(): Job = start(holder::refresh)
         fun retryFirstLoad(): Job = start(holder::retryFirstLoad)
         fun retryTail(): Job = start(holder::retryTail)
-        fun loadNext(): Job = start(holder::loadNext)
+        fun loadNext(revision: Int = holder.state.revision): Job = start { holder.loadNext(revision) }
 
         private fun start(action: () -> Unit): Job {
             action()

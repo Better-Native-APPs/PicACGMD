@@ -8,6 +8,7 @@ import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class ComicPagerProjectionTest {
@@ -68,6 +69,7 @@ internal class ComicPagerProjectionTest {
             entries = cached.entries.toList(), page = cached.page, pages = cached.pages, total = cached.total,
             hiddenCount = cached.hiddenCount, loading = cached.loading, error = cached.error,
             appending = cached.appending, appendError = cached.appendError,
+            revision = 1,
         )
 
         assertEquals(independent, cached)
@@ -94,13 +96,18 @@ internal class ComicPagerProjectionTest {
         val random = Random(217340)
         var expectedEntries = emptyList<ComicEntry>()
         var expectedHidden = 0
+        var expectedRevision = 0
+        var furthestAppendedPage = Int.MIN_VALUE
+        var appendCount = 0
+        var nonAdvancingAppendCount = 0
 
         repeat(200) { step ->
             val before = pager.state.value
             val oldEntries = before.entries.toList()
             val oldProjection = before.comics.toList()
-            val append = before.page > 0 && before.hasNextPage && random.nextBoolean()
+            val append = before.page > 0 && before.canLoadNext && before.page > furthestAppendedPage && random.nextBoolean()
             val requestedPage = if (append) before.page + 1 else random.nextInt(1, 10)
+            val oldMode = pager.mode
             if (append) {
                 pager.mode = PaginationMode.INFINITE
                 pager.loadNext()
@@ -108,7 +115,9 @@ internal class ComicPagerProjectionTest {
                 pager.mode = if (random.nextBoolean()) PaginationMode.INFINITE else PaginationMode.BUTTONS
                 if (requestedPage == 1) pager.reload() else pager.jumpTo(requestedPage)
             }
+            if (pager.mode != oldMode) expectedRevision++
             assertEquals(oldProjection, pager.state.value.comics, "pending step $step")
+            assertEquals(expectedRevision, pager.state.value.revision, "pending revision at step $step")
             runCurrent()
             assertEquals(step + 1, source.requests.size)
             assertEquals(requestedPage, source.requestedPages.last())
@@ -132,9 +141,18 @@ internal class ComicPagerProjectionTest {
             )
             runCurrent()
             val committed = pager.state.value
+            if (append) {
+                furthestAppendedPage = maxOf(furthestAppendedPage, before.page)
+                appendCount++
+                if (responsePage <= before.page) nonAdvancingAppendCount++
+            } else {
+                furthestAppendedPage = Int.MIN_VALUE
+            }
+            expectedRevision++
 
             assertEquals(expectedEntries, committed.entries, "entries at step $step")
             assertEquals(expectedHidden, committed.hiddenCount, "hidden count at step $step")
+            assertEquals(expectedRevision, committed.revision, "revision at step $step")
             assertEquals(expectedEntries.mapNotNull { (it as? ComicEntry.Comic)?.comic }, committed.comics, "projection at step $step")
             assertEquals(committed.entries.mapNotNull { (it as? ComicEntry.Comic)?.comic }, committed.comics, "full recomputation at step $step")
             assertSame(committed.comics, committed.comics)
@@ -142,6 +160,7 @@ internal class ComicPagerProjectionTest {
             assertEquals(oldEntries, before.entries, "old entries at step $step")
             assertEquals(oldProjection, before.comics, "old projection at step $step")
         }
+        assertTrue(nonAdvancingAppendCount > 5, "$nonAdvancingAppendCount of $appendCount appends did not advance")
     }
 }
 

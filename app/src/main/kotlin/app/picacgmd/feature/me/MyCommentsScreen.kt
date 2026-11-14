@@ -47,6 +47,7 @@ import app.picacgmd.core.network.MyComment
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.settings.BackButton
 import app.picacgmd.paging.LoadMoreEffect
+import app.picacgmd.paging.RowsWatch
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -74,8 +75,9 @@ fun MyCommentsScreen(
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     LaunchedEffect(Unit) { holder.load(1) }
-    val endKeys = remember(state.items) { state.items.takeLast(3).map { it.id } }
-    LoadMoreEffect(listState, state.page, state.canLoadNext, endKeys, holder::loadNext)
+    val rowsWatch = remember { RowsWatch() }
+    val listShown = state.items.isNotEmpty()
+    LoadMoreEffect(listState, rowsWatch, state, state.revision, state.canLoadNext, endZone = 4, onLoadMore = holder::loadNext, listShown = listShown)
 
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -94,11 +96,11 @@ fun MyCommentsScreen(
         ) {
             when {
                 // A pulled refresh already shows its own indicator.
-                state.items.isEmpty() && state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                !listShown && state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     if (!refreshing) LoadingState()
                 }
-                state.items.isEmpty() && state.error != null -> ErrorState(onRetry = holder::retryFirstLoad, description = state.error, modifier = Modifier.fillMaxSize())
-                state.items.isEmpty() -> EmptyState(
+                !listShown && state.error != null -> ErrorState(onRetry = holder::retryFirstLoad, description = state.error, modifier = Modifier.fillMaxSize())
+                !listShown -> EmptyState(
                     title = "还没有评论",
                     description = "在漫画详情页发表评论",
                     icon = Icons.AutoMirrored.Outlined.Comment,
@@ -107,10 +109,11 @@ fun MyCommentsScreen(
                 )
                 else -> LazyColumn(
                     state = listState,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().then(rowsWatch.measured),
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = padding.calculateBottomPadding() + 24.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    rowsWatch.rows(state)
                     items(state.items, key = { it.id }) { comment ->
                         CommentCard(comment, onOpenComic)
                     }

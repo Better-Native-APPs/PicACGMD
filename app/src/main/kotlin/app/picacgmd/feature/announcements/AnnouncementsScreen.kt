@@ -57,6 +57,7 @@ import app.picacgmd.feature.bookshelf.safeImageUrl
 import app.picacgmd.feature.settings.BackButton
 import app.picacgmd.core.designsystem.component.PredictiveBackContent
 import app.picacgmd.paging.LoadMoreEffect
+import app.picacgmd.paging.RowsWatch
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -102,9 +103,10 @@ fun AnnouncementsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     LaunchedEffect(Unit) { if (holder.state.page == 0) holder.load(1) }
 
     val opened = state.items.firstOrNull { it.id == openId }
+    val rowsWatch = remember { RowsWatch() }
+    val listShown = state.items.isNotEmpty()
     // An open announcement takes the list off the screen, so nothing more is loaded behind it.
-    val endKeys = remember(state.items) { state.items.takeLast(2).map { it.id } }
-    LoadMoreEffect(listState, state.page, opened == null && state.canLoadNext, endKeys, holder::loadNext)
+    LoadMoreEffect(listState, rowsWatch, state, state.revision, opened == null && state.canLoadNext, endZone = 3, onLoadMore = holder::loadNext, listShown = listShown)
     PredictiveBackContent(
         current = opened?.id ?: "list",
         previous = "list",
@@ -134,11 +136,11 @@ fun AnnouncementsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             ) {
                 when {
                     // A pulled refresh already shows its own indicator.
-                    state.items.isEmpty() && state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    !listShown && state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         if (!refreshing) LoadingState(Modifier.fillMaxSize())
                     }
-                    state.items.isEmpty() && state.error != null -> ErrorState(onRetry = holder::retryFirstLoad, description = state.error, modifier = Modifier.fillMaxSize())
-                    state.items.isEmpty() -> EmptyState(
+                    !listShown && state.error != null -> ErrorState(onRetry = holder::retryFirstLoad, description = state.error, modifier = Modifier.fillMaxSize())
+                    !listShown -> EmptyState(
                         title = "暂无公告",
                         icon = Icons.Outlined.Campaign,
                         shape = MaterialShapes.Sunny,
@@ -146,10 +148,11 @@ fun AnnouncementsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     )
                     else -> LazyColumn(
                         state = listState,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize().then(rowsWatch.measured),
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = padding.calculateBottomPadding() + 24.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
+                        rowsWatch.rows(state)
                         items(state.items, key = { it.id }) { announcement ->
                             AnnouncementCard(announcement, onClick = { openId = announcement.id })
                         }

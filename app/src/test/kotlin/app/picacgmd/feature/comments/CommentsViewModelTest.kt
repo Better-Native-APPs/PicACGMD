@@ -9,6 +9,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -58,20 +59,20 @@ internal class CommentsViewModelTest {
         assertEquals(CommentsState(), model.state.value)
         pica.enqueue(commentPage(docs = listOf(a, a), top = listOf(pin, a)))
         main.awaitState { !model.state.value.loading }
-        val first = CommentsState(top = listOf(pin, a), items = listOf(a, a), page = 1, pages = 3, loading = false)
+        val first = CommentsState(top = listOf(pin, a), items = listOf(a, a), page = 1, pages = 3, loading = false, revision = 1)
         assertEquals(first, model.state.value)
         model.loadNext()
         main.take(pica, "GET /comics/comic/comments?page=2")
         assertEquals(first.copy(appending = true), model.state.value)
         pica.enqueue(commentPage(page = 2, docs = listOf(a, c, c), top = listOf(comment("other", top = true))))
         main.awaitState { !model.state.value.appending }
-        val second = first.copy(items = listOf(a, a, c, c), page = 2)
+        val second = first.copy(items = listOf(a, a, c, c), page = 2, revision = 2)
         assertEquals(listOf(CommentsState(), first, first.copy(appending = true), second), states)
         model.loadNext()
         main.take(pica, "GET /comics/comic/comments?page=3")
         pica.enqueue(commentPage(page = 3, pages = 4))
         main.awaitState { !model.state.value.appending }
-        assertEquals(second.copy(page = 3, pages = 4), model.state.value)
+        assertEquals(second.copy(page = 3, pages = 4, revision = 3), model.state.value)
         assertTrue(model.state.value.hasNext)
         assertEquals(3, pica.requestCount)
     }
@@ -84,13 +85,13 @@ internal class CommentsViewModelTest {
         main.take(pica, "GET /comics/comic/comments?page=1")
         pica.enqueueFailure(body = """{"code":500,"message":"first failed"}""")
         main.awaitState { !model.state.value.loading }
-        assertEquals(CommentsState(loading = false, error = "first failed"), model.state.value)
+        assertEquals(CommentsState(loading = false, error = "first failed", revision = 1), model.state.value)
         model.reload()
-        assertEquals(CommentsState(), model.state.value)
+        assertEquals(CommentsState(revision = 1), model.state.value)
         main.take(pica, "GET /comics/comic/comments?page=1")
         pica.enqueue(commentPage(pages = 0))
         main.awaitState { !model.state.value.loading }
-        assertEquals(CommentsState(page = 1, loading = false), model.state.value)
+        assertEquals(CommentsState(page = 1, loading = false, revision = 2), model.state.value)
         assertTrue(messages.isEmpty())
         assertEquals(2, pica.requestCount)
     }
@@ -108,7 +109,7 @@ internal class CommentsViewModelTest {
         assertEquals(2, pica.requestCount)
         pica.enqueueFailure(body = """{"code":500,"message":"tail failed"}""")
         main.awaitState { !model.state.value.appending }
-        val failed = first.copy(appendError = "tail failed")
+        val failed = first.copy(appendError = "tail failed", revision = 2)
         assertEquals(failed, model.state.value)
         model.loadNext()
         assertNull(pica.pollRequest(50))
@@ -118,7 +119,7 @@ internal class CommentsViewModelTest {
         val pin = comment("new-pin", top = true)
         pica.enqueue(commentPage(docs = listOf(a), top = listOf(pin)))
         main.awaitState { !model.state.value.loading }
-        val reloaded = failed.copy(top = listOf(pin))
+        val reloaded = failed.copy(top = listOf(pin), revision = 3)
         assertEquals(reloaded, model.state.value)
         model.loadNext()
         assertNull(pica.pollRequest(50))
@@ -131,7 +132,7 @@ internal class CommentsViewModelTest {
         assertEquals(
             listOf(first, first.copy(appending = true), failed, failed.copy(loading = true), reloaded,
                 reloaded.copy(appendError = null), reloaded.copy(appendError = null, appending = true),
-                reloaded.copy(items = listOf(a, b), page = 2, appendError = null)),
+                reloaded.copy(items = listOf(a, b), page = 2, appendError = null, revision = 4)),
             states,
         )
         assertEquals(4, pica.requestCount)
@@ -161,6 +162,143 @@ internal class CommentsViewModelTest {
         assertEquals(listOf(fresh, b), model.state.value.items)
         assertEquals(listOf(pin), model.state.value.top)
         assertEquals(2, model.state.value.page)
+        assertEquals(3, pica.requestCount)
+    }
+
+    @Test
+    fun aCommentAppendWithTheSamePageNumberStopsScrollingUntilReload() = runTest(main.dispatcher) {
+        val a = comment("a")
+        val b = comment("b")
+        val pin = comment("pin", top = true)
+        val firstPage = commentPage(docs = listOf(a, a), top = listOf(pin))
+        val repeatedPage = commentPage(docs = listOf(a.copy(content = "ignored"), b, b), top = listOf(comment("other-pin", top = true)))
+        val model = loaded(listOf(a, a), listOf(pin))
+        val first = model.state.value
+        assertEquals(1, first.revision)
+
+        model.loadNext(first.revision)
+        main.take(pica, "GET /comics/comic/comments?page=2")
+        pica.enqueue(repeatedPage)
+        main.awaitState { !model.state.value.appending }
+        val stalled = first.copy(items = listOf(a, a, b, b), revision = 2)
+        assertEquals(stalled, model.state.value)
+        assertTrue(stalled.canLoadNext)
+        model.loadNext(stalled.revision)
+        main.dispatcher.scheduler.runCurrent()
+        assertNull(pica.pollRequest(50))
+        assertEquals(2, pica.requestCount)
+        assertEquals(stalled, model.state.value)
+
+        model.reload()
+        main.take(pica, "GET /comics/comic/comments?page=1")
+        pica.enqueue(firstPage)
+        main.awaitState { !model.state.value.loading }
+        val reloaded = first.copy(revision = 3)
+        assertEquals(reloaded, model.state.value)
+        model.loadNext(reloaded.revision)
+        main.take(pica, "GET /comics/comic/comments?page=2")
+        pica.enqueueFailure(body = """{"code":500,"message":"append failed"}""")
+        main.awaitState { !model.state.value.appending }
+        val failed = reloaded.copy(appendError = "append failed", revision = 4)
+        assertEquals(failed, model.state.value)
+        assertFalse(failed.canLoadNext)
+        model.loadNext(failed.revision)
+        main.dispatcher.scheduler.runCurrent()
+        assertNull(pica.pollRequest(50))
+        assertEquals(4, pica.requestCount)
+        assertEquals(failed, model.state.value)
+
+        model.retryAppend()
+        main.take(pica, "GET /comics/comic/comments?page=2")
+        pica.enqueue(repeatedPage)
+        main.awaitState { !model.state.value.appending }
+        val retried = stalled.copy(revision = 5)
+        assertEquals(retried, model.state.value)
+        assertTrue(retried.canLoadNext)
+        model.loadNext(retried.revision)
+        main.dispatcher.scheduler.runCurrent()
+        assertNull(pica.pollRequest(50))
+        assertEquals(5, pica.requestCount)
+        assertEquals(retried, model.state.value)
+    }
+
+    @Test
+    fun everyFinishedCommentLoadChangesTheRevisionExactlyOnce() = runTest(main.dispatcher) {
+        val model = create()
+        main.take(pica, "GET /comics/comic/comments?page=1")
+        assertEquals(0, model.state.value.revision)
+        pica.enqueue(commentPage(docs = listOf(comment("a"))))
+        main.awaitState { !model.state.value.loading }
+        assertEquals(1, model.state.value.revision)
+
+        model.loadNext(1)
+        main.take(pica, "GET /comics/comic/comments?page=2")
+        assertEquals(1, model.state.value.revision)
+        pica.enqueue(commentPage(page = 2, docs = listOf(comment("b"))))
+        main.awaitState { !model.state.value.appending }
+        assertEquals(2, model.state.value.revision)
+
+        model.reload()
+        main.take(pica, "GET /comics/comic/comments?page=1")
+        assertEquals(2, model.state.value.revision)
+        pica.enqueueFailure(body = """{"code":500,"message":"refresh failed"}""")
+        main.awaitState { !model.state.value.loading }
+        assertEquals(3, model.state.value.revision)
+
+        model.loadNext(3)
+        main.take(pica, "GET /comics/comic/comments?page=3")
+        assertEquals(3, model.state.value.revision)
+        pica.enqueueFailure(body = """{"code":500,"message":"append failed"}""")
+        main.awaitState { !model.state.value.appending }
+        assertEquals(4, model.state.value.revision)
+        assertEquals(4, pica.requestCount)
+    }
+
+    @Test
+    fun aCommentRefreshWithEqualRowsAndPageStillChangesTheState() = runTest(main.dispatcher) {
+        val a = comment("a")
+        val pin = comment("pin", top = true)
+        val model = loaded(listOf(a), listOf(pin))
+        val first = model.state.value
+        assertEquals(1, first.revision)
+
+        model.reload()
+        main.take(pica, "GET /comics/comic/comments?page=1")
+        assertEquals(first.copy(loading = true), model.state.value)
+        pica.enqueue(commentPage(docs = listOf(a), top = listOf(pin)))
+        main.awaitState { !model.state.value.loading }
+
+        assertNotEquals(first, model.state.value)
+        assertEquals(first.copy(revision = 2), model.state.value)
+        assertEquals(2, pica.requestCount)
+    }
+
+    @Test
+    fun commentRequestsForAnEarlierRevisionDoNotLoadOrChangeState() = runTest(main.dispatcher) {
+        val a = comment("a")
+        val model = loaded(listOf(a))
+        val earlierRevision = model.state.value.revision
+        model.reload()
+        main.take(pica, "GET /comics/comic/comments?page=1")
+        pica.enqueue(commentPage(docs = listOf(a)))
+        main.awaitState { !model.state.value.loading }
+        val current = model.state.value
+        assertEquals(2, current.revision)
+        assertTrue(current.canLoadNext)
+
+        model.loadNext(earlierRevision)
+        main.dispatcher.scheduler.runCurrent()
+        assertNull(pica.pollRequest(50))
+        assertEquals(2, pica.requestCount)
+        assertEquals(current, model.state.value)
+
+        model.loadNext(current.revision)
+        main.take(pica, "GET /comics/comic/comments?page=2")
+        assertEquals(current.copy(appending = true), model.state.value)
+        pica.enqueue(commentPage(page = 2, docs = listOf(comment("b"))))
+        main.awaitState { !model.state.value.appending }
+        assertEquals(3, model.state.value.revision)
+        assertEquals(listOf(a, comment("b")), model.state.value.items)
         assertEquals(3, pica.requestCount)
     }
 
@@ -309,13 +447,13 @@ internal class CommentsViewModelTest {
         model.retryReplies()
         pica.enqueueFailure(body = """{"code":500,"message":"first reply failed"}""")
         main.awaitState { model.replies.value?.loading == false }
-        val firstFailure = ReplyThread(parent, loading = false, error = "first reply failed")
+        val firstFailure = ReplyThread(parent, loading = false, error = "first reply failed", revision = 1)
         assertEquals(firstFailure, model.replies.value)
         model.loadMoreReplies()
         assertNull(pica.pollRequest(50))
         model.retryReplies()
         main.take(pica, "GET /comments/parent/childrens?page=1")
-        assertEquals(ReplyThread(parent), model.replies.value)
+        assertEquals(ReplyThread(parent, revision = 1), model.replies.value)
         val r1 = comment("r1")
         val r2 = comment("r2")
         pica.enqueue(replyPage(docs = listOf(r1, r1)))
@@ -324,23 +462,245 @@ internal class CommentsViewModelTest {
         main.take(pica, "GET /comments/parent/childrens?page=2")
         pica.enqueue(replyPage(page = 2, docs = listOf(r1, r2, r2)))
         main.awaitState { model.replies.value?.loading == false }
-        val second = ReplyThread(parent, replies = listOf(r1, r1, r2, r2), page = 2, pages = 3, loading = false)
+        val second = ReplyThread(parent, replies = listOf(r1, r1, r2, r2), page = 2, pages = 3, loading = false, revision = 3)
         assertEquals(second, model.replies.value)
         model.loadMoreReplies()
         main.take(pica, "GET /comments/parent/childrens?page=3")
         pica.enqueueFailure(body = """{"code":500,"message":"later reply failed"}""")
         main.awaitState { model.replies.value?.loading == false }
-        assertEquals(second.copy(error = "later reply failed"), model.replies.value)
+        assertEquals(second.copy(error = "later reply failed", revision = 4), model.replies.value)
         model.loadMoreReplies()
         assertNull(pica.pollRequest(50))
         model.retryReplies()
         main.take(pica, "GET /comments/parent/childrens?page=3")
-        assertEquals(second.copy(loading = true), model.replies.value)
+        assertEquals(second.copy(loading = true, revision = 4), model.replies.value)
         pica.enqueue(replyPage(page = 3, pages = 4))
         main.awaitState { model.replies.value?.loading == false }
-        assertEquals(second.copy(page = 3, pages = 4), model.replies.value)
-        assertEquals(listOf(null, ReplyThread(parent), firstFailure, ReplyThread(parent)), states.take(4))
+        assertEquals(second.copy(page = 3, pages = 4, revision = 5), model.replies.value)
+        assertEquals(listOf(null, ReplyThread(parent), firstFailure, ReplyThread(parent, revision = 1)), states.take(4))
         assertEquals(6, pica.requestCount)
+    }
+
+    @Test
+    fun aFirstReplyPageNumberedZeroIsNotAskedForAgainByScrolling() = runTest(main.dispatcher) {
+        val model = loaded()
+        model.openReplies(comment("parent"))
+        main.take(pica, "GET /comments/parent/childrens?page=1")
+        pica.enqueue(replyPage(page = 0, pages = 1))
+        main.awaitState { model.replies.value?.loading == false }
+        val thread = assertNotNull(model.replies.value)
+        assertEquals(0, thread.page)
+        assertTrue(thread.canLoadMore)
+
+        model.loadMoreReplies(thread.revision)
+        main.dispatcher.scheduler.runCurrent()
+        assertNull(pica.pollRequest(50))
+        assertEquals(thread, model.replies.value)
+
+        // 重试 still asks for the first page.
+        model.retryReplies()
+        main.take(pica, "GET /comments/parent/childrens?page=1")
+        pica.enqueue(replyPage(page = 1, pages = 1, docs = listOf(comment("a"))))
+        main.awaitState { model.replies.value?.loading == false }
+        assertEquals(listOf("a"), model.replies.value?.replies?.map { it.id })
+    }
+
+    @Test
+    fun aReplyAppendWithTheSamePageNumberStopsScrollingUntilRefresh() = runTest(main.dispatcher) {
+        val model = loaded()
+        val parent = comment("parent")
+        val a = comment("a")
+        val b = comment("b")
+        val firstPage = replyPage(docs = listOf(a, a))
+        val repeatedPage = replyPage(docs = listOf(a.copy(content = "ignored"), b, b))
+        model.openReplies(parent)
+        main.take(pica, "GET /comments/parent/childrens?page=1")
+        pica.enqueue(firstPage)
+        main.awaitState { model.replies.value?.loading == false }
+        val first = assertNotNull(model.replies.value)
+        assertEquals(1, first.revision)
+
+        model.loadMoreReplies(first.revision)
+        main.take(pica, "GET /comments/parent/childrens?page=2")
+        pica.enqueue(repeatedPage)
+        main.awaitState { model.replies.value?.loading == false }
+        val stalled = first.copy(replies = listOf(a, a, b, b), revision = 2)
+        assertEquals(stalled, model.replies.value)
+        assertTrue(stalled.canLoadMore)
+        model.loadMoreReplies(stalled.revision)
+        main.dispatcher.scheduler.runCurrent()
+        assertNull(pica.pollRequest(50))
+        assertEquals(3, pica.requestCount)
+        assertEquals(stalled, model.replies.value)
+
+        model.reply("refresh") {}
+        main.take(pica, "POST /comments/parent")
+        pica.enqueue("{}")
+        main.take(pica, "GET /comments/parent/childrens?page=1")
+        pica.enqueue(firstPage)
+        main.awaitState { model.replies.value?.loading == false }
+        val refreshed = first.copy(parent = parent.copy(commentsCount = parent.commentsCount + 1), revision = 3)
+        assertEquals(refreshed, model.replies.value)
+        model.loadMoreReplies(refreshed.revision)
+        main.take(pica, "GET /comments/parent/childrens?page=2")
+        pica.enqueueFailure(body = """{"code":500,"message":"append failed"}""")
+        main.awaitState { model.replies.value?.loading == false }
+        val failed = refreshed.copy(error = "append failed", revision = 4)
+        assertEquals(failed, model.replies.value)
+        assertFalse(failed.canLoadMore)
+        model.loadMoreReplies(failed.revision)
+        main.dispatcher.scheduler.runCurrent()
+        assertNull(pica.pollRequest(50))
+        assertEquals(6, pica.requestCount)
+        assertEquals(failed, model.replies.value)
+
+        model.retryReplies()
+        main.take(pica, "GET /comments/parent/childrens?page=2")
+        pica.enqueue(repeatedPage)
+        main.awaitState { model.replies.value?.loading == false }
+        val retried = stalled.copy(parent = refreshed.parent, revision = 5)
+        assertEquals(retried, model.replies.value)
+        assertTrue(retried.canLoadMore)
+        model.loadMoreReplies(retried.revision)
+        main.dispatcher.scheduler.runCurrent()
+        assertNull(pica.pollRequest(50))
+        assertEquals(7, pica.requestCount)
+        assertEquals(retried, model.replies.value)
+    }
+
+    @Test
+    fun everyFinishedReplyLoadChangesTheRevisionExactlyOnce() = runTest(main.dispatcher) {
+        val model = loaded()
+        model.openReplies(comment("parent"))
+        main.take(pica, "GET /comments/parent/childrens?page=1")
+        assertEquals(0, model.replies.value?.revision)
+        pica.enqueue(replyPage(docs = listOf(comment("r1"))))
+        main.awaitState { model.replies.value?.loading == false }
+        assertEquals(1, model.replies.value?.revision)
+
+        model.loadMoreReplies(1)
+        main.take(pica, "GET /comments/parent/childrens?page=2")
+        assertEquals(1, model.replies.value?.revision)
+        pica.enqueue(replyPage(page = 2, docs = listOf(comment("r2"))))
+        main.awaitState { model.replies.value?.loading == false }
+        assertEquals(2, model.replies.value?.revision)
+
+        model.reply("refresh") {}
+        main.take(pica, "POST /comments/parent")
+        pica.enqueue("{}")
+        main.take(pica, "GET /comments/parent/childrens?page=1")
+        assertEquals(2, model.replies.value?.revision)
+        pica.enqueueFailure(body = """{"code":500,"message":"refresh failed"}""")
+        main.awaitState { model.replies.value?.loading == false }
+        assertEquals(3, model.replies.value?.revision)
+        assertEquals(2, model.replies.value?.page)
+
+        model.retryReplies()
+        main.take(pica, "GET /comments/parent/childrens?page=3")
+        assertEquals(3, model.replies.value?.revision)
+        pica.enqueueFailure(body = """{"code":500,"message":"append failed"}""")
+        main.awaitState { model.replies.value?.loading == false }
+        assertEquals(4, model.replies.value?.revision)
+        assertEquals(6, pica.requestCount)
+    }
+
+    @Test
+    fun aReplyRefreshWithEqualRowsAndPageStillChangesTheState() = runTest(main.dispatcher) {
+        val model = loaded()
+        model.openReplies(comment("parent"))
+        main.take(pica, "GET /comments/parent/childrens?page=1")
+        val rows = listOf(comment("r1"))
+        pica.enqueue(replyPage(docs = rows))
+        main.awaitState { model.replies.value?.loading == false }
+        val first = assertNotNull(model.replies.value)
+        assertEquals(1, first.revision)
+
+        model.reply("refresh") {}
+        main.take(pica, "POST /comments/parent")
+        pica.enqueue("{}")
+        main.take(pica, "GET /comments/parent/childrens?page=1")
+        // Sending already updated the parent; only the finished page should change this comparison.
+        val beforeRefresh = assertNotNull(model.replies.value).copy(loading = false)
+        assertEquals(first.revision, beforeRefresh.revision)
+        pica.enqueue(replyPage(docs = rows.toList()))
+        main.awaitState { model.replies.value?.loading == false }
+
+        val refreshed = assertNotNull(model.replies.value)
+        assertEquals(first.replies, refreshed.replies)
+        assertEquals(first.page, refreshed.page)
+        assertNotEquals(beforeRefresh, refreshed)
+        assertEquals(beforeRefresh.copy(revision = 2), refreshed)
+        assertEquals(4, pica.requestCount)
+    }
+
+    @Test
+    fun replyRequestsForAnEarlierRevisionDoNotLoadOrChangeState() = runTest(main.dispatcher) {
+        val model = loaded()
+        model.openReplies(comment("parent"))
+        main.take(pica, "GET /comments/parent/childrens?page=1")
+        pica.enqueue(replyPage(docs = listOf(comment("r1"))))
+        main.awaitState { model.replies.value?.loading == false }
+        val earlierRevision = assertNotNull(model.replies.value).revision
+
+        model.reply("refresh") {}
+        main.take(pica, "POST /comments/parent")
+        pica.enqueue("{}")
+        main.take(pica, "GET /comments/parent/childrens?page=1")
+        pica.enqueue(replyPage(docs = listOf(comment("r1"))))
+        main.awaitState { model.replies.value?.loading == false }
+        val current = assertNotNull(model.replies.value)
+        assertEquals(2, current.revision)
+        assertTrue(current.canLoadMore)
+
+        model.loadMoreReplies(earlierRevision)
+        main.dispatcher.scheduler.runCurrent()
+        assertNull(pica.pollRequest(50))
+        assertEquals(4, pica.requestCount)
+        assertEquals(current, model.replies.value)
+
+        model.loadMoreReplies(current.revision)
+        main.take(pica, "GET /comments/parent/childrens?page=2")
+        assertEquals(current.copy(loading = true), model.replies.value)
+        pica.enqueue(replyPage(page = 2, docs = listOf(comment("r2"))))
+        main.awaitState { model.replies.value?.loading == false }
+        assertEquals(3, model.replies.value?.revision)
+        assertEquals(listOf(comment("r1"), comment("r2")), model.replies.value?.replies)
+        assertEquals(5, pica.requestCount)
+    }
+
+    @Test
+    fun aLaterReplyThreadContinuesThePreviousThreadsRevision() = runTest(main.dispatcher) {
+        val model = loaded()
+        val previousRevisions = mutableListOf<Int>()
+        model.openReplies(comment("a"))
+        main.take(pica, "GET /comments/a/childrens?page=1")
+        previousRevisions += assertNotNull(model.replies.value).revision
+        pica.enqueue(replyPage(docs = listOf(comment("a1"))))
+        main.awaitState { model.replies.value?.loading == false }
+        previousRevisions += assertNotNull(model.replies.value).revision
+        model.loadMoreReplies(1)
+        main.take(pica, "GET /comments/a/childrens?page=2")
+        pica.enqueue(replyPage(page = 2, docs = listOf(comment("a2"))))
+        main.awaitState { model.replies.value?.loading == false }
+        previousRevisions += assertNotNull(model.replies.value).revision
+        assertEquals(listOf(0, 1, 2), previousRevisions)
+
+        model.closeReplies()
+        assertNull(model.replies.value)
+        model.openReplies(comment("b"))
+        main.take(pica, "GET /comments/b/childrens?page=1")
+        assertEquals(previousRevisions.last(), model.replies.value?.revision)
+        pica.enqueue(replyPage(docs = listOf(comment("b1"))))
+        main.awaitState { model.replies.value?.loading == false }
+        val current = assertNotNull(model.replies.value)
+        assertEquals(3, current.revision)
+        assertFalse(current.revision in previousRevisions)
+        assertTrue(current.canLoadMore)
+        model.loadMoreReplies(previousRevisions.last())
+        main.dispatcher.scheduler.runCurrent()
+        assertNull(pica.pollRequest(50))
+        assertEquals(current, model.replies.value)
+        assertEquals(4, pica.requestCount)
     }
 
     @Test

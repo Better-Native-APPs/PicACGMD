@@ -14,6 +14,7 @@ import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -56,6 +57,7 @@ internal class ComicPagerTest {
             ComicPageState(
                 entries = listOf(ComicEntry.Hidden(1, 1), ComicEntry.Comic(comic("new"), 1)),
                 page = 1, pages = 4, total = 40, hiddenCount = 1, loading = false,
+                revision = 2,
             ),
             pager.state.value,
         )
@@ -153,7 +155,7 @@ internal class ComicPagerTest {
         source.fail(IllegalStateException("refresh failed"))
         runCurrent()
 
-        assertEquals(old.copy(error = "refresh failed"), pager.state.value)
+        assertEquals(old.copy(error = "refresh failed", revision = 2), pager.state.value)
         assertEquals(listOf(3, 1), source.requestedPages)
         assertNull(pager.state.value.appendError)
     }
@@ -173,7 +175,7 @@ internal class ComicPagerTest {
         source.fail(IllegalStateException(" "))
         runCurrent()
 
-        assertEquals(old.copy(error = "IllegalStateException"), pager.state.value)
+        assertEquals(old.copy(error = "IllegalStateException", revision = 2), pager.state.value)
         assertEquals(listOf(1, 7), source.requestedPages)
     }
 
@@ -203,9 +205,9 @@ internal class ComicPagerTest {
                 ComicPageState(),
                 ready,
                 ready.copy(appending = true),
-                ready.copy(appendError = "append failed"),
-                ready.copy(loading = true),
-                ready.copy(error = "replace failed"),
+                ready.copy(appendError = "append failed", revision = 2),
+                ready.copy(loading = true, revision = 2),
+                ready.copy(error = "replace failed", revision = 3),
             ),
             states,
         )
@@ -248,7 +250,7 @@ internal class ComicPagerTest {
         val first = pager.state.value
 
         pager.mode = PaginationMode.BUTTONS
-        assertEquals(first, pager.state.value)
+        assertEquals(first.copy(revision = 2), pager.state.value)
         pager.loadNext()
         runCurrent()
         assertEquals(listOf(1), source.requestedPages)
@@ -268,7 +270,7 @@ internal class ComicPagerTest {
         assertEquals(listOf(1, 2), source.requestedPages)
 
         pager.mode = PaginationMode.INFINITE
-        assertEquals(second, pager.state.value)
+        assertEquals(second.copy(revision = 6), pager.state.value)
         pager.loadNext()
         runCurrent()
         source.respond(comicPage(3, comic("third"), pages = 4))
@@ -292,13 +294,13 @@ internal class ComicPagerTest {
         assertEquals(old.copy(appending = true), pager.state.value)
         source.fail(IllegalStateException("append failed"))
         runCurrent()
-        assertEquals(old.copy(appendError = "append failed"), pager.state.value)
+        assertEquals(old.copy(appendError = "append failed", revision = 2), pager.state.value)
 
         repeat(3) { pager.loadNext() }
         runCurrent()
         assertEquals(listOf(1, 2), source.requestedPages)
         pager.retryAppend()
-        assertEquals(old.copy(appending = true), pager.state.value)
+        assertEquals(old.copy(appending = true, revision = 2), pager.state.value)
         runCurrent()
         assertEquals(listOf(1, 2, 2), source.requestedPages)
         source.respond(comicPage(2, comic("new"), pages = 4, hidden = 1))
@@ -535,6 +537,218 @@ internal class ComicPagerTest {
         assertNull(pager.state.value.error)
         assertNull(pager.state.value.appendError)
         assertEquals(listOf(1, 1, 2), source.requestedPages)
+    }
+
+    @Test
+    fun aCancelledAppendCanBeRequestedAgainAfterAFailedReload() = runTest {
+        val source = ComicPageSource()
+        val pager = ComicPager(this, source::fetch)
+        pager.reload()
+        runCurrent()
+        source.respond(comicPage(1, comic("a"), pages = 3))
+        runCurrent()
+        val first = pager.state.value
+        assertEquals(1, first.revision)
+
+        pager.loadNext(first.revision)
+        runCurrent()
+        val cancelled = source.requests.last()
+        assertEquals(2, cancelled.page)
+        assertEquals(first.copy(appending = true), pager.state.value)
+        pager.reload()
+        runCurrent()
+        assertTrue(cancelled.cancelled)
+        assertEquals(first.copy(loading = true), pager.state.value)
+        source.fail(IllegalStateException("refresh failed"))
+        runCurrent()
+        val failed = first.copy(error = "refresh failed", revision = 2)
+        assertEquals(failed, pager.state.value)
+        assertTrue(failed.canLoadNext)
+        assertEquals(listOf(1, 2, 1), source.requestedPages)
+
+        pager.loadNext(failed.revision)
+        runCurrent()
+        assertEquals(listOf(1, 2, 1, 2), source.requestedPages)
+        assertEquals(failed.copy(appending = true), pager.state.value)
+        source.respond(comicPage(2, comic("b"), pages = 3))
+        runCurrent()
+        assertEquals(
+            failed.copy(entries = first.entries + ComicEntry.Comic(comic("b"), 2), page = 2, revision = 3),
+            pager.state.value,
+        )
+    }
+
+    @Test
+    fun anAppendWithTheSamePageNumberStopsScrollingUntilReload() = runTest {
+        val source = ComicPageSource()
+        val pager = ComicPager(this, source::fetch)
+        val old = listOf(comic("a", "first old"), comic("a", "second old"))
+        val added = listOf(comic("b", "first new"), comic("b", "second new"))
+        val firstPage = comicPage(1, *old.toTypedArray(), pages = 3, hidden = 2)
+        val repeatedPage = comicPage(1, comic("a", "ignored"), *added.toTypedArray(), pages = 3, hidden = 3)
+        pager.reload()
+        runCurrent()
+        source.respond(firstPage)
+        runCurrent()
+        val first = pager.state.value
+        assertEquals(1, first.revision)
+
+        pager.loadNext(first.revision)
+        runCurrent()
+        source.respond(repeatedPage)
+        runCurrent()
+        val stalled = first.copy(
+            entries = first.entries + ComicEntry.Hidden(1, 3) + added.map { ComicEntry.Comic(it, 1) },
+            hiddenCount = 5,
+            revision = 2,
+        )
+        assertEquals(stalled, pager.state.value)
+        assertTrue(stalled.canLoadNext)
+        pager.loadNext(stalled.revision)
+        runCurrent()
+        assertEquals(listOf(1, 2), source.requestedPages)
+        assertEquals(stalled, pager.state.value)
+
+        pager.reload()
+        runCurrent()
+        source.respond(firstPage)
+        runCurrent()
+        val reloaded = first.copy(revision = 3)
+        assertEquals(reloaded, pager.state.value)
+        pager.loadNext(reloaded.revision)
+        runCurrent()
+        assertEquals(listOf(1, 2, 1, 2), source.requestedPages)
+        source.fail(IllegalStateException("append failed"))
+        runCurrent()
+        val failed = reloaded.copy(appendError = "append failed", revision = 4)
+        assertEquals(failed, pager.state.value)
+        assertFalse(failed.canLoadNext)
+        pager.loadNext(failed.revision)
+        runCurrent()
+        assertEquals(listOf(1, 2, 1, 2), source.requestedPages)
+        assertEquals(failed, pager.state.value)
+
+        pager.retryAppend()
+        runCurrent()
+        assertEquals(listOf(1, 2, 1, 2, 2), source.requestedPages)
+        source.respond(repeatedPage)
+        runCurrent()
+        val retried = stalled.copy(revision = 5)
+        assertEquals(retried, pager.state.value)
+        assertTrue(retried.canLoadNext)
+        pager.loadNext(retried.revision)
+        runCurrent()
+        assertEquals(listOf(1, 2, 1, 2, 2), source.requestedPages)
+        assertEquals(retried, pager.state.value)
+    }
+
+    @Test
+    fun everyFinishedLoadChangesTheRevisionExactlyOnce() = runTest {
+        val source = ComicPageSource()
+        val pager = ComicPager(this, source::fetch)
+        assertEquals(0, pager.state.value.revision)
+
+        pager.reload()
+        runCurrent()
+        assertEquals(0, pager.state.value.revision)
+        source.respond(comicPage(1, comic("a"), pages = 4))
+        runCurrent()
+        assertEquals(1, pager.state.value.revision)
+
+        pager.loadNext(1)
+        runCurrent()
+        assertEquals(1, pager.state.value.revision)
+        source.respond(comicPage(2, comic("b"), pages = 4))
+        runCurrent()
+        assertEquals(2, pager.state.value.revision)
+
+        pager.reload()
+        runCurrent()
+        assertEquals(2, pager.state.value.revision)
+        source.fail(IllegalStateException("refresh failed"))
+        runCurrent()
+        assertEquals(3, pager.state.value.revision)
+
+        pager.loadNext(3)
+        runCurrent()
+        assertEquals(3, pager.state.value.revision)
+        source.fail(IllegalStateException("append failed"))
+        runCurrent()
+        assertEquals(4, pager.state.value.revision)
+        assertEquals(listOf(1, 2, 1, 3), source.requestedPages)
+    }
+
+    @Test
+    fun aRefreshWithEqualRowsAndPageStillChangesTheState() = runTest {
+        val source = ComicPageSource()
+        val pager = ComicPager(this, source::fetch)
+        val page = comicPage(1, comic("a"), pages = 3)
+        pager.reload()
+        runCurrent()
+        source.respond(page)
+        runCurrent()
+        val first = pager.state.value
+        assertEquals(1, first.revision)
+
+        pager.reload()
+        runCurrent()
+        assertEquals(first.copy(loading = true), pager.state.value)
+        source.respond(page.copy(items = page.items.toList()))
+        runCurrent()
+
+        assertNotEquals(first, pager.state.value)
+        assertEquals(first.copy(revision = 2), pager.state.value)
+        assertEquals(listOf(1, 1), source.requestedPages)
+    }
+
+    @Test
+    fun requestsForAnEarlierRevisionDoNotLoadOrChangeState() = runTest {
+        val source = ComicPageSource()
+        val pager = ComicPager(this, source::fetch)
+        pager.reload()
+        runCurrent()
+        source.respond(comicPage(1, comic("a"), pages = 3))
+        runCurrent()
+        val earlierRevision = pager.state.value.revision
+        pager.reload()
+        runCurrent()
+        source.respond(comicPage(1, comic("a"), pages = 3))
+        runCurrent()
+        val current = pager.state.value
+        assertEquals(2, current.revision)
+        assertTrue(current.canLoadNext)
+
+        pager.loadNext(earlierRevision)
+        runCurrent()
+        assertEquals(listOf(1, 1), source.requestedPages)
+        assertEquals(current, pager.state.value)
+
+        pager.loadNext(current.revision)
+        runCurrent()
+        assertEquals(listOf(1, 1, 2), source.requestedPages)
+        assertEquals(current.copy(appending = true), pager.state.value)
+        source.respond(comicPage(2, comic("b"), pages = 3))
+        runCurrent()
+        assertEquals(3, pager.state.value.revision)
+        assertEquals(listOf(comic("a"), comic("b")), pager.state.value.comics)
+    }
+
+    @Test
+    fun onlyADifferentPagingModeChangesTheRevision() = runTest {
+        val source = ComicPageSource()
+        val pager = ComicPager(this, source::fetch)
+        val initial = pager.state.value
+
+        pager.mode = PaginationMode.INFINITE
+        assertEquals(initial, pager.state.value)
+        pager.mode = PaginationMode.BUTTONS
+        assertEquals(initial.copy(revision = 1), pager.state.value)
+        pager.mode = PaginationMode.BUTTONS
+        assertEquals(initial.copy(revision = 1), pager.state.value)
+        pager.mode = PaginationMode.INFINITE
+        assertEquals(initial.copy(revision = 2), pager.state.value)
+        runCurrent()
+        assertEquals(emptyList(), source.requestedPages)
     }
 
     @Test
