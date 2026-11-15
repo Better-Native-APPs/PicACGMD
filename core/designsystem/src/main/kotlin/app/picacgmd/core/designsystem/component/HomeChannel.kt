@@ -52,6 +52,9 @@ object HomeChannelDefaults {
 
     /** Icon size inside the badge. */
     val IconSize: Dp = 28.dp
+
+    /** Width of the tonal rim left around the picture of a pinned category. */
+    val PictureRim: Dp = 3.dp
 }
 
 /** The three fixed home channels of the design spec, with their board-01 shape and color. */
@@ -115,23 +118,33 @@ fun HomeChannelButton(
 }
 
 /**
- * A category the user pinned to the home row (「固定到首页」). Shows the category thumbnail with
- * plain 20dp corners — pictures never get decorative shapes — or a tonal tile with the first
- * character while there is no picture.
+ * A category the user pinned to the home row (「固定到首页」): the same shaped badge as the fixed
+ * channels, filled with a tonal colour picked from the name, with the category picture set into it.
+ * A rim of the tonal colour, [HomeChannelDefaults.PictureRim] wide, stays around the picture so the
+ * outline reads on any picture and any background. The picture is scaled to fill and centred, then
+ * cut to [shape]. While there is no picture (none given, still loading, failed) the badge is the
+ * tonal shape with the first character of the name.
+ *
+ * @param shape outline of the badge; the caller picks one per category and keeps it stable.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun CategoryChannelButton(
     label: String,
     imageUrl: String?,
+    shape: RoundedPolygon,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val tonal = tonalPairFor(label)
+    // Both are remembered per polygon and rebuild their outline only when their size changes. The
+    // picture gets its own instance because it is smaller than the badge.
+    val badgeShape = shape.toShape()
+    val pictureShape = shape.toShape()
     var loaded by remember(imageUrl) { mutableStateOf(false) }
     ChannelSlot(
         label = label,
-        badgeShape = MaterialTheme.shapes.largeIncreased,
+        badgeShape = badgeShape,
         onClick = onClick,
         modifier = modifier,
         rippleColor = tonal.content,
@@ -156,7 +169,10 @@ fun CategoryChannelButton(
                     contentScale = ContentScale.Crop,
                     onSuccess = { loaded = true },
                     onError = { loaded = false },
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(HomeChannelDefaults.PictureRim)
+                        .clip(pictureShape),
                 )
             }
         }
@@ -204,6 +220,7 @@ private fun ChannelSlot(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Preview(showBackground = true, widthDp = 412)
 @Composable
 private fun HomeChannelRowPreview() {
@@ -212,8 +229,8 @@ private fun HomeChannelRowPreview() {
             HomeChannelButton(HomeChannel.Rankings, "排行榜", onClick = {})
             HomeChannelButton(HomeChannel.Random, "随机", onClick = {})
             HomeChannelButton(HomeChannel.Games, "游戏专区", onClick = {})
-            CategoryChannelButton("大家都在看", imageUrl = null, onClick = {})
-            CategoryChannelButton("大湿推荐", imageUrl = null, onClick = {})
+            CategoryChannelButton("大家都在看", imageUrl = null, shape = MaterialShapes.Arch, onClick = {})
+            CategoryChannelButton("大湿推荐", imageUrl = null, shape = MaterialShapes.Sunny, onClick = {})
         }
     }
 }

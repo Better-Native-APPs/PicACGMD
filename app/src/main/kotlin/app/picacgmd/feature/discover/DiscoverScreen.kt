@@ -31,6 +31,7 @@ import app.picacgmd.core.designsystem.component.AppIconButton
 import app.picacgmd.core.designsystem.component.ExpressivePullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
@@ -206,11 +207,11 @@ private fun DiscoverSkeleton(columns: Int) {
 }
 
 /**
- * Fixed channels, then pinned categories. Spread across the width on phones when everything fits,
- * otherwise a scrollable row.
+ * Fixed channels, then pinned categories, each in the outline [pinnedCategoryShape] gives its name.
+ * Spread across the width on phones when everything fits, otherwise a scrollable row.
  */
 @Composable
-private fun ChannelRow(
+internal fun ChannelRow(
     pinned: List<HomeCategory>,
     onChannelClick: (HomeChannel) -> Unit,
     onPinnedClick: (String) -> Unit,
@@ -250,6 +251,7 @@ private fun ChannelRow(
                 CategoryChannelButton(
                     label = category.name,
                     imageUrl = category.thumbUrl,
+                    shape = remember(category.name) { pinnedCategoryShape(category.name) },
                     onClick = if (category.isAllComics) onAllComicsClick else ({ onPinnedClick(category.name) }),
                 )
             }
