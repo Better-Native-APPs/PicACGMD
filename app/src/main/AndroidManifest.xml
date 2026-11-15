@@ -1,10 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
+    <!--
+      allowBackup="false" keeps the app's data out of cloud backup. No data extraction rules are declared,
+      so a device-to-device transfer follows the platform default.
+    -->
     <application
-        android:name=".PikapikaApplication"
+        android:name=".PicaApplication"
         android:allowBackup="false"
         android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher"
@@ -12,13 +17,15 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Pikapika">
+        android:theme="@style/Theme.Pica"
+        tools:ignore="DataExtractionRules"
+        tools:targetApi="33">
         <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
             android:exported="true"
             android:launchMode="singleTop"
-            android:theme="@style/Theme.Pikapika.Starting">
+            android:theme="@style/Theme.Pica.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -29,15 +36,22 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="pika" android:host="comic" />
             </intent-filter>
-            <intent-filter>
+            <!--
+              The data tags of one filter are merged: any listed host with any listed path prefix matches.
+              The hosts belong to the service, not to this app, so the links cannot be verified as app links.
+            -->
+            <intent-filter tools:ignore="AppLinkWarning">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="pika" android:pathPrefix="/comic/" />
-                <data android:scheme="https" android:host="picacomic.com" android:pathPrefix="/comic" />
-                <data android:scheme="https" android:host="www.picacomic.com" android:pathPrefix="/comic" />
+                <data android:scheme="https" />
+                <data android:host="pika" />
+                <data android:host="picacomic.com" />
+                <data android:host="www.picacomic.com" />
+                <data android:pathPrefix="/comic/" />
+                <data android:pathPrefix="/comic" />
             </intent-filter>
-            <intent-filter android:label="@string/open_with_pikapika">
+            <intent-filter android:label="@string/open_with_app">
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />

@@ -10,6 +10,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -161,7 +163,8 @@ fun DownloadsScreen(
     val snackbar = remember { SnackbarHostState() }
     var searching by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
-    val comics by remember(manager, query) { manager.observeQueue(search = query.trim()) }
+    val search = query.trim()
+    val comics by remember(manager, search) { manager.observeQueue(search = search) }
         .collectAsStateWithLifecycle(initialValue = null)
     var tabName by rememberSaveable { mutableStateOf<String?>(null) }
     var selection by rememberSaveable { mutableStateOf(emptySet<String>()) }
@@ -308,6 +311,12 @@ fun DownloadsScreen(
                         ) { current ->
                             val items = byTab[current].orEmpty()
                             val bottom = PaddingValues(bottom = padding.calculateBottomPadding() + 24.dp)
+                            // Room for the batch toolbar so the last row can clear it; the shelf lists reserve the same.
+                            val doneBottom = if (selecting && tab == DownloadTab.Done) {
+                                PaddingValues(bottom = padding.calculateBottomPadding() + 112.dp)
+                            } else {
+                                bottom
+                            }
                             when (current) {
                                 DownloadTab.Active -> ActiveList(
                                     items = items,
@@ -323,7 +332,7 @@ fun DownloadsScreen(
                                 DownloadTab.Done -> DoneList(
                                     items = items,
                                     selection = selection,
-                                    contentPadding = bottom,
+                                    contentPadding = doneBottom,
                                     onToggle = { id -> selection = if (id in selection) selection - id else selection + id },
                                     onOpen = onReadDownloaded,
                                     onOpenDetail = onOpenDetail,
@@ -461,31 +470,33 @@ private fun EngineCard(
     @SuppressLint("StateFlowValueCalledInComposition") // Only the starting value; the flow delivers every later one.
     val firstProgress = manager.progress.value
     val progress by progressUpdates.collectAsStateWithLifecycle(firstProgress)
+    val waitingForWifi by manager.waitingForWifi.collectAsStateWithLifecycle(initialValue = progress.waitingForWifi)
+    val waiting = running && waitingForWifi
     val context = LocalContext.current
     val colors = MaterialTheme.colorScheme
     val throttled = running && progress.effectiveThreads < progress.configuredThreads
     val container = when {
-        progress.waitingForWifi -> colors.surfaceContainerHighest
+        waiting -> colors.surfaceContainerHighest
         throttled -> colors.tertiaryContainer
         running -> colors.primaryContainer
         else -> colors.surfaceContainerHigh
     }
     val content = when {
-        progress.waitingForWifi -> colors.onSurfaceVariant
+        waiting -> colors.onSurfaceVariant
         throttled -> colors.onTertiaryContainer
         running -> colors.onPrimaryContainer
         else -> colors.onSurfaceVariant
     }
     val speed = "${context.formatBytes(progress.bytesPerSecond)}/s"
     val title = when {
-        progress.waitingForWifi -> "等待 Wi-Fi"
+        waiting -> "等待 Wi-Fi"
         throttled -> "服务器限流 · $speed"
         running -> "下载中 · $speed"
         hasPaused -> "已暂停"
         else -> "排队中"
     }
     val subtitle = when {
-        progress.waitingForWifi -> "连接 Wi-Fi 后自动继续"
+        waiting -> "连接 Wi-Fi 后自动继续"
         throttled -> "当前 ${progress.effectiveThreads} 个线程 · 已设 ${progress.configuredThreads} 个"
         running -> buildString {
             append("${progress.effectiveThreads} 个线程 · 剩余 ${progress.remainingPictures} 张")
@@ -501,7 +512,7 @@ private fun EngineCard(
     ) {
         Row(Modifier.padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-                if (running && !progress.waitingForWifi) {
+                if (running && !waiting) {
                     // A still cookie badge, not the morphing LoadingIndicator: a queue can run for an
                     // hour, and the morph asked for a new frame on every vsync the whole time.
                     // The engine's picture total only covers chapters resolved so far, so a ring
@@ -513,7 +524,7 @@ private fun EngineCard(
                         Icon(Icons.Outlined.Download, contentDescription = null, tint = container, modifier = Modifier.size(20.dp))
                     }
                 } else {
-                    Icon(if (progress.waitingForWifi) Icons.Outlined.WifiOff else Icons.Outlined.Pause, contentDescription = null)
+                    Icon(if (waiting) Icons.Outlined.WifiOff else Icons.Outlined.Pause, contentDescription = null)
                 }
             }
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
@@ -631,6 +642,7 @@ private fun DownloadRow(
     subtitle: String,
     modifier: Modifier = Modifier,
     subtitleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    selecting: Boolean = false,
     selected: Boolean = false,
     progressBar: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
@@ -649,10 +661,7 @@ private fun DownloadRow(
             .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box {
-            ComicCover(coverUrl = cover, contentDescription = null, modifier = Modifier.width(56.dp))
-            SelectionMark(selected, Modifier.align(Alignment.TopEnd).padding(2.dp))
-        }
+        DownloadCover(coverUrl = cover, selecting = selecting, selected = selected)
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Text(comic.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
@@ -669,6 +678,21 @@ private fun DownloadRow(
             }
         }
         trailing?.invoke()
+    }
+}
+
+/** The row's cover; the selection mark sits on it only while the list is selecting, as on the comic covers. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun DownloadCover(coverUrl: String?, selecting: Boolean, selected: Boolean) {
+    Box {
+        ComicCover(coverUrl = coverUrl, contentDescription = null, modifier = Modifier.width(56.dp))
+        AnimatedVisibility(
+            visible = selecting,
+            enter = scaleIn(MaterialTheme.motionScheme.fastSpatialSpec()),
+            exit = scaleOut(MaterialTheme.motionScheme.fastSpatialSpec()),
+            modifier = Modifier.align(Alignment.TopEnd).padding(2.dp),
+        ) { SelectionMark(selected) }
     }
 }
 
@@ -760,6 +784,7 @@ private fun DoneList(
                     if (comic.author.isNotBlank()) append(comic.author).append(" · ")
                     append("${comic.completedEpCount} 话 · ${context.formatBytes(comic.downloadedBytes)}")
                 },
+                selecting = selecting,
                 selected = comic.comicId in selection,
                 onClick = { if (selecting) onToggle(comic.comicId) else onOpenDetail(comic.comicId) },
                 onLongClick = { onToggle(comic.comicId) },

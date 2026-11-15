@@ -23,14 +23,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import app.picacgmd.core.designsystem.theme.PikapikaTheme
+import app.picacgmd.core.designsystem.theme.PicaTheme
 import app.picacgmd.core.designsystem.theme.ThemeChoice
 
 /** Default content padding of [ConnectedChoiceGroup] buttons: tight enough for four options per row. */
 private val DefaultOptionPadding = PaddingValues(horizontal = 8.dp)
 
 /**
- * Connected single-choice group (design/SPEC.md 320, `cbg()`): the library's `ButtonGroup` shapes
+ * Connected single-choice group (`cbg()` in the design spec): the library's `ButtonGroup` shapes
  * over [ToggleButton]s, which is the documented Expressive pattern — the selected option rounds out
  * into a pill, the ends keep their outer corner, and a press tightens the inner corner.
  *
@@ -127,7 +127,7 @@ private enum class RangePreview(val label: String) { Day24("24 小时"), Week7("
 @Preview(showBackground = true, widthDp = 380)
 @Composable
 private fun ConnectedChoiceGroupPreview() {
-    PikapikaTheme(themeChoice = ThemeChoice.Brand) {
+    PicaTheme(themeChoice = ThemeChoice.Brand) {
         ConnectedChoiceGroup(
             options = RangePreview.entries,
             selected = RangePreview.Week7,

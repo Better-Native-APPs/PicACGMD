@@ -20,7 +20,7 @@ class LiveRouteProbeTest {
             listOf("172.67.7.24", "104.20.180.50", "172.67.208.169").map(ApiRoute::Address)
         routes.map { route ->
             async(Dispatchers.IO) {
-                val client = PicaClientFactory.apiClient(PicaNetworkConfig(apiRoute = route)).newBuilder()
+                val client = PicaClientFactory.apiClient(route).newBuilder()
                     .proxy(Proxy.NO_PROXY)
                     .callTimeout(15, TimeUnit.SECONDS)
                     .build()

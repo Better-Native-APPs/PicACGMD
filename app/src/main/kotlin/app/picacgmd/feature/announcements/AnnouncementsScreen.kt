@@ -38,7 +38,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,20 +56,11 @@ import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.bookshelf.safeImageUrl
 import app.picacgmd.feature.settings.BackButton
 import app.picacgmd.core.designsystem.component.PredictiveBackContent
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.launch
+import app.picacgmd.paging.LoadMoreEffect
+import app.picacgmd.paging.RowsWatch
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-
-private data class AnnouncementsState(
-    val items: List<Announcement> = emptyList(),
-    val page: Int = 0,
-    val pages: Int = 1,
-    val loading: Boolean = true,
-    val error: String? = null,
-)
 
 private val DateFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
 
@@ -101,50 +91,22 @@ private fun preview(content: String): String =
 fun AnnouncementsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val container = LocalAppContainer.current
     val scope = rememberCoroutineScope()
-    var state by remember { mutableStateOf(AnnouncementsState()) }
-    var refreshing by remember { mutableStateOf(false) }
+    val holder = remember {
+        AnnouncementsStateHolder(scope, container.announcementRepository, container.settingsRepository::setLastSeenAnnouncementId)
+    }
+    val state = holder.state
+    val refreshing = holder.refreshing
     var openId by rememberSaveable { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
-    fun load(page: Int) {
-        state = state.copy(loading = true, error = null)
-        scope.launch {
-            try {
-                val result = container.announcementRepository.page(page)
-                state = AnnouncementsState(
-                    items = if (page == 1) result.docs else (state.items + result.docs).distinctBy { it.id },
-                    page = result.page,
-                    pages = result.pages.coerceAtLeast(1),
-                    loading = false,
-                )
-                if (page == 1) {
-                    result.docs.firstOrNull()?.id?.let { newest ->
-                        runCatching { container.settingsRepository.setLastSeenAnnouncementId(newest) }
-                    }
-                }
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: Exception) {
-                state = state.copy(loading = false, error = exception.message ?: "加载失败")
-            } finally {
-                refreshing = false
-            }
-        }
-    }
-
-    LaunchedEffect(Unit) { if (state.page == 0) load(1) }
-    LaunchedEffect(listState) {
-        snapshotFlow {
-            val info = listState.layoutInfo
-            (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 3
-        }.distinctUntilChanged().collect { nearEnd ->
-            val current = state
-            if (nearEnd && !current.loading && current.error == null && current.page in 1 until current.pages) load(current.page + 1)
-        }
-    }
+    LaunchedEffect(Unit) { if (holder.state.page == 0) holder.load(1) }
 
     val opened = state.items.firstOrNull { it.id == openId }
+    val rowsWatch = remember { RowsWatch() }
+    val listShown = state.items.isNotEmpty()
+    // An open announcement takes the list off the screen, so nothing more is loaded behind it.
+    LoadMoreEffect(listState, rowsWatch, state, state.revision, opened == null && state.canLoadNext, endZone = 3, onLoadMore = holder::loadNext, listShown = listShown)
     PredictiveBackContent(
         current = opened?.id ?: "list",
         previous = "list",
@@ -169,16 +131,16 @@ fun AnnouncementsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         ) { padding ->
             ExpressivePullToRefreshBox(
                 isRefreshing = refreshing,
-                onRefresh = { refreshing = true; load(1) },
+                onRefresh = holder::refresh,
                 modifier = Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()),
             ) {
                 when {
                     // A pulled refresh already shows its own indicator.
-                    state.items.isEmpty() && state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    !listShown && state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         if (!refreshing) LoadingState(Modifier.fillMaxSize())
                     }
-                    state.items.isEmpty() && state.error != null -> ErrorState(onRetry = { load(1) }, description = state.error, modifier = Modifier.fillMaxSize())
-                    state.items.isEmpty() -> EmptyState(
+                    !listShown && state.error != null -> ErrorState(onRetry = holder::retryFirstLoad, description = state.error, modifier = Modifier.fillMaxSize())
+                    !listShown -> EmptyState(
                         title = "暂无公告",
                         icon = Icons.Outlined.Campaign,
                         shape = MaterialShapes.Sunny,
@@ -186,10 +148,11 @@ fun AnnouncementsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     )
                     else -> LazyColumn(
                         state = listState,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize().then(rowsWatch.measured),
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = padding.calculateBottomPadding() + 24.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
+                        rowsWatch.rows(state)
                         items(state.items, key = { it.id }) { announcement ->
                             AnnouncementCard(announcement, onClick = { openId = announcement.id })
                         }
@@ -198,7 +161,7 @@ fun AnnouncementsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                                 when {
                                     refreshing -> Unit
                                     state.loading -> LoadingIndicator(Modifier.size(40.dp))
-                                    state.error != null -> AppTextButton(onClick = { load(state.page + 1) }) { Text("加载失败，重试") }
+                                    state.error != null -> AppTextButton(onClick = holder::retryTail) { Text("加载失败，重试") }
                                     state.page >= state.pages -> Text(
                                         "没有更多",
                                         style = MaterialTheme.typography.bodySmall,

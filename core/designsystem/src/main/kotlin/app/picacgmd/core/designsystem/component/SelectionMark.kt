@@ -21,7 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import app.picacgmd.core.designsystem.theme.PikapikaTheme
+import app.picacgmd.core.designsystem.theme.PicaTheme
 import app.picacgmd.core.designsystem.theme.ThemeChoice
 
 /** Diameter of [SelectionMark]; the cover grids leave one corner of this size clear while selecting. */
@@ -83,7 +83,7 @@ fun SelectionMark(
 @Preview(showBackground = true)
 @Composable
 private fun SelectionMarkPreview() {
-    PikapikaTheme(themeChoice = ThemeChoice.Brand) {
+    PicaTheme(themeChoice = ThemeChoice.Brand) {
         Box(Modifier.size(120.dp), contentAlignment = Alignment.Center) {
             SelectionMark(selected = true)
         }

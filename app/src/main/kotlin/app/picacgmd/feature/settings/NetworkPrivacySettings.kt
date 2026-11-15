@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.Route
@@ -42,15 +41,14 @@ import app.picacgmd.core.data.settings.ImageQuality
 import app.picacgmd.core.designsystem.component.AppTextButton
 import app.picacgmd.di.LocalAppContainer
 import kotlinx.coroutines.launch
-import java.net.URI
 
-private enum class NetworkDialog { Proxy, Quality, ConnectTimeout, ReadTimeout, TimeOffset }
+private enum class NetworkDialog { Quality, ConnectTimeout, ReadTimeout, TimeOffset }
 
 private val Timeouts = listOf(10, 15, 30, 60)
 
 /**
- * Board 27 网络: the route picker (分流 and 图片分流 together, with the official sync), proxy, image quality,
- * timeouts and time offset. A configured proxy carries every request, so routing no longer applies.
+ * Board 27 网络: the route picker (分流 and 图片分流 together, with the official sync), image quality,
+ * timeouts and time offset. There is no proxy setting: requests follow the system proxy.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -66,16 +64,6 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
 
     SettingsPageScaffold(SettingsPage.Network.title, onBack, snackbar, modifier) {
         if (settings == null) return@SettingsPageScaffold
-        val proxyOn = settings.proxyUrl.isNotBlank()
-        if (proxyOn) {
-            item {
-                NoticeCard(
-                    text = "已启用代理，分流暂不生效",
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    warning = true,
-                )
-            }
-        }
         item {
             SettingsGroup("分流") {
                 row { shapes ->
@@ -89,17 +77,6 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     SettingsSwitchRow(
                         shapes, "用 API 加载图片", settings.useApiClientForImages, { writer.update { setUseApiClientForImages(it) } },
                         summary = "图片分流不可用时启用",
-                    )
-                }
-            }
-        }
-        item {
-            SettingsGroup("代理服务器") {
-                row { shapes ->
-                    SettingsNavRow(
-                        shapes, "代理地址", { dialog = NetworkDialog.Proxy },
-                        summary = settings.proxyUrl.ifBlank { "HTTP / SOCKS5" },
-                        value = if (proxyOn) "已设置" else "未设置",
                     )
                 }
             }
@@ -128,11 +105,6 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
 
     val dismiss = { dialog = null }
     when (dialog) {
-        NetworkDialog.Proxy -> ProxyDialog(
-            initial = settings?.proxyUrl.orEmpty(),
-            onSave = { writer.update { setProxyUrl(it) } },
-            onDismiss = dismiss,
-        )
         NetworkDialog.Quality -> ChoiceDialog("图片质量", ImageQuality.entries, settings?.imageQuality, { it.label() }, { writer.update { setImageQuality(it) } }, dismiss)
         NetworkDialog.ConnectTimeout -> ChoiceDialog("连接超时", Timeouts, settings?.connectTimeoutSeconds, { "$it 秒" }, { writer.update { setConnectTimeoutSeconds(it) } }, dismiss)
         NetworkDialog.ReadTimeout -> ChoiceDialog("读取超时", Timeouts, settings?.readTimeoutSeconds, { "$it 秒" }, { writer.update { setReadTimeoutSeconds(it) } }, dismiss)
@@ -154,24 +126,6 @@ private fun ImageQuality.label() = when (this) {
     ImageQuality.HIGH -> "高"
     ImageQuality.MEDIUM -> "中"
     ImageQuality.LOW -> "低"
-}
-
-@Composable
-internal fun NoticeCard(text: String, modifier: Modifier = Modifier, warning: Boolean = false) {
-    val colors = MaterialTheme.colorScheme
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(
-            containerColor = if (warning) colors.tertiaryContainer else colors.surfaceContainerHigh,
-            contentColor = if (warning) colors.onTertiaryContainer else colors.onSurfaceVariant,
-        ),
-    ) {
-        Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            androidx.compose.material3.Icon(Icons.Outlined.Info, contentDescription = null)
-            Text(text, style = MaterialTheme.typography.bodyMedium)
-        }
-    }
 }
 
 @Composable
@@ -218,71 +172,6 @@ internal fun TextInputDialog(
                 } else {
                     onSave(value)
                     onDismiss()
-                }
-            }) { Text("保存") }
-        },
-        dismissButton = { AppTextButton(onClick = onDismiss) { Text("取消") } },
-    )
-}
-
-private enum class ProxyType(val label: String, val scheme: String?) { None("不使用", null), Http("HTTP", "http"), Socks("SOCKS5", "socks5") }
-
-/** Type ButtonGroup + host + port; stored as `scheme://host:port`, empty when off (board 27). */
-@Composable
-private fun ProxyDialog(initial: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
-    val parsed = remember(initial) { runCatching { URI(initial.trim()) }.getOrNull() }
-    var type by remember {
-        mutableStateOf(
-            when (parsed?.scheme?.lowercase()) {
-                "http" -> ProxyType.Http
-                "socks", "socks5" -> ProxyType.Socks
-                else -> ProxyType.None
-            },
-        )
-    }
-    var host by remember { mutableStateOf(parsed?.host.orEmpty()) }
-    var port by remember { mutableStateOf(parsed?.port?.takeIf { it > 0 }?.toString().orEmpty()) }
-    var error by remember { mutableStateOf<String?>(null) }
-    AlertDialog(
-        properties = secureDialogProperties(),
-        onDismissRequest = onDismiss,
-        title = { Text("代理服务器") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("接口和图片均使用代理", style = MaterialTheme.typography.bodyMedium)
-                ConnectedChoice(ProxyType.entries, type, { type = it; error = null }, { it.label })
-                if (type != ProxyType.None) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
-                        OutlinedTextField(
-                            value = host, onValueChange = { host = it.trim(); error = null }, label = { Text("地址") },
-                            singleLine = true, modifier = Modifier.weight(2f),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                        )
-                        OutlinedTextField(
-                            value = port, onValueChange = { port = it.filter(Char::isDigit).take(5); error = null }, label = { Text("端口") },
-                            singleLine = true, modifier = Modifier.weight(1f),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        )
-                    }
-                }
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-            }
-        },
-        confirmButton = {
-            AppTextButton(onClick = {
-                if (type == ProxyType.None) {
-                    onSave("")
-                    onDismiss()
-                    return@AppTextButton
-                }
-                val portNumber = port.toIntOrNull()
-                when {
-                    host.isBlank() -> error = "请输入代理地址"
-                    portNumber == null || portNumber !in 1..65535 -> error = "端口范围为 1–65535"
-                    else -> {
-                        onSave("${type.scheme}://$host:$portNumber")
-                        onDismiss()
-                    }
                 }
             }) { Text("保存") }
         },

@@ -22,6 +22,15 @@ class ComicFilterTest {
     }
 
     @Test
+    fun anIdSentTwiceIsListedOnceAndIsNotCountedAsHidden() {
+        val repeated = listOf(comics[0], comics[1], comics[0].copy(title = "again"), comics[2], comics[1])
+        assertEquals(FilteredComics(comics, 0), filterComics(repeated, AppSettings()))
+        val result = filterComics(repeated, AppSettings(shieldedCategories = listOf("冒险")))
+        assertEquals(listOf("1", "3"), result.items.map { it.id })
+        assertEquals(1, result.hiddenCount)
+    }
+
+    @Test
     fun blacklistHidesAnyMatchingCategory() {
         val result = filterComics(comics, AppSettings(shieldedCategories = listOf("彩色", "冒险")))
         assertEquals(listOf("3"), result.items.map { it.id })
@@ -141,9 +150,9 @@ class ComicFilterTest {
         )
         val samples = markers.flatMap { marker ->
             listOf(
-                ComicSimple(title = "[$marker] 漫画"),
-                ComicSimple(categories = listOf("分类 ${marker.replaceFirst("AI", "ai")}")),
-                ComicSimple(tags = listOf("标签 ${marker.replaceFirst("AI", "aI")}")),
+                ComicSimple(id = "$marker title", title = "[$marker] 漫画"),
+                ComicSimple(id = "$marker category", categories = listOf("分类 ${marker.replaceFirst("AI", "ai")}")),
+                ComicSimple(id = "$marker tag", tags = listOf("标签 ${marker.replaceFirst("AI", "aI")}")),
             )
         }
         samples.forEach { assertTrue(isAiComic(it), it.toString()) }

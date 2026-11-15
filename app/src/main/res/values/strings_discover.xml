@@ -7,7 +7,6 @@
     <string name="discover_state_offline_banner">网络不可用，显示上次内容</string>
     <string name="discover_state_refresh_failed">刷新失败，显示上次内容</string>
     <string name="discover_state_retry">重试</string>
-    <string name="discover_state_back">返回</string>
     <string name="discover_comic_pages">%1$dP · %2$d 话</string>
 
     <!-- 排行榜 -->

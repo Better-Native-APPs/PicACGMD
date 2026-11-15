@@ -42,8 +42,8 @@ class PicaRouteTransport(
     private val apiBaseUrl: String = PicaProtocol.BASE_URL,
 ) {
     /** Main-safe: requests and socket cleanup run on [Dispatchers.IO]. */
-    suspend fun fetchApiAddresses(proxyUrl: String?): List<String> = withContext(Dispatchers.IO) {
-        val client = PicaClientFactory.apiClient(PicaNetworkConfig(proxyUrl = proxyUrl)).newBuilder()
+    suspend fun fetchApiAddresses(): List<String> = withContext(Dispatchers.IO) {
+        val client = PicaClientFactory.apiClient().newBuilder()
             .callTimeout(10, TimeUnit.SECONDS)
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(10, TimeUnit.SECONDS)
@@ -64,7 +64,7 @@ class PicaRouteTransport(
     suspend fun measureApiRoute(route: ApiRoute): Long {
         val url = apiBaseUrl.toHttpUrl().newBuilder().addPathSegment("keywords").build()
         val request = Request.Builder().url(url).headers(PicaHeaderBuilder().build(url, "GET")).build()
-        return measureHeaders(PicaClientFactory.apiClient(PicaNetworkConfig(apiRoute = route)), request)
+        return measureHeaders(PicaClientFactory.apiClient(route), request)
     }
 
     /** Headers are enough: every HTTP status counts, redirects and response bodies are not followed. */
@@ -73,6 +73,7 @@ class PicaRouteTransport(
 
     private suspend fun measureHeaders(transport: OkHttpClient, request: Request): Long = withContext(Dispatchers.IO) {
         val client = transport.newBuilder()
+            // A proxy resolves the host itself, so a probe through one would not measure the route.
             .proxy(Proxy.NO_PROXY)
             .followRedirects(false)
             .followSslRedirects(false)

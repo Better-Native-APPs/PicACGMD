@@ -1,4 +1,5 @@
 pluginManagement {
+    includeBuild("build-logic")
     repositories {
         google {
             content {
@@ -28,5 +29,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Pikapika"
+rootProject.name = "PicACGMD"
 include(":app", ":core:network", ":core:data", ":core:designsystem", ":core:domain", ":feature:reader")

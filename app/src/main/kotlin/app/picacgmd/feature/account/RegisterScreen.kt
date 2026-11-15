@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,7 +49,7 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: (String) -> Unit) 
     val container = LocalAppContainer.current
     val scope = rememberCoroutineScope()
     // Keep the step with the in-memory password; process recreation restarts the form safely.
-    var step by remember { mutableStateOf(1) }
+    var step by remember { mutableIntStateOf(1) }
     var email by rememberSaveable { mutableStateOf("") }
     var name by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }

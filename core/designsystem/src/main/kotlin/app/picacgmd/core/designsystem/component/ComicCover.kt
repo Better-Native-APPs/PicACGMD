@@ -31,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -64,7 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import app.picacgmd.core.designsystem.R
-import app.picacgmd.core.designsystem.theme.PikapikaTheme
+import app.picacgmd.core.designsystem.theme.PicaTheme
 import app.picacgmd.core.designsystem.theme.ThemeChoice
 import app.picacgmd.core.designsystem.theme.withTabularFigures
 
@@ -126,7 +127,7 @@ fun ComicCover(
 ) {
     var failed by remember(coverUrl) { mutableStateOf(false) }
     var loaded by remember(coverUrl) { mutableStateOf(false) }
-    var attempt by remember(coverUrl) { mutableStateOf(0) }
+    var attempt by remember(coverUrl) { mutableIntStateOf(0) }
     val loading = !coverUrl.isNullOrEmpty() && !failed && !loaded
     val composedAt = remember { System.nanoTime() }
     Box(
@@ -350,7 +351,7 @@ fun ComicCoverCard(
 @Preview(showBackground = true)
 @Composable
 private fun ComicCoverCardPreview() {
-    PikapikaTheme(themeChoice = ThemeChoice.Brand) {
+    PicaTheme(themeChoice = ThemeChoice.Brand) {
         Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ComicCoverCard(
                 title = "星屑列车",

@@ -175,6 +175,10 @@ class PicaApiTest {
         assertEquals(503, assertIs<PicaResult.Failure>(api.categories()).exception.httpStatus)
         assertIs<PicaDecodingException>(assertIs<PicaResult.Failure>(api.categories()).exception)
         assertIs<PicaDecodingException>(assertIs<PicaResult.Failure>(api.comicInfo("id")).exception)
+        for (page in listOf("{}", "[]", "true", "1.5", "\"invalid\"")) {
+            enqueue("""{"comics":{"page":$page}}""")
+            assertIs<PicaDecodingException>(assertIs<PicaResult.Failure>(api.comics()).exception)
+        }
     }
 
     @Test

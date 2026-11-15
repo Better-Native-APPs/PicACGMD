@@ -23,6 +23,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -52,7 +53,7 @@ class DownloadEngineTest {
         apiServer = MockWebServer().apply { start() }
         imageServer = MockWebServer().apply { start() }
         client = PicaClientFactory.imageClient()
-        root = Files.createTempDirectory("pikapika-download-test-").toFile()
+        root = Files.createTempDirectory("picacgmd-download-test-").toFile()
         dao = FakeDownloadDao()
         settings = MutableStateFlow(AppSettings.DEFAULT.copy(imageRoutingMode = RoutingMode.NONE))
         network = MutableStateFlow(DownloadNetworkState(connected = true, wifi = true))
@@ -164,6 +165,20 @@ class DownloadEngineTest {
         worker.join()
         assertEquals(1, imageServer.requestCount)
         assertEquals(DownloadStatus.DONE, dao.getPicture("picture-1")?.status)
+    }
+
+    @Test
+    fun aRunCancelledWhileWaitingDoesNotLeaveTheWaitFlagBehind() = runTest {
+        seed(1)
+        settings.value = settings.value.copy(downloadWifiOnly = true)
+        network.value = DownloadNetworkState(connected = true, wifi = false)
+        val engine = engine(this)
+        val worker = launch { engine.runUntilIdle() }
+        runCurrent()
+        assertTrue(engine.progress.value.waitingForWifi)
+        worker.cancelAndJoin()
+        assertFalse(engine.progress.value.waitingForWifi)
+        assertEquals(0, imageServer.requestCount)
     }
 
     @Test

@@ -11,7 +11,6 @@ import app.picacgmd.core.network.PicaClientFactory
 import app.picacgmd.core.network.PicaHeaderBuilder
 import app.picacgmd.core.network.PicaImage
 import app.picacgmd.core.network.PicaImageUrls
-import app.picacgmd.core.network.PicaNetworkConfig
 import app.picacgmd.core.network.PicaRouteTransport
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
@@ -27,7 +26,7 @@ import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 
 data class NetworkConfiguration(
-    val networkConfig: PicaNetworkConfig,
+    val apiRoute: ApiRoute,
     val imageServer: ImageServer,
     val imageQuality: ImageQuality,
     val connectTimeoutSeconds: Int,
@@ -37,10 +36,7 @@ data class NetworkConfiguration(
 ) {
     companion object {
         fun from(settings: AppSettings): NetworkConfiguration = NetworkConfiguration(
-            networkConfig = PicaNetworkConfig(
-                apiRoute = settings.apiRouteAddress?.let(ApiRoute::Address) ?: ApiRoute.None,
-                proxyUrl = settings.proxyUrl.trim().takeIf(String::isNotEmpty),
-            ),
+            apiRoute = settings.apiRouteAddress?.let(ApiRoute::Address) ?: ApiRoute.None,
             imageServer = settings.toImageServer(),
             imageQuality = ImageQuality.valueOf(settings.imageQuality.name),
             connectTimeoutSeconds = settings.connectTimeoutSeconds,
@@ -100,7 +96,7 @@ class NetworkConfigProvider(
     /**
      * One independently measured API response with a five-second ceiling. HTTP errors (including
      * an expired login's 401) still prove reachability; no response body or session is needed.
-     * Probes connect directly (not through a proxy, which would bypass route DNS) and never update
+     * Probes connect directly (not through the system proxy, which would bypass route DNS) and never update
      * the selected route, session, or retained transports. Values are milliseconds; failures are null.
      * Main-safe: the probe and its socket cleanup run on [Dispatchers.IO].
      */
@@ -127,10 +123,10 @@ class NetworkConfigProvider(
     }
 
     private fun build(configuration: NetworkConfiguration): NetworkClients {
-        val apiClient = PicaClientFactory.apiClient(configuration.networkConfig).withTimeouts(configuration)
+        val apiClient = PicaClientFactory.apiClient(configuration.apiRoute).withTimeouts(configuration)
         // API clients contain no authentication interceptors; API headers are added by PicaApi only.
         val imageTransport = if (configuration.useApiClientForImages) apiClient else
-            PicaClientFactory.imageClient(configuration.networkConfig).withTimeouts(configuration)
+            PicaClientFactory.imageClient().withTimeouts(configuration)
         val progress = ImageLoadProgressInterceptor(imageLoadProgress)
         val imageClient = imageTransport.newBuilder()
             // Image storage hosts redirect; safe because image requests carry no signed headers.

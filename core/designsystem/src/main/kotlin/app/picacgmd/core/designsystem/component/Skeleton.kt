@@ -32,7 +32,7 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import app.picacgmd.core.designsystem.theme.PikapikaTheme
+import app.picacgmd.core.designsystem.theme.PicaTheme
 import app.picacgmd.core.designsystem.theme.ThemeChoice
 import kotlinx.coroutines.launch
 
@@ -132,7 +132,7 @@ private class SkeletonFillNode(
 @Preview(showBackground = true, widthDp = 380)
 @Composable
 private fun SkeletonPreview() {
-    PikapikaTheme(themeChoice = ThemeChoice.Brand) {
+    PicaTheme(themeChoice = ThemeChoice.Brand) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SkeletonBlock(Modifier.fillMaxWidth().height(88.dp), MaterialTheme.shapes.extraLarge)
             SkeletonBlock(Modifier.fillMaxWidth(0.8f).height(12.dp))

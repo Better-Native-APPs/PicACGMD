@@ -3,6 +3,7 @@ package app.picacgmd.feature.detail
 import app.picacgmd.core.designsystem.window.secureModalBottomSheetProperties
 import app.picacgmd.core.designsystem.window.secureDialogProperties
 
+import android.content.ClipData
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -101,14 +102,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.nativeClipboardManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -129,8 +131,9 @@ import app.picacgmd.core.designsystem.component.MetaInfo
 import app.picacgmd.core.designsystem.component.SectionHeader
 import app.picacgmd.core.designsystem.component.ShapedAvatar
 import app.picacgmd.core.designsystem.component.SoftBackdrop
-import app.picacgmd.core.designsystem.theme.PikapikaTheme
+import app.picacgmd.core.designsystem.theme.PicaTheme
 import app.picacgmd.core.designsystem.theme.withTabularFigures
+import app.picacgmd.core.domain.download.DownloadManagerOwner
 import app.picacgmd.core.domain.repository.ReadingProgress
 import app.picacgmd.core.domain.repository.containsKeyword
 import app.picacgmd.core.domain.repository.uploader
@@ -173,7 +176,8 @@ fun ComicDetailScreen(
     modifier: Modifier = Modifier,
 ) {
     val container = LocalAppContainer.current
-    val viewModel = viewModel(key = "detail:$comicId") { ComicDetailViewModel(container, comicId) }
+    val downloads = (LocalContext.current.applicationContext as DownloadManagerOwner).downloadManager
+    val viewModel = viewModel(key = "detail:$comicId") { ComicDetailViewModel(container, comicId, downloads) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val preferences by container.settingsRepository.settings.collectAsStateWithLifecycle(null)
     val library by viewModel.library.collectAsStateWithLifecycle()
@@ -306,7 +310,10 @@ private fun DetailBody(
         animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
         label = "detailTopBarContainer",
     )
-    val clipboard = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
+    fun copyName(rendered: String) {
+        clipboard.nativeClipboardManager.setPrimaryClip(ClipData.newPlainText("plain text", rendered))
+    }
     var copyConfirmation by rememberSaveable(comic.id) { mutableStateOf<String?>(null) }
     var showAllChapters by rememberSaveable { mutableStateOf(false) }
     var chaptersReversed by rememberSaveable { mutableStateOf(false) }
@@ -420,7 +427,7 @@ private fun DetailBody(
                             AppIconButton(onClick = {
                                 val rendered = renderCopyName(preferences.copyNameTemplate, comic.author, comic.title, comic.id)
                                 if (preferences.confirmCopy) copyConfirmation = rendered
-                                else clipboard.setText(AnnotatedString(rendered))
+                                else copyName(rendered)
                             }) {
                                 Icon(Icons.Outlined.ContentCopy, stringResource(R.string.detail_copy_title))
                             }
@@ -447,7 +454,7 @@ private fun DetailBody(
             title = { Text("复制名称") },
             text = { Text(rendered) },
             confirmButton = {
-                AppTextButton(onClick = { clipboard.setText(AnnotatedString(rendered)); copyConfirmation = null }) { Text("复制") }
+                AppTextButton(onClick = { copyName(rendered); copyConfirmation = null }) { Text("复制") }
             },
             dismissButton = { AppTextButton(onClick = { copyConfirmation = null }) { Text("取消") } },
         )
@@ -996,7 +1003,7 @@ private fun ChapterRow(
             if (showDownloadColumn) {
                 Box(Modifier.size(20.dp)) {
                     if (downloaded) {
-                        Icon(Icons.Outlined.DownloadDone, stringResource(R.string.detail_chapter_downloaded), tint = PikapikaTheme.extendedColors.success)
+                        Icon(Icons.Outlined.DownloadDone, stringResource(R.string.detail_chapter_downloaded), tint = PicaTheme.extendedColors.success)
                     }
                 }
             }

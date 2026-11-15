@@ -27,7 +27,7 @@ enum class CacheCleanupInterval(val seconds: Long) {
 
 /**
  * Immutable app preferences. Defaults:
- * - No saved account/token/proxy/custom hosts. API uses the first default address; images use original hosts.
+ * - No saved account/token/custom hosts. API uses the first default address; images use original hosts.
  * - Dynamic theme (brand-pink fallback on Android < 12), system dark mode, pure black off.
  * - Detail lists, automatic columns (0; explicit values 2–7), infinite pagination (B1).
  * - No shields/hidden words/categories; blacklist mode. Home pins are ordered server category names
@@ -55,7 +55,6 @@ data class AppSettings(
     // Original file servers by default: with a working proxy they are the fastest and most reliable;
     // the image 分流 hosts stay available in 设置 › 网络 for networks where the originals are blocked.
     val imageRoutingMode: RoutingMode = RoutingMode.NONE,
-    val proxyUrl: String = "",
     val imageQuality: ImageQuality = ImageQuality.ORIGINAL,
     val connectTimeoutSeconds: Int = 15,
     val readTimeoutSeconds: Int = 30,

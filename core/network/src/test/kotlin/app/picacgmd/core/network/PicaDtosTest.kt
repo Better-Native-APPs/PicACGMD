@@ -2,9 +2,11 @@ package app.picacgmd.core.network
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.serialization.SerializationException
 
 class PicaDtosTest {
     @Test
@@ -41,6 +43,11 @@ class PicaDtosTest {
         assertEquals(0, page.docs.single().epsCount)
         assertEquals(0, page.docs.single().pagesCount)
         assertEquals("cover.jpg", page.docs.single().thumb?.path)
+        for (invalidPage in listOf("{}", "[]", "true", "1.5", "\"invalid\"")) {
+            assertFailsWith<SerializationException> {
+                PicaJson.decodeFromString<Page<ComicSimple>>("""{"page":$invalidPage}""")
+            }
+        }
     }
 
     @Test

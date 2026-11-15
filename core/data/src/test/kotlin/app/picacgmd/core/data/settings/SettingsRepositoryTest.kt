@@ -96,7 +96,6 @@ class SettingsRepositoryTest {
         repository.setAuthToken("saved-token", 123L)
         repository.setApiRouteAddress("203.0.113.1")
         repository.setImageRouting(RoutingMode.ROUTE_2)
-        repository.setProxyUrl("socks5://localhost:1080")
         repository.setImageQuality(ImageQuality.HIGH)
         repository.setTheme(AppTheme.GREY_BLUE)
         repository.setDarkMode(DarkMode.DARK)
@@ -132,7 +131,7 @@ class SettingsRepositoryTest {
             AppSettings.DEFAULT.copy(
                 accountEmail = "reader@example.com", authToken = "saved-token", authTokenUpdatedAt = 123L,
                 apiRouteAddress = "203.0.113.1", imageRoutingMode = RoutingMode.ROUTE_2,
-                proxyUrl = "socks5://localhost:1080", imageQuality = ImageQuality.HIGH,
+                imageQuality = ImageQuality.HIGH,
                 theme = AppTheme.GREY_BLUE, darkMode = DarkMode.DARK, pureBlack = true,
                 listLayout = ListLayout.COVER_AND_TITLE, listColumnCount = 7, categoryColumnCount = 2,
                 paginationMode = PaginationMode.BUTTONS,

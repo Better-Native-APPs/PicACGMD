@@ -60,20 +60,14 @@ class RoutingRepositoryTest {
     }
 
     @Test
-    fun syncPassesProxyPersistsValidAddressesAndALaterSyncDoesNotMoveSelection() = runTest {
+    fun syncPersistsValidAddressesAndALaterSyncDoesNotMoveSelection() = runTest {
         val settings = SettingsRepository(RouteMemoryStore())
         val provider = NetworkConfigProvider(settings.settings, backgroundScope)
         try {
-            settings.setProxyUrl("http://127.0.0.1:8888")
-            var receivedProxy: String? = null
             var served = listOf("104.19.53.76", "invalid", "104.19.53.76", defaultApiAddresses[0])
             var now = 456L
-            val repository = RoutingRepository(settings, provider, fetchAddresses = {
-                receivedProxy = it
-                served
-            }, nowMillis = { now })
+            val repository = RoutingRepository(settings, provider, fetchAddresses = { served }, nowMillis = { now })
             repository.syncApiRoutes()
-            assertEquals("http://127.0.0.1:8888", receivedProxy)
             assertEquals(listOf("104.19.53.76", "172.67.7.24"), settings.settings.first().syncedApiAddresses)
             assertEquals(456L, repository.apiRoutes.first().lastSyncedAtMillis)
             repository.selectApiRoute(ApiRoute.Address("104.19.53.76"))
@@ -126,9 +120,9 @@ class RoutingRepositoryTest {
             assertEquals(before, settings.settings.first())
             repository.selectApiRoute(ApiRoute.Address(" 104.20.180.50 "))
             assertEquals("104.20.180.50", repository.apiRoutes.first().selected.address)
-            assertEquals(ApiRoute.Address("104.20.180.50"), NetworkConfiguration.from(settings.settings.first()).networkConfig.apiRoute)
+            assertEquals(ApiRoute.Address("104.20.180.50"), NetworkConfiguration.from(settings.settings.first()).apiRoute)
             repository.selectApiRoute(ApiRoute.None)
-            assertEquals(ApiRoute.None, NetworkConfiguration.from(settings.settings.first()).networkConfig.apiRoute)
+            assertEquals(ApiRoute.None, NetworkConfiguration.from(settings.settings.first()).apiRoute)
             repository.selectImageRoute(ImageServer.Split3)
             assertEquals(ImageServer.Split3, repository.imageRoutes.first().selected.value)
             assertEquals(ImageServer.Split3, NetworkConfiguration.from(settings.settings.first()).imageServer)

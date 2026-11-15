@@ -12,7 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
-class PikapikaApplication : Application(), DownloadManagerOwner {
+class PicaApplication : Application(), DownloadManagerOwner {
     lateinit var appContainer: AppContainer
         private set
     override val downloadManager: DownloadManager by lazy {
@@ -22,6 +22,7 @@ class PikapikaApplication : Application(), DownloadManagerOwner {
             dao = appContainer.database.downloadDao(),
             settingsRepository = appContainer.settingsRepository,
             context = this,
+            scope = applicationScope,
             imageUrlProvider = appContainer.networkConfigProvider::imageUrl,
         )
     }
@@ -32,7 +33,7 @@ class PikapikaApplication : Application(), DownloadManagerOwner {
         super.onCreate()
         appContainer = AppContainer(this)
         SingletonImageLoader.setSafe { appContainer.imageLoader }
-        downloadManager.start()
+        applicationScope.launch { downloadManager.start() }
         applicationScope.launch {
             try {
                 appContainer.onAppOpen()
@@ -40,7 +41,7 @@ class PikapikaApplication : Application(), DownloadManagerOwner {
                 throw exception
             } catch (exception: Exception) {
                 // Optional sign-in/punch-in/subscription refresh must not crash the application.
-                Log.w("Pikapika", "App-open refresh failed", exception)
+                Log.w("PicACGMD", "App-open refresh failed", exception)
             }
         }
     }

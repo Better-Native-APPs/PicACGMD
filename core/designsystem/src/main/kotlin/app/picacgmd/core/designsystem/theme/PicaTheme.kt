@@ -58,7 +58,7 @@ val isDynamicColorSupported: Boolean
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun PikapikaTheme(
+fun PicaTheme(
     themeChoice: ThemeChoice = ThemeChoice.Dynamic,
     darkMode: DarkMode = DarkMode.FollowSystem,
     pureBlack: Boolean = false,
@@ -77,22 +77,21 @@ fun PikapikaTheme(
     val colorScheme = remember(baseScheme, dark, pureBlack) {
         if (dark && pureBlack) baseScheme.toPureBlack() else baseScheme
     }
-    val typography = remember { pikapikaTypography() }
+    val typography = remember { picaTypography() }
     val extended = remember(themeChoice, dark, colorScheme.primary) {
-        val base = extendedColors(themeChoice, dark)
-        // Under wallpaper colour the scheme itself is unknown until runtime, so the fixed
-        // success / warning set is rotated toward the live primary (see ColorHarmonize.kt).
+        // Under wallpaper colour the scheme itself is unknown until runtime, so the success / warning
+        // set is harmonised toward the live primary there (see ColorHarmonize.kt).
         if (themeChoice == ThemeChoice.Dynamic && isDynamicColorSupported) {
-            base.harmonisedToward(colorScheme.primary)
+            harmonisedExtendedColors(colorScheme.primary, dark)
         } else {
-            base
+            extendedColors(themeChoice, dark)
         }
     }
-    CompositionLocalProvider(LocalPikapikaExtendedColors provides extended) {
+    CompositionLocalProvider(LocalPicaExtendedColors provides extended) {
         MaterialExpressiveTheme(
             colorScheme = colorScheme,
             motionScheme = MotionScheme.expressive(),
-            shapes = PikapikaShapes,
+            shapes = PicaShapes,
             typography = typography,
             content = content,
         )
@@ -100,11 +99,11 @@ fun PikapikaTheme(
 }
 
 /** Accessors for theme values that [androidx.compose.material3.MaterialTheme] does not carry. */
-object PikapikaTheme {
-    val extendedColors: PikapikaExtendedColors
+object PicaTheme {
+    val extendedColors: PicaExtendedColors
         @Composable
         @ReadOnlyComposable
-        get() = LocalPikapikaExtendedColors.current
+        get() = LocalPicaExtendedColors.current
 }
 
 /** Static scheme for a palette; [ThemeChoice.Dynamic] maps to the brand fallback. */
@@ -116,10 +115,10 @@ fun staticColorScheme(themeChoice: ThemeChoice, dark: Boolean): ColorScheme = wh
 
 /**
  * Success / warning roles. A fixed palette uses its own harmonised set from the design tokens;
- * under dynamic colour the set is rotated toward the live wallpaper primary at runtime
- * ([harmonisedToward]), so these roles are never the one colour left out of step with the scheme.
+ * under dynamic colour the set is built at runtime, harmonised toward the live wallpaper primary
+ * ([harmonisedExtendedColors]), so these roles are never the one colour left out of step with the scheme.
  */
-private fun extendedColors(themeChoice: ThemeChoice, dark: Boolean): PikapikaExtendedColors =
+private fun extendedColors(themeChoice: ThemeChoice, dark: Boolean): PicaExtendedColors =
     when (themeChoice) {
         ThemeChoice.Dynamic, ThemeChoice.Brand -> if (dark) BrandDarkExtendedColors else BrandLightExtendedColors
         ThemeChoice.Book -> if (dark) BookDarkExtendedColors else BookLightExtendedColors

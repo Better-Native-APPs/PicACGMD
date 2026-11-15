@@ -6,6 +6,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.layout.ContentScale
+import androidx.core.graphics.scale
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
@@ -63,13 +64,13 @@ private const val BlurPasses = 3
  * entry, so it never displaces the sharp cover that lists and the detail header show.
  */
 private object SoftBlurTransformation : Transformation() {
-    override val cacheKey: String = "pikapika.softBackdrop.$ThumbLongEdgePx.$BlurRadiusPx.$BlurPasses"
+    override val cacheKey: String = "pica.softBackdrop.$ThumbLongEdgePx.$BlurRadiusPx.$BlurPasses"
 
     override suspend fun transform(input: Bitmap, size: coil3.size.Size): Bitmap {
         val scale = ThumbLongEdgePx.toFloat() / max(input.width, input.height)
         val width = (input.width * scale).roundToInt().coerceAtLeast(1)
         val height = (input.height * scale).roundToInt().coerceAtLeast(1)
-        val small = if (scale < 1f) Bitmap.createScaledBitmap(input, width, height, true) else input
+        val small = if (scale < 1f) input.scale(width, height) else input
         val w = small.width
         val h = small.height
         val pixels = IntArray(w * h)

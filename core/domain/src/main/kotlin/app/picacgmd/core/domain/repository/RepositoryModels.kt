@@ -70,8 +70,10 @@ fun filterComics(
     viewedIds: Set<String> = emptySet(),
 ): FilteredComics {
     val rules = HideRules(settings)
-    val visible = comics.filterNot { rules.hides(it, viewedIds) }
-    return FilteredComics(visible, comics.size - visible.size)
+    // Screens key their lists by comic id, so an id the server sends twice is kept once and is not counted as hidden.
+    val unique = comics.distinctBy(ComicSimple::id)
+    val visible = unique.filterNot { rules.hides(it, viewedIds) }
+    return FilteredComics(visible, unique.size - visible.size)
 }
 
 /** The hiding preferences, prepared once per list instead of once per comic. */

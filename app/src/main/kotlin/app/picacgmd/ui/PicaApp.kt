@@ -41,7 +41,7 @@ import androidx.navigation.compose.rememberNavController
 import app.picacgmd.R
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.bookshelf.rememberBookshelfUnseenCount
-import app.picacgmd.navigation.PikapikaNavHost
+import app.picacgmd.navigation.PicaNavHost
 import app.picacgmd.navigation.ComicDetailRoute
 import app.picacgmd.navigation.ExternalNavigation
 import app.picacgmd.navigation.SearchRoute
@@ -85,7 +85,7 @@ private fun currentNavigationLayout(): NavigationLayout {
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun PikapikaApp(
+fun PicaApp(
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController(),
     externalNavigation: ExternalNavigation? = null,
@@ -168,7 +168,7 @@ fun PikapikaApp(
         },
     ) {
         Box(Modifier.fillMaxSize()) {
-            PikapikaNavHost(
+            PicaNavHost(
                 navController = navController, compactNavigation = !usesRail,
                 externalComicId = externalComicId, onExternalComicExit = onExternalComicExit,
                 rootBackHandler = {
@@ -197,13 +197,16 @@ fun PikapikaApp(
     }
     // Let NavHost own the gesture and its preview. Finish the external-comic activity only after
     // its entry is actually popped, not when a cancelled gesture merely previews the previous page.
-    LaunchedEffect(navController, externalComicId) {
-        val comicId = externalComicId ?: return@LaunchedEffect
-        var opened = false
+    // The comic is read at every change of the back stack: a second link puts another comic in the place of
+    // the first, and that is not the first one being left.
+    LaunchedEffect(navController) {
+        var opened: String? = null
         navController.currentBackStackEntryFlow.collect {
+            val comicId = externalComicId ?: return@collect
             val present = runCatching { navController.getBackStackEntry(ComicDetailRoute(comicId)) }.isSuccess
-            if (present) opened = true
-            else if (opened) {
+            if (present) opened = comicId
+            else if (opened == comicId) {
+                opened = null
                 externalComicId = null
                 onExternalComicExit()
             }

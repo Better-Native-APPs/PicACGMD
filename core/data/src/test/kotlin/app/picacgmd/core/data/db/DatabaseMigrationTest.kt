@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
 class DatabaseMigrationTest {
     @Test
     fun versionOneUpgradeOnlyDropsTheTwoRetiredTables() {
-        val migration = PikapikaDatabase_AutoMigration_1_2_Impl()
+        val migration = PicaDatabase_AutoMigration_1_2_Impl()
         assertEquals(1, migration.startVersion)
         assertEquals(2, migration.endVersion)
         val statements = recordStatements { migration.migrate(it) }
@@ -27,7 +27,7 @@ class DatabaseMigrationTest {
 
     @Test
     fun versionTwoUpgradeCreatesLocalLibraryAndAddsOnlyTheDownloadRoot() {
-        val migration = PikapikaDatabase_AutoMigration_2_3_Impl()
+        val migration = PicaDatabase_AutoMigration_2_3_Impl()
         assertEquals(2, migration.startVersion)
         assertEquals(3, migration.endVersion)
         val statements = recordStatements { migration.migrate(it) }
@@ -46,7 +46,7 @@ class DatabaseMigrationTest {
 
     @Test
     fun versionThreeUpgradeOnlyDropsTheRemovedLocalLibraryTables() {
-        val migration = PikapikaDatabase_AutoMigration_3_4_Impl()
+        val migration = PicaDatabase_AutoMigration_3_4_Impl()
         assertEquals(3, migration.startVersion)
         assertEquals(4, migration.endVersion)
         val statements = recordStatements { migration.migrate(it) }

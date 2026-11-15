@@ -1,24 +1,18 @@
 import java.util.Properties
 
 plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.compose)
+    id("picacgmd.android.application")
+    id("picacgmd.android.compose")
     alias(libs.plugins.kotlin.serialization)
 }
 
 android {
     namespace = "app.picacgmd"
-    compileSdk {
-        version = release(37) { minorApiLevel = 0 }
-    }
-    buildToolsVersion = "37.0.0"
 
     defaultConfig {
         applicationId = "app.picacgmd"
-        minSdk = 26
-        targetSdk = 37
-        versionCode = 103
-        versionName = "1.0.3"
+        versionCode = 110
+        versionName = "1.1.0"
     }
 
     signingConfigs {
@@ -49,14 +43,13 @@ android {
     }
 
     androidResources { localeFilters += "zh-rCN" }
-    buildFeatures { compose = true }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
     }
 }
-
-kotlin { jvmToolchain(21) }
 
 composeCompiler {
     // The optional Compose mapping producer is not cached in the offline toolchain.
@@ -75,10 +68,6 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons.extended)
-    implementation(libs.compose.material3.windowSize)
-    implementation(libs.compose.adaptive)
-    implementation(libs.compose.adaptive.layout)
-    implementation(libs.compose.adaptive.navigation)
     implementation(libs.compose.adaptive.navigation.suite)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.navigation.compose)
@@ -88,10 +77,13 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.coil.compose)
-    implementation(libs.coil.network.okhttp)
     // Only the XML launch/splash theme uses Material Views.
     implementation(libs.material.views)
     implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.kotlin.test.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.compose.ui.test.junit4)
 }

@@ -29,9 +29,9 @@ result
 result-*
 .direnv/
 
-# Design toolchain
-/design/src/node_modules/
-/design/src/pages/
+# Working documents stay on the maintainer's machine
+/design/
+/docs/upstream-inventory.md
 
 # Misc
 *.log

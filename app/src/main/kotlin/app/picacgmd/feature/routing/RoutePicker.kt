@@ -41,7 +41,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -58,6 +57,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.picacgmd.core.designsystem.component.AppButton
 import app.picacgmd.core.designsystem.component.AppFilledTonalButton
 import app.picacgmd.core.designsystem.component.AppIconButton
@@ -74,9 +74,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /** Current selection of both route lists, for the settings row, menus and the reader. */
@@ -89,26 +89,27 @@ data class RouteSummary(val apiLabel: String, val imageLabel: String) {
 @Composable
 fun rememberRouteSummary(): RouteSummary? {
     val routing = LocalAppContainer.current.routingRepository
-    val api by routing.apiRoutes.collectAsState(initial = null)
-    val image by routing.imageRoutes.collectAsState(initial = null)
+    val api by routing.apiRoutes.collectAsStateWithLifecycle(initialValue = null)
+    val image by routing.imageRoutes.collectAsStateWithLifecycle(initialValue = null)
     return RouteSummary(api?.selected?.label ?: return null, image?.selected?.label ?: return null)
 }
 
 /** 「今天 14:05」「11月2日 09:30」「2025年3月1日」. */
 internal fun formatSyncTime(millis: Long, now: Long = System.currentTimeMillis()): String {
-    val then = Calendar.getInstance().apply { timeInMillis = millis }
-    val today = Calendar.getInstance().apply { timeInMillis = now }
+    val zone = ZoneId.systemDefault()
+    val then = Instant.ofEpochMilli(millis).atZone(zone)
+    val today = Instant.ofEpochMilli(now).atZone(zone)
     val pattern = when {
-        then.get(Calendar.YEAR) != today.get(Calendar.YEAR) -> "yyyy年M月d日"
-        then.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR) -> "今天 HH:mm"
+        then.year != today.year -> "yyyy年M月d日"
+        then.dayOfYear == today.dayOfYear -> "今天 HH:mm"
         else -> "M月d日 HH:mm"
     }
-    return SimpleDateFormat(pattern, Locale.CHINA).format(Date(millis))
+    return DateTimeFormatter.ofPattern(pattern, Locale.CHINA).format(then)
 }
 
 private enum class RouteWork { Switching, Syncing }
 
-private enum class RouteTone { Hint, Done, Proxy, Error }
+private enum class RouteTone { Hint, Done, Error }
 
 private data class RouteMessage(val text: String, val tone: RouteTone = RouteTone.Done)
 
@@ -120,15 +121,11 @@ private data class RouteMessage(val text: String, val tone: RouteTone = RouteTon
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun RoutePickerDialog(onDismiss: () -> Unit) {
-    val container = LocalAppContainer.current
-    val routing = container.routingRepository
-    val settings by container.settingsRepository.settings.collectAsState(initial = null)
-    val apiState by routing.apiRoutes.collectAsState(initial = null)
-    val imageState by routing.imageRoutes.collectAsState(initial = null)
+    val routing = LocalAppContainer.current.routingRepository
+    val apiState by routing.apiRoutes.collectAsStateWithLifecycle(initialValue = null)
+    val imageState by routing.imageRoutes.collectAsStateWithLifecycle(initialValue = null)
     val api = apiState ?: return
     val image = imageState ?: return
-    val proxyOn = settings?.proxyUrl?.isNotBlank() == true
-    val usingProxy by rememberUpdatedState(proxyOn)
 
     val scope = rememberCoroutineScope()
     var round by remember { mutableIntStateOf(0) }
@@ -155,14 +152,12 @@ fun RoutePickerDialog(onDismiss: () -> Unit) {
     }
     // After a round, an unreachable selection moves to the fastest route that answered.
     val recover: suspend (String, suspend () -> RouteOption<*>?) -> Unit = { name, fallback ->
-        if (!usingProxy) {
-            try {
-                fallback()?.let { message = RouteMessage("当前${name}不可用，已切换至${it.label}") }
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: Exception) {
-                message = RouteMessage(exception.message ?: "自动切换失败，请点按分流重试", RouteTone.Error)
-            }
+        try {
+            fallback()?.let { message = RouteMessage("当前${name}不可用，已切换至${it.label}") }
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            message = RouteMessage(exception.message ?: "自动切换失败，请点按分流重试", RouteTone.Error)
         }
     }
     val apiLatencies = rememberRouteLatencies(api.options, round, routing::measureApiRoute) { results ->
@@ -181,8 +176,7 @@ fun RoutePickerDialog(onDismiss: () -> Unit) {
 
     val status = message ?: when {
         !measured -> RouteMessage("正在测速…", RouteTone.Hint)
-        apiFastest == null && imageFastest == null -> RouteMessage("暂无可用分流，请检查网络或代理后重新测速", RouteTone.Error)
-        proxyOn -> RouteMessage("直连测速；当前请求使用代理", RouteTone.Proxy)
+        apiFastest == null && imageFastest == null -> RouteMessage("暂无可用分流，请检查网络后重新测速", RouteTone.Error)
         else -> RouteMessage("点按立即切换", RouteTone.Hint)
     }
 
@@ -202,7 +196,6 @@ fun RoutePickerDialog(onDismiss: () -> Unit) {
                             color = when (status.tone) {
                                 RouteTone.Hint -> MaterialTheme.colorScheme.onSurfaceVariant
                                 RouteTone.Done -> latencyColor(RouteLatencyGrade.GOOD)
-                                RouteTone.Proxy -> MaterialTheme.colorScheme.tertiary
                                 RouteTone.Error -> MaterialTheme.colorScheme.error
                             },
                             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },

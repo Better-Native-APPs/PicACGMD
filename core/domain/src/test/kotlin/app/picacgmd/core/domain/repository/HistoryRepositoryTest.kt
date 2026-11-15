@@ -77,4 +77,26 @@ class HistoryRepositoryTest {
 
         assertEquals(ReadingProgress(1, "一", 3, 0), repository.getProgress("old"))
     }
+
+    @Test
+    fun restoreUpsertsEverySnapshotFieldInTheGivenOrderEvenWhenHistoryIsDisabled() = runTest {
+        val first = ViewHistory("b", "Original", "Author", "server", "cover", "[\"Category\"]",
+            lastEpOrder = 8, lastEpTitle = "Chapter eight", lastPictureIndex = 12, lastChapterPages = 30,
+            pinned = true, createdAt = 123L, updatedAt = 456L)
+        val items = listOf(first, first.copy(comicId = "a", pinned = false, createdAt = 111L),
+            first.copy(lastPictureIndex = 13, updatedAt = 457L))
+        val repository = HistoryRepository(dao, flowOf(AppSettings(historyEnabled = false)),
+            now = { error("Restoring a snapshot must not read the clock") })
+
+        repository.restore(items)
+
+        assertEquals(items, dao.upserts)
+        assertEquals(items.associateBy(ViewHistory::comicId), dao.entries.value)
+    }
+
+    @Test
+    fun restoringAnEmptyHistorySnapshotMakesNoWrites() = runTest {
+        repository.restore(emptyList())
+        assertTrue(dao.upserts.isEmpty())
+    }
 }

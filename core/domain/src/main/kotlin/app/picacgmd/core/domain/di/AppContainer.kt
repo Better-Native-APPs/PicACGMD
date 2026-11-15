@@ -3,7 +3,7 @@ package app.picacgmd.core.domain.di
 import android.content.Context
 import android.util.Log
 import coil3.ImageLoader
-import app.picacgmd.core.data.db.PikapikaDatabase
+import app.picacgmd.core.data.db.PicaDatabase
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.data.settings.SettingsRepository
 import app.picacgmd.core.domain.image.createImageLoader
@@ -40,7 +40,7 @@ class AppContainer(context: Context) : AutoCloseable {
     private val lowRamDevice = isLowRamDevice(applicationContext)
     val defaultDownloadConcurrency: Int = AppSettings.defaultsForDevice(lowRamDevice).downloadThreads
 
-    val database: PikapikaDatabase = PikapikaDatabase.create(applicationContext)
+    val database: PicaDatabase = PicaDatabase.create(applicationContext)
     val settingsRepository: SettingsRepository = SettingsRepository.create(
         applicationContext, AppSettings.defaultsForDevice(lowRamDevice),
     )

@@ -405,7 +405,7 @@ internal fun StripReader(
  */
 private fun Modifier.growWhenZoomedOut(zoom: ZoomState): Modifier = layout { measurable, constraints ->
     val height = constraints.maxHeight
-    val listHeight = ceil(stripListHeight(height.toFloat(), zoom.scale)).toInt().coerceAtLeast(height)
+    val listHeight = ceil(stripListHeight(height.toFloat(), zoom.layoutScale)).toInt().coerceAtLeast(height)
     val placeable = measurable.measure(constraints.copy(minHeight = listHeight, maxHeight = listHeight))
     layout(constraints.maxWidth, height) {
         placeable.place(0, (height - listHeight) / 2)

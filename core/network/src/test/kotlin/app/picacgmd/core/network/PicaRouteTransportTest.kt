@@ -1,6 +1,11 @@
 package app.picacgmd.core.network
 
 import java.io.IOException
+import java.net.InetSocketAddress
+import java.net.Proxy
+import java.net.ProxySelector
+import java.net.SocketAddress
+import java.net.URI
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -37,11 +42,21 @@ class PicaRouteTransportTest {
     }
 
     @Test
-    fun initUsesConfiguredProxyWithoutSignedHeaders() = runTest {
+    fun initFollowsTheSystemProxyWithoutSignedHeaders() = runTest {
         MockWebServer().use { proxy ->
             proxy.start()
             proxy.enqueue(MockResponse.Builder().body("""{"addresses":["104.19.53.76"]}""").build())
-            val result = PicaRouteTransport().fetchApiAddresses("http://127.0.0.1:${proxy.port}")
+            val systemSelector = ProxySelector.getDefault()
+            ProxySelector.setDefault(object : ProxySelector() {
+                override fun select(uri: URI): List<Proxy> =
+                    listOf(Proxy(Proxy.Type.HTTP, InetSocketAddress("127.0.0.1", proxy.port)))
+                override fun connectFailed(uri: URI, address: SocketAddress, failure: IOException) = Unit
+            })
+            val result = try {
+                PicaRouteTransport().fetchApiAddresses()
+            } finally {
+                ProxySelector.setDefault(systemSelector)
+            }
             assertEquals(listOf("104.19.53.76"), result)
             val request = proxy.takeRequest(5, TimeUnit.SECONDS)!!
             assertTrue(request.requestLine.contains("http://68.183.234.72/init"))
@@ -54,7 +69,7 @@ class PicaRouteTransportTest {
         MockWebServer().use { server ->
             server.start()
             server.enqueue(MockResponse.Builder().code(503).body("unavailable").build())
-            assertFailsWith<IOException> { PicaRouteTransport(server.url("/init").toString()).fetchApiAddresses(null) }
+            assertFailsWith<IOException> { PicaRouteTransport(server.url("/init").toString()).fetchApiAddresses() }
         }
     }
 

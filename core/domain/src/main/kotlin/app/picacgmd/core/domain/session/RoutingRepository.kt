@@ -38,7 +38,7 @@ data class ImageRouteState(
 class RoutingRepository(
     private val settingsRepository: SettingsRepository,
     private val networkConfigProvider: NetworkConfigProvider,
-    private val fetchAddresses: suspend (String?) -> List<String> = PicaRouteTransport()::fetchApiAddresses,
+    private val fetchAddresses: suspend () -> List<String> = PicaRouteTransport()::fetchApiAddresses,
     private val nowMillis: () -> Long = System::currentTimeMillis,
 ) {
     val apiRoutes: Flow<ApiRouteState> = settingsRepository.settings.map(::apiRouteState).distinctUntilChanged()
@@ -52,9 +52,8 @@ class RoutingRepository(
     }
 
     suspend fun syncApiRoutes() {
-        val proxy = settingsRepository.settings.first().proxyUrl.trim().takeIf(String::isNotEmpty)
         val addresses = try {
-            fetchAddresses(proxy).mapNotNull(IpLiteral::normalizeOrNull).distinct()
+            fetchAddresses().mapNotNull(IpLiteral::normalizeOrNull).distinct()
         } catch (exception: CancellationException) {
             throw exception
         } catch (exception: Exception) {

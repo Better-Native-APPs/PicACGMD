@@ -1,84 +1,107 @@
 package app.picacgmd.core.designsystem.theme
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.core.graphics.ColorUtils
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * The runtime harmonisation behind [PikapikaExtendedColors] under dynamic colour (audit §B7). It is
- * pure colour arithmetic, so it is pinned here: the hue follows the wallpaper, nothing else moves.
+ * The success / warning roles under dynamic colour. The shipped sets of the fixed palettes were made by the
+ * colour-token generator with Material's own colour library, so they are the reference: built here toward
+ * the same seeds, the roles have to come out as those sets.
  */
+@RunWith(RobolectricTestRunner::class)
 class ColorHarmonizeTest {
+    @Test
+    fun theHueTurnsByHalfTheGapTowardTheSource() {
+        assertEquals(110f, harmonisedHue(design = 100f, source = 120f), 1e-4f)
+        assertEquals(90f, harmonisedHue(design = 100f, source = 80f), 1e-4f)
+    }
 
-    /** Hue in degrees (0..360). */
-    private fun hue(c: Color): Float {
-        val max = maxOf(c.red, c.green, c.blue)
-        val min = minOf(c.red, c.green, c.blue)
-        val span = max - min
-        if (span < 1e-6f) return 0f
-        val raw = when (max) {
-            c.red -> 60f * (((c.green - c.blue) / span) % 6f)
-            c.green -> 60f * (((c.blue - c.red) / span) + 2f)
-            else -> 60f * (((c.red - c.green) / span) + 4f)
+    @Test
+    fun theHueTurnsByFifteenDegreesAtMost() {
+        assertEquals(115f, harmonisedHue(design = 100f, source = 160f), 1e-4f)
+        assertEquals(85f, harmonisedHue(design = 100f, source = 20f), 1e-4f)
+        assertEquals(115f, harmonisedHue(design = 100f, source = 280f), 1e-4f)
+    }
+
+    @Test
+    fun theHueTurnsTheShortWayAcrossZero() {
+        assertEquals(355f, harmonisedHue(design = 350f, source = 0f), 1e-4f)
+        assertEquals(0f, harmonisedHue(design = 350f, source = 10f), 1e-4f)
+        assertEquals(5f, harmonisedHue(design = 350f, source = 40f), 1e-4f)
+        assertEquals(355f, harmonisedHue(design = 10f, source = 320f), 1e-4f)
+    }
+
+    @Test
+    fun aSourceOfTheSameHueLeavesTheHueAlone() {
+        assertEquals(100f, harmonisedHue(design = 100f, source = 100f), 1e-4f)
+    }
+
+    @Test
+    fun theRolesBuiltTowardTheSeedOfAFixedPaletteAreItsShippedRoles() {
+        val palettes = listOf(
+            Triple("brand", Color(0xFFE8467C), BrandLightExtendedColors to BrandDarkExtendedColors),
+            Triple("book", Color(0xFFA5824F), BookLightExtendedColors to BookDarkExtendedColors),
+            Triple("dusty", Color(0xFF5F7F9E), DustyLightExtendedColors to DustyDarkExtendedColors),
+        )
+        val differences = buildList {
+            for ((name, seed, shipped) in palettes) {
+                addAll(differences("$name light", harmonisedExtendedColors(seed, dark = false), shipped.first))
+                addAll(differences("$name dark", harmonisedExtendedColors(seed, dark = true), shipped.second))
+            }
         }
-        return (raw + 360f) % 360f
-    }
-
-    private val success = Color(0xFF2C6C18)
-    private val neutral = Color(0xFF777777)
-
-    @Test
-    fun neutralSourceLeavesTheColourAlone() {
-        // A desaturated primary has no hue to follow; the fixed set then keeps its own.
-        assertEquals(neutral, neutral.harmonisedToward(Color(0xFF005A6E)))
-        assertEquals(success, success.harmonisedToward(neutral))
+        assertEquals(48, differences.size)
+        val worst = differences.maxBy { it.second }
+        assertTrue(worst.second <= ChannelTolerance, "largest difference of a colour channel: $worst; all: ${differences.filter { it.second > 0 }}")
     }
 
     @Test
-    fun alreadyAlignedHueBarelyMoves() {
-        // When the source sits on the same hue the shift is 0, and chroma / tone are untouched.
-        assertEquals(success, success.harmonisedToward(success))
+    fun aSourceOfAnotherHueMovesTheRolesAndKeepsTheirTones() {
+        val pink = harmonisedExtendedColors(Color(0xFFE8467C), dark = false)
+        val teal = harmonisedExtendedColors(Color(0xFF006A60), dark = false)
+        assertTrue(pink.success != teal.success)
+        assertTrue(pink.warning != teal.warning)
+        assertEquals(Color.White, teal.onSuccess)
+        assertEquals(Color.White, teal.onWarning)
+        // Tone is what the roles are told apart by, so it does not follow the wallpaper.
+        assertEquals(40f, tone(pink.success), 1f)
+        assertEquals(40f, tone(teal.success), 1f)
+        assertEquals(90f, tone(pink.warningContainer), 1f)
+        assertEquals(90f, tone(teal.warningContainer), 1f)
     }
 
-    @Test
-    fun hueMovesTowardTheSourceByASmallAmount() {
-        val source = Color(0xFF006A60) // teal wallpaper primary
-        val moved = success.harmonisedToward(source)
-        val before = hue(success)
-        val after = hue(moved)
-        val sourceHue = hue(source)
-        // It moves, it moves toward the source, and it stays well under 3 degrees.
-        assertTrue(after != before, "hue did not move")
-        assertTrue(abs(shortest(after - sourceHue)) < abs(shortest(before - sourceHue)), "moved away from source")
-        assertTrue(abs(shortest(after - before)) < 3f, "shifted too far: ${after - before}")
+    private fun differences(palette: String, built: PicaExtendedColors, shipped: PicaExtendedColors): List<Pair<String, Int>> =
+        listOf(
+            "success" to (built.success to shipped.success),
+            "onSuccess" to (built.onSuccess to shipped.onSuccess),
+            "successContainer" to (built.successContainer to shipped.successContainer),
+            "onSuccessContainer" to (built.onSuccessContainer to shipped.onSuccessContainer),
+            "warning" to (built.warning to shipped.warning),
+            "onWarning" to (built.onWarning to shipped.onWarning),
+            "warningContainer" to (built.warningContainer to shipped.warningContainer),
+            "onWarningContainer" to (built.onWarningContainer to shipped.onWarningContainer),
+        ).map { (role, pair) -> "$palette $role" to channelDifference(pair.first, pair.second) }
+
+    private fun channelDifference(a: Color, b: Color): Int {
+        val x = a.toArgb()
+        val y = b.toArgb()
+        return listOf(24, 16, 8, 0).maxOf { shift -> abs(((x ushr shift) and 0xFF) - ((y ushr shift) and 0xFF)) }
     }
 
-    @Test
-    fun alphaAndToneSurvive() {
-        val translucent = success.copy(alpha = 0.5f)
-        val moved = translucent.harmonisedToward(Color(0xFF3F5F90))
-        assertEquals(0.5f, moved.alpha, 0.01f)
-        // Tone is preserved: the colour stays the same lightness, so it still reads at the same weight.
-        assertEquals(success.brightness(), moved.brightness(), 0.02f)
-    }
+    private fun tone(c: Color): Float = FloatArray(3).also { ColorUtils.colorToM3HCT(c.toArgb(), it) }[2]
 
-    @Test
-    fun everyExtendedRoleIsHarmonised() {
-        val source = Color(0xFF006A60)
-        val set = BrandLightExtendedColors.harmonisedToward(source)
-        assertEquals(BrandLightExtendedColors.success.harmonisedToward(source), set.success)
-        assertEquals(BrandLightExtendedColors.warningContainer.harmonisedToward(source), set.warningContainer)
-        assertEquals(BrandLightExtendedColors.onSuccessContainer.harmonisedToward(source), set.onSuccessContainer)
-    }
-
-    private fun shortest(deg: Float): Float {
-        var d = deg % 360f
-        if (d > 180f) d -= 360f
-        if (d < -180f) d += 360f
-        return d
+    private companion object {
+        /**
+         * The generator's colour library and AndroidX Core solve HCT to sRGB differently where a colour is asked
+         * for that sRGB does not have (a dark tone with much chroma): there one channel differs by up to 6 of 255.
+         * A wrong rule is off by far more, a hue turned 12 degrees less by dozens.
+         */
+        const val ChannelTolerance = 6
     }
 }
-
-private fun Color.brightness(): Float = 0.299f * red + 0.587f * green + 0.114f * blue

@@ -11,6 +11,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -230,8 +231,10 @@ internal fun SliderRow(
             Text(format(shown), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         },
         supportingContent = {
+            val sliderState = remember(steps, range) { SliderState(value = shown, steps = steps, trackRange = range) }
+            sliderState.value = shown
             Slider(
-                value = shown,
+                state = sliderState,
                 onValueChange = {
                     dragging = true
                     local = it
@@ -240,8 +243,6 @@ internal fun SliderRow(
                     dragging = false
                     onCommit(local)
                 },
-                valueRange = range,
-                steps = steps,
                 enabled = enabled,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -289,7 +290,9 @@ private fun ZoomSlider(label: String, value: Float, range: ClosedFloatingPointRa
             Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
             Text("${value.oneDecimal()}×", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         }
-        Slider(value = value, onValueChange = onChange, valueRange = range, steps = steps)
+        val sliderState = remember(steps, range) { SliderState(value = value, steps = steps, trackRange = range) }
+        sliderState.value = value
+        Slider(state = sliderState, onValueChange = onChange)
     }
 }
 

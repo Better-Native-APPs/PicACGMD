@@ -49,7 +49,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -76,7 +75,8 @@ import app.picacgmd.core.network.ComicSimple
 import app.picacgmd.core.network.ComicSort
 import app.picacgmd.core.network.PicaImage
 import app.picacgmd.di.LocalAppContainer
-import kotlinx.coroutines.flow.distinctUntilChanged
+import app.picacgmd.paging.LoadMoreEffect
+import app.picacgmd.paging.RowsWatch
 
 /** Resolves a PicACG image to a URL on the configured image server. */
 @Composable
@@ -129,7 +129,7 @@ fun ComicResults(
     selection: Set<String>,
     onSelectionChange: (Set<String>) -> Unit,
     onComicClick: (String) -> Unit,
-    onLoadNext: () -> Unit,
+    onLoadNext: (revision: Int) -> Unit,
     onRetryAppend: () -> Unit,
     onRetry: () -> Unit,
     onJumpTo: (Int) -> Unit,
@@ -148,14 +148,13 @@ fun ComicResults(
     val selecting = selection.isNotEmpty()
     fun toggle(id: String) = onSelectionChange(if (id in selection) selection - id else selection + id)
 
-    if (paginationMode == PaginationMode.INFINITE) {
-        LaunchedEffect(gridState, state.entries.size) {
-            snapshotFlow {
-                val info = gridState.layoutInfo
-                (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 6
-            }.distinctUntilChanged().collect { nearEnd -> if (nearEnd) onLoadNext() }
-        }
-    }
+    val infinite = paginationMode == PaginationMode.INFINITE
+    val rowsWatch = remember { RowsWatch() }
+    // The grid's rows are the state's, a footer in infinite mode and the caller's header: another object stands
+    // for them whenever one of the three changes. The empty item that replaces the rows of pages that were
+    // hidden entirely is a row of the grid too, so the end is on screen there and the next page follows.
+    val rows = remember(state, infinite, header != null) { Any() }
+    LoadMoreEffect(gridState, rowsWatch, rows, state.revision, infinite && state.canLoadNext, endZone = 6, onLoadMore = onLoadNext)
     // A page jump starts from the top.
     LaunchedEffect(state.page, paginationMode) {
         if (paginationMode == PaginationMode.BUTTONS) gridState.scrollToItem(0)
@@ -186,8 +185,9 @@ fun ComicResults(
             ),
             horizontalArrangement = Arrangement.spacedBy(if (layout == ListLayout.DETAILS) 0.dp else 8.dp),
             verticalArrangement = Arrangement.spacedBy(if (layout == ListLayout.DETAILS) 0.dp else 12.dp),
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().then(rowsWatch.measured),
         ) {
+            rowsWatch.rows(rows)
             if (header != null) {
                 item(key = "header", span = { GridItemSpan(maxLineSpan) }, contentType = "header") { header() }
             }
@@ -224,7 +224,7 @@ fun ComicResults(
                             )
                         }
                     }
-                    if (paginationMode == PaginationMode.INFINITE) {
+                    if (infinite) {
                         item(key = "footer", span = { GridItemSpan(maxLineSpan) }, contentType = "footer") {
                             AppendFooter(state, onRetryAppend, pullToRetry)
                         }
@@ -298,6 +298,7 @@ private fun ComicCell(
             progressDetail = mark?.detail,
             progressDetailShort = mark?.detailShort,
             selected = selected,
+            selectionMode = selecting,
             trailingContent = if (selecting) {
                 { SelectionMark(selected) }
             } else {
@@ -316,6 +317,8 @@ private fun ComicCell(
                 // While selecting, the bare 「已读」 keeps clear of the check in the opposite corner.
                 progressDetail = mark?.detail?.takeUnless { selecting },
                 progressDetailShort = mark?.detailShort?.takeUnless { selecting },
+                selected = selected,
+                selectionMode = selecting,
             )
             AnimatedVisibility(
                 visible = selecting,

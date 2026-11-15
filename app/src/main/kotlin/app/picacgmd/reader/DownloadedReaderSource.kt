@@ -1,10 +1,10 @@
 package app.picacgmd.reader
 
 import app.picacgmd.core.data.db.DownloadComic
-import app.picacgmd.core.data.db.DownloadDao
 import app.picacgmd.core.data.db.DownloadEp
 import app.picacgmd.core.data.db.DownloadStatus
 import app.picacgmd.core.domain.download.DownloadFileStore
+import app.picacgmd.core.domain.download.DownloadManager
 import app.picacgmd.core.domain.download.DownloadedFileLocation
 import app.picacgmd.core.domain.repository.HistoryRepository
 import app.picacgmd.core.network.ComicInfo
@@ -24,7 +24,7 @@ import kotlinx.coroutines.withContext
 /** Completed chapters only; opening a download never needs an online catalogue or picture request. */
 class DownloadedReaderSource(
     private val comic: DownloadComic,
-    private val downloadDao: DownloadDao,
+    private val downloads: DownloadManager,
     private val files: DownloadFileStore,
     private val historyRepository: HistoryRepository,
     private val onProgressError: (Exception) -> Unit,
@@ -46,7 +46,7 @@ class DownloadedReaderSource(
     override suspend fun loadChapters(): List<ReaderChapter> = withContext(Dispatchers.IO) {
         chapterMutex.withLock {
             chapters ?: run {
-                val eps = downloadDao.observeEps(comic.comicId).first().filter { it.status == DownloadStatus.DONE }
+                val eps = downloads.observeChapters(comic.comicId).first().filter { it.status == DownloadStatus.DONE }
                 val progress = historyRepository.getProgress(comic.comicId)
                 val result = eps.map { ep ->
                     ReaderChapter(
@@ -70,7 +70,7 @@ class DownloadedReaderSource(
 
     override suspend fun loadPages(chapter: ReaderChapter): List<ReaderPage> = withContext(Dispatchers.IO) {
         files.requireReadAccess(comic)
-        downloadDao.observePictures(chapter.id).first()
+        downloads.observePictures(chapter.id).first()
             .filter { it.status == DownloadStatus.DONE }
             .map { picture ->
                 ReaderPage(

@@ -39,8 +39,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.graphics.shapes.RoundedPolygon
 import coil3.compose.AsyncImage
-import app.picacgmd.core.designsystem.icon.PikapikaIcons
-import app.picacgmd.core.designsystem.theme.PikapikaTheme
+import app.picacgmd.core.designsystem.icon.PicaIcons
+import app.picacgmd.core.designsystem.theme.PicaTheme
 import app.picacgmd.core.designsystem.theme.ThemeChoice
 
 object HomeChannelDefaults {
@@ -54,7 +54,7 @@ object HomeChannelDefaults {
     val IconSize: Dp = 28.dp
 }
 
-/** The three fixed home channels of design/SPEC.md §0, with their board-01 shape and color. */
+/** The three fixed home channels of the design spec, with their board-01 shape and color. */
 enum class HomeChannel { Rankings, Random, Games }
 
 /**
@@ -87,7 +87,7 @@ fun HomeChannelButton(
 /**
  * One of the fixed channels: 排行榜 = Cookie6Sided on primary container, 随机 = Clover4Leaf on
  * tertiary container, 游戏专区 = Flower (board 01 reserves it for the game entry) on the highest
- * surface container. Icons come from [PikapikaIcons].
+ * surface container. Icons come from [PicaIcons].
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -100,15 +100,15 @@ fun HomeChannelButton(
     val colors = MaterialTheme.colorScheme
     when (channel) {
         HomeChannel.Rankings -> HomeChannelButton(
-            label, PikapikaIcons.Rankings, MaterialShapes.Cookie6Sided, onClick, modifier,
+            label, PicaIcons.Rankings, MaterialShapes.Cookie6Sided, onClick, modifier,
             colors.primaryContainer, colors.onPrimaryContainer,
         )
         HomeChannel.Random -> HomeChannelButton(
-            label, PikapikaIcons.Random, MaterialShapes.Clover4Leaf, onClick, modifier,
+            label, PicaIcons.Random, MaterialShapes.Clover4Leaf, onClick, modifier,
             colors.tertiaryContainer, colors.onTertiaryContainer,
         )
         HomeChannel.Games -> HomeChannelButton(
-            label, PikapikaIcons.Gamepad, MaterialShapes.Flower, onClick, modifier,
+            label, PicaIcons.Gamepad, MaterialShapes.Flower, onClick, modifier,
             colors.surfaceContainerHighest, colors.onSurface,
         )
     }
@@ -207,7 +207,7 @@ private fun ChannelSlot(
 @Preview(showBackground = true, widthDp = 412)
 @Composable
 private fun HomeChannelRowPreview() {
-    PikapikaTheme(themeChoice = ThemeChoice.Brand) {
+    PicaTheme(themeChoice = ThemeChoice.Brand) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             HomeChannelButton(HomeChannel.Rankings, "排行榜", onClick = {})
             HomeChannelButton(HomeChannel.Random, "随机", onClick = {})

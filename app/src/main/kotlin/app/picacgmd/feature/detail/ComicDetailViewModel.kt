@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import app.picacgmd.core.data.db.DownloadEp
 import app.picacgmd.core.data.db.DownloadStatus
 import app.picacgmd.core.domain.di.AppContainer
+import app.picacgmd.core.domain.download.DownloadManager
 import app.picacgmd.core.domain.repository.ReadingProgress
 import app.picacgmd.core.domain.repository.containsKeyword
 import app.picacgmd.core.domain.repository.isComicHidden
@@ -16,6 +17,7 @@ import app.picacgmd.core.network.ComicSimple
 import app.picacgmd.core.network.Comment
 import app.picacgmd.core.network.Ep
 import app.picacgmd.feature.comics.readable
+import app.picacgmd.util.suspendRunCatching
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -66,7 +68,11 @@ data class KeywordChange(val keyword: String, val blocked: Boolean)
 
 data class TagFavouriteChange(val tag: String, val added: Boolean)
 
-class ComicDetailViewModel(private val container: AppContainer, val comicId: String) : ViewModel() {
+class ComicDetailViewModel(
+    private val container: AppContainer,
+    val comicId: String,
+    downloads: DownloadManager,
+) : ViewModel() {
     private val comics = container.comicRepository
     private val mutableState = MutableStateFlow(DetailState())
     val state: StateFlow<DetailState> = mutableState.asStateFlow()
@@ -105,7 +111,7 @@ class ComicDetailViewModel(private val container: AppContainer, val comicId: Str
         container.historyRepository.observeProgress(comicId),
         container.subscriptionRepository.observe(comicId).map { it != null },
         // Download progress rewrites these rows constantly; only the set of finished chapters matters here.
-        container.database.downloadDao().observeEps(comicId)
+        downloads.observeChapters(comicId)
             .map { eps -> eps.filter { it.status == DownloadStatus.DONE }.mapTo(HashSet(), DownloadEp::epId) }
             .distinctUntilChanged(),
     ) { progress, subscribed, downloaded ->
@@ -180,10 +186,10 @@ class ComicDetailViewModel(private val container: AppContainer, val comicId: Str
             try {
                 val comic = comics.comicInfo(comicId)
                 mutableState.update { it.copy(loading = false, comic = comic) }
-                runCatching { container.historyRepository.recordDetailView(comic) }
-                val eps = async { runCatching { comics.allEps(comicId) } }
-                val recommend = async { runCatching { comics.recommendations(comicId).items } }
-                val comments = async { runCatching { container.commentRepository.comments(comicId) } }
+                suspendRunCatching { container.historyRepository.recordDetailView(comic) }
+                val eps = async { suspendRunCatching { comics.allEps(comicId) } }
+                val recommend = async { suspendRunCatching { comics.recommendations(comicId).items } }
+                val comments = async { suspendRunCatching { container.commentRepository.comments(comicId) } }
                 eps.await().fold(
                     { list -> mutableState.update { it.copy(eps = list, epsError = null) } },
                     { error -> mutableState.update { it.copy(epsError = error.readable()) } },
@@ -204,7 +210,7 @@ class ComicDetailViewModel(private val container: AppContainer, val comicId: Str
     fun retryEps() {
         mutableState.update { it.copy(epsError = null) }
         viewModelScope.launch {
-            runCatching { comics.allEps(comicId) }.fold(
+            suspendRunCatching { comics.allEps(comicId) }.fold(
                 { list -> mutableState.update { it.copy(eps = list) } },
                 { error -> mutableState.update { it.copy(epsError = error.readable()) } },
             )
@@ -217,7 +223,7 @@ class ComicDetailViewModel(private val container: AppContainer, val comicId: Str
         // Optimistic: flip now, settle on the server answer.
         mutableState.update { it.copy(liking = true, comic = comic.copy(isLiked = !comic.isLiked, likesCount = comic.likesCount + if (comic.isLiked) -1 else 1)) }
         viewModelScope.launch {
-            runCatching { comics.toggleLike(comicId) }
+            suspendRunCatching { comics.toggleLike(comicId) }
                 .onSuccess { liked ->
                     mutableState.update { s ->
                         val c = s.comic ?: comic
@@ -236,7 +242,7 @@ class ComicDetailViewModel(private val container: AppContainer, val comicId: Str
         if (mutableState.value.favouriting) return
         mutableState.update { it.copy(favouriting = true, comic = comic.copy(isFavourite = !comic.isFavourite)) }
         viewModelScope.launch {
-            runCatching { comics.toggleFavourite(comicId) }
+            suspendRunCatching { comics.toggleFavourite(comicId) }
                 .onSuccess { fav ->
                     mutableState.update { s -> s.copy(favouriting = false, comic = s.comic?.copy(isFavourite = fav)) }
                     if (fav) {
@@ -260,7 +266,7 @@ class ComicDetailViewModel(private val container: AppContainer, val comicId: Str
     fun toggleSubscribe() {
         val comic = mutableState.value.comic ?: return
         viewModelScope.launch {
-            runCatching {
+            suspendRunCatching {
                 if (library.value.subscribed) container.subscriptionRepository.unsubscribe(listOf(comicId))
                 else container.subscriptionRepository.subscribe(comic)
             }.onFailure { mutableMessages.tryEmit(it.readable()) }

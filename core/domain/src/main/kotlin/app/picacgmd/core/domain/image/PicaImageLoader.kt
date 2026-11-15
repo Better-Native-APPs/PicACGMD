@@ -3,6 +3,7 @@ package app.picacgmd.core.domain.image
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import coil3.ImageLoader
+import coil3.annotation.ExperimentalCoilApi
 import coil3.disk.DiskCache
 import coil3.map.Mapper
 import coil3.network.DeDupeConcurrentRequestStrategy
@@ -19,6 +20,7 @@ import okhttp3.Request
 import okio.Path.Companion.toOkioPath
 
 /** One loader/cache per application; its fetcher picks up image-client changes for new requests. */
+@OptIn(ExperimentalCoilApi::class)
 fun createImageLoader(
     context: Context,
     networkConfigProvider: NetworkConfigProvider,

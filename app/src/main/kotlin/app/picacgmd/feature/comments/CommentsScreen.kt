@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -32,20 +31,20 @@ import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -70,7 +69,8 @@ import app.picacgmd.core.network.Comment
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.comics.formatCount
 import app.picacgmd.feature.comics.rememberImageUrl
-import kotlinx.coroutines.flow.distinctUntilChanged
+import app.picacgmd.paging.LoadMoreEffect
+import app.picacgmd.paging.RowsWatch
 
 /**
  * Board 17: comments of a comic — pinned group, latest comments, replies sheet, composer, likes, reports.
@@ -82,7 +82,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 @Composable
 fun CommentsScreen(comicId: String, onBack: () -> Unit, modifier: Modifier = Modifier, title: String? = null) {
     val container = LocalAppContainer.current
-    val viewModel = viewModel(key = "comments:$comicId") { CommentsViewModel(container, comicId) }
+    val viewModel = viewModel(key = "comments:$comicId") { CommentsViewModel(container.commentRepository, comicId) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val replies by viewModel.replies.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
@@ -90,7 +90,10 @@ fun CommentsScreen(comicId: String, onBack: () -> Unit, modifier: Modifier = Mod
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     var reportTarget by remember { mutableStateOf<Comment?>(null) }
     LaunchedEffect(viewModel) { viewModel.messages.collect { snackbar.showSnackbar(it) } }
-    LoadMoreEffect(listState, state.items.size, viewModel::loadNext)
+    val rowsWatch = remember { RowsWatch() }
+    // Pinned comments alone keep the list on screen.
+    val listShown = state.items.isNotEmpty() || (!state.loading && state.error == null && state.top.isNotEmpty())
+    LoadMoreEffect(listState, rowsWatch, state, state.revision, state.canLoadNext, endZone = 4, onLoadMore = viewModel::loadNext, listShown = listShown)
 
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -114,10 +117,11 @@ fun CommentsScreen(comicId: String, onBack: () -> Unit, modifier: Modifier = Mod
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             when {
-                state.loading && state.items.isEmpty() -> LoadingState()
-                state.error != null && state.items.isEmpty() -> ErrorState(onRetry = viewModel::reload, description = state.error)
-                state.items.isEmpty() && state.top.isEmpty() -> EmptyState(title = stringResource(R.string.comments_empty))
-                else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+                !listShown && state.loading -> LoadingState()
+                !listShown && state.error != null -> ErrorState(onRetry = viewModel::reload, description = state.error)
+                !listShown -> EmptyState(title = stringResource(R.string.comments_empty))
+                else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize().then(rowsWatch.measured)) {
+                    rowsWatch.rows(state)
                     if (state.top.isNotEmpty()) {
                         item(key = "top-header") { CommentGroupLabel(stringResource(R.string.comments_top), pinned = true) }
                         items(state.top, key = { "top-${it.id}" }) { comment ->
@@ -179,16 +183,6 @@ fun CommentsScreen(comicId: String, onBack: () -> Unit, modifier: Modifier = Mod
                 viewModel.report(target.id, confirmation)
             },
         )
-    }
-}
-
-@Composable
-private fun LoadMoreEffect(listState: LazyListState, size: Int, onLoad: () -> Unit) {
-    LaunchedEffect(listState, size) {
-        snapshotFlow {
-            val info = listState.layoutInfo
-            (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 4
-        }.distinctUntilChanged().collect { if (it) onLoad() }
     }
 }
 
@@ -307,20 +301,23 @@ private fun RepliesSheet(
     onDismiss: () -> Unit,
     onLike: (String) -> Unit,
     onReport: (Comment) -> Unit,
-    onLoadMore: () -> Unit,
+    onLoadMore: (revision: Int) -> Unit,
     onRetry: () -> Unit,
     onSend: (String, () -> Unit) -> Unit,
 ) {
     val listState = rememberLazyListState()
+    val rowsWatch = remember { RowsWatch() }
     // Further pages come in by themselves as the end scrolls into view; only a failed page waits for a tap.
-    LoadMoreEffect(listState, thread.replies.size, onLoadMore)
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), contentWindowInsets = { WindowInsets(0) }, properties = secureModalBottomSheetProperties()) {
+    LoadMoreEffect(listState, rowsWatch, thread, thread.revision, thread.canLoadMore, endZone = 4, onLoadMore = onLoadMore)
+    val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, contentWindowInsets = { WindowInsets(0) }, properties = secureModalBottomSheetProperties()) {
         Column(Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.comments_replies_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp))
             CommentRow(thread.parent, onLike = { onLike(thread.parent.id) }, onReport = { onReport(thread.parent) })
             HorizontalDivider()
             Box(Modifier.weight(1f, fill = false)) {
-                LazyColumn(state = listState) {
+                LazyColumn(state = listState, modifier = rowsWatch.measured) {
+                    rowsWatch.rows(thread)
                     items(thread.replies, key = { it.id }) { reply ->
                         CommentRow(reply, modifier = Modifier.padding(start = 24.dp), onLike = { onLike(reply.id) }, onReport = { onReport(reply) })
                     }

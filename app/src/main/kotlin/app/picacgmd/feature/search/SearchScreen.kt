@@ -93,6 +93,8 @@ import androidx.compose.foundation.layout.Box
 import app.picacgmd.feature.comics.SelectionTopBar
 import app.picacgmd.feature.comics.foundLabel
 import app.picacgmd.feature.comics.labelRes
+import app.picacgmd.feature.comics.listedSelection
+import app.picacgmd.util.suspendRunCatching
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -130,8 +132,8 @@ class SearchViewModel(private val container: AppContainer, initialKeyword: Strin
     }
 
     init {
-        viewModelScope.launch { mutableHot.value = runCatching { repository.hotKeywords() }.getOrDefault(emptyList()) }
-        viewModelScope.launch { mutableCategories.value = runCatching { repository.categories().map { it.title } }.getOrDefault(emptyList()) }
+        viewModelScope.launch { mutableHot.value = suspendRunCatching { repository.hotKeywords() }.getOrDefault(emptyList()) }
+        viewModelScope.launch { mutableCategories.value = suspendRunCatching { repository.categories().map { it.title } }.getOrDefault(emptyList()) }
         viewModelScope.launch {
             container.settingsRepository.settings.collect { pager.mode = it.paginationMode }
         }
@@ -184,6 +186,13 @@ fun SearchScreen(
     var text by rememberSaveable { mutableStateOf(initialKeyword.orEmpty()) }
     var showFilter by rememberSaveable { mutableStateOf(false) }
     var selection by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    // Loading or failed pages are not settled lists, so restored selections must wait for the first page to return.
+    LaunchedEffect(state.comics, state.loading, state.error) {
+        if (!state.loading && state.error == null) {
+            val kept = listedSelection(selection, state.comics)
+            if (kept !== selection) selection = kept
+        }
+    }
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = remember { FocusRequester() }
     fun submit(query: String) {

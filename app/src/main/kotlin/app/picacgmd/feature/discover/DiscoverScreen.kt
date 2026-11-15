@@ -53,7 +53,7 @@ import app.picacgmd.core.designsystem.component.SkeletonBlock
 import app.picacgmd.core.designsystem.component.SearchEntryBar
 import app.picacgmd.core.designsystem.component.SectionHeader
 import app.picacgmd.core.designsystem.component.ShapedAvatar
-import app.picacgmd.core.designsystem.theme.PikapikaTheme
+import app.picacgmd.core.designsystem.theme.PicaTheme
 import app.picacgmd.core.designsystem.theme.ThemeChoice
 
 /**
@@ -284,7 +284,7 @@ private fun CategoryRow(
 @Preview(showBackground = true, widthDp = 412, heightDp = 860)
 @Composable
 private fun DiscoverScreenPreview() {
-    PikapikaTheme(themeChoice = ThemeChoice.Brand) {
+    PicaTheme(themeChoice = ThemeChoice.Brand) {
         DiscoverScreen(
             content = rememberSampleDiscoverContent(),
             showProfileEntry = true,
