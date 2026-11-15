@@ -10,8 +10,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -23,7 +21,6 @@ class HistoryRepository(
     private val settings: Flow<AppSettings>,
     private val now: () -> Long = System::currentTimeMillis,
 ) {
-    private val mutex = Mutex()
     val history: Flow<List<ViewHistory>> = dao.observeAll()
     fun observe(comicId: String): Flow<ViewHistory?> = dao.observe(comicId)
     suspend fun get(comicId: String): ViewHistory? = dao.get(comicId)
@@ -47,32 +44,31 @@ class HistoryRepository(
     suspend fun recordDetailView(comic: ComicInfo) {
         val preferences = settings.first()
         if (!preferences.historyEnabled || !preferences.recordDetailViews) return
-        mutex.withLock { dao.upsert(snapshot(comic, dao.get(comic.id))) }
+        dao.record(snapshot(comic), updateReadingProgress = false)
     }
 
     suspend fun saveProgress(comic: ComicInfo, epOrder: Int, epTitle: String, pictureIndex: Int, chapterPages: Int) {
         require(epOrder >= 1 && pictureIndex >= 1) { "阅读章节和页码必须从 1 开始" }
         if (!settings.first().historyEnabled) return
-        mutex.withLock {
-            dao.upsert(
-                snapshot(comic, dao.get(comic.id)).copy(
-                    lastEpOrder = epOrder, lastEpTitle = epTitle, lastPictureIndex = pictureIndex,
-                    lastChapterPages = chapterPages,
-                ),
-            )
-        }
+        dao.record(
+            snapshot(comic).copy(
+                lastEpOrder = epOrder, lastEpTitle = epTitle, lastPictureIndex = pictureIndex,
+                lastChapterPages = chapterPages,
+            ),
+            updateReadingProgress = true,
+        )
     }
 
-    suspend fun setPinned(comicId: String, pinned: Boolean): Int = dao.setPinned(comicId, pinned)
-    suspend fun delete(comicIds: List<String>): Int = dao.delete(comicIds)
+    suspend fun setPinned(comicId: String, pinned: Boolean): Int = dao.setPinned(comicId, pinned, now())
+    suspend fun delete(comicIds: List<String>): Int = dao.delete(comicIds, now())
     suspend fun restore(items: List<ViewHistory>) {
-        items.forEach { dao.upsert(it) }
+        if (items.isNotEmpty()) dao.restore(items, now())
     }
-    suspend fun clear() = dao.clear()
+    suspend fun clear() = dao.clear(now())
 
-    private fun snapshot(comic: ComicInfo, previous: ViewHistory?): ViewHistory {
+    private fun snapshot(comic: ComicInfo): ViewHistory {
         val timestamp = now()
-        return (previous ?: ViewHistory(comic.id, comic.title, createdAt = timestamp)).copy(
+        return ViewHistory(comic.id, comic.title, createdAt = timestamp).copy(
             title = comic.title,
             author = comic.author,
             thumbFileServer = comic.thumb?.fileServer.orEmpty(),

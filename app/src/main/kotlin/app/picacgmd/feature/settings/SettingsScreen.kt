@@ -214,7 +214,7 @@ private val SearchIndex: List<SettingsEntry> = buildList {
     )
     add(
         SettingsPage.Data, "同步",
-        "WebDAV 云同步" to "同步浏览记录",
+        "WebDAV 云同步" to "同步浏览记录和阅读进度，可自动同步",
     )
     add(SettingsPage.About, "关于", "版本" to "", "开源许可" to "", "隐私说明" to "", "使用说明" to "")
 }

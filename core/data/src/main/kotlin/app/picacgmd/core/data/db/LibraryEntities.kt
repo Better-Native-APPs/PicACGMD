@@ -21,7 +21,10 @@ data class ViewHistory(
     @ColumnInfo(defaultValue = "0") val lastChapterPages: Int = 0,
     val pinned: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),
+    /** Last viewing time, used for history order, date groups and continue reading. */
     val updatedAt: Long = createdAt,
+    /** Whole-record synchronization version; non-reading actions leave [updatedAt] unchanged. */
+    @ColumnInfo(defaultValue = "0") val modifiedAt: Long = updatedAt,
 )
 
 @Entity(tableName = "search_history", indices = [Index(value = ["updatedAt"])])

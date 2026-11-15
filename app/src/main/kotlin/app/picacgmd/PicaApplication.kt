@@ -6,6 +6,9 @@ import coil3.SingletonImageLoader
 import app.picacgmd.core.domain.di.AppContainer
 import app.picacgmd.core.domain.download.DownloadManager
 import app.picacgmd.core.domain.download.DownloadManagerOwner
+import app.picacgmd.feature.sync.isSyncWifiAvailable
+import app.picacgmd.feature.sync.requestHistorySyncAfterSessionReady
+import app.picacgmd.reader.ReaderPersistence
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -31,9 +34,14 @@ class PicaApplication : Application(), DownloadManagerOwner {
 
     override fun onCreate() {
         super.onCreate()
-        appContainer = AppContainer(this)
+        appContainer = AppContainer(this, syncWifiAvailable = { isSyncWifiAvailable(this) })
+        ReaderPersistence.bindHistorySync(appContainer.webDavSync::requestAutomaticSync)
         SingletonImageLoader.setSafe { appContainer.imageLoader }
         applicationScope.launch { downloadManager.start() }
+        applicationScope.launch {
+            requestHistorySyncAfterSessionReady(appContainer.webDavSync, appContainer.sessionManager::awaitReady,
+                appContainer.webDavSync::recordAutomaticFailure)
+        }
         applicationScope.launch {
             try {
                 appContainer.onAppOpen()

@@ -204,6 +204,20 @@ class SettingsRepository(
     suspend fun setRecordDetailViews(value: Boolean) = set(Keys.recordDetailViews, value)
     suspend fun setAutoCleanCacheInterval(value: CacheCleanupInterval) = setEnum(Keys.autoCleanCacheInterval, value)
 
+    /** [address] is the canonical collection URL; folder changes do not change the account identity. */
+    suspend fun setWebDavAccount(address: String, username: String, folder: String) {
+        dataStore.edit {
+            if (it[Keys.webDavAddress] != address || it[Keys.webDavUsername] != username) it.remove(Keys.webDavLastSyncedAt)
+            it[Keys.webDavAddress] = address
+            it[Keys.webDavUsername] = username
+            it[Keys.webDavFolder] = folder
+        }
+    }
+
+    suspend fun setWebDavAutoSync(value: Boolean) = set(Keys.webDavAutoSync, value)
+    suspend fun setWebDavWifiOnly(value: Boolean) = set(Keys.webDavWifiOnly, value)
+    suspend fun setWebDavLastSyncedAt(value: Long) = set(Keys.webDavLastSyncedAt, value)
+
     private suspend fun <T> set(key: Preferences.Key<T>, value: T) {
         dataStore.edit { it[key] = value }
     }

@@ -97,4 +97,10 @@ internal object SettingsKeys {
     val historyEnabled = booleanPreferencesKey("history_enabled")
     val recordDetailViews = booleanPreferencesKey("record_detail_views")
     val autoCleanCacheInterval = stringPreferencesKey("auto_clean_cache_interval")
+    val webDavAddress = stringPreferencesKey("webdav_address")
+    val webDavUsername = stringPreferencesKey("webdav_username")
+    val webDavFolder = stringPreferencesKey("webdav_folder")
+    val webDavAutoSync = booleanPreferencesKey("webdav_auto_sync")
+    val webDavWifiOnly = booleanPreferencesKey("webdav_wifi_only")
+    val webDavLastSyncedAt = longPreferencesKey("webdav_last_synced_at")
 }

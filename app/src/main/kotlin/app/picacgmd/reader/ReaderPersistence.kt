@@ -12,6 +12,13 @@ import kotlin.coroutines.cancellation.CancellationException
 internal object ReaderPersistence {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutex = Mutex()
+    @Volatile private var syncAfterClose: () -> Unit = {}
+
+    fun bindHistorySync(trigger: () -> Unit) { syncAfterClose = trigger }
+
+    fun readerClosed() {
+        scope.launch { mutex.withLock { syncAfterClose() } }
+    }
 
     fun launch(onError: (Exception) -> Unit, block: suspend () -> Unit) {
         scope.launch {

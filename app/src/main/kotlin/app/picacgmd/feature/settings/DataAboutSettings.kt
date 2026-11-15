@@ -74,13 +74,18 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.net.toUri
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.ImageLoader
 import app.picacgmd.core.data.db.PicaDatabase
 import app.picacgmd.core.data.settings.CacheCleanupInterval
 import app.picacgmd.core.designsystem.component.AppButton
 import app.picacgmd.core.designsystem.component.AppFilledTonalButton
 import app.picacgmd.core.designsystem.component.AppTextButton
+import app.picacgmd.core.designsystem.component.PredictiveBackContent
 import app.picacgmd.di.LocalAppContainer
+import app.picacgmd.feature.sync.WEBDAV_PANEL_TITLE
+import app.picacgmd.feature.sync.WebDavSyncPage
+import app.picacgmd.feature.sync.webDavRowSummary
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -116,10 +121,29 @@ private fun File.treeSize(): Long = if (!exists()) 0L else walkBottomUp().filter
 
 internal fun Context.formatBytes(bytes: Long): String = Formatter.formatShortFileSize(this, bytes)
 
-/** Board 28 数据与存储 (backup / import / export removed per SPEC §0; WebDAV comes later). */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
+private enum class DataSub { WebDav }
+
+/** Board 28 数据与存储 (backup / import / export removed per SPEC §0); the WebDAV panel is its sub page. */
 @Composable
 internal fun DataSettingsPage(onBack: () -> Unit, onOpenDownloads: () -> Unit, modifier: Modifier = Modifier) {
+    var sub by rememberSaveable { mutableStateOf<DataSub?>(null) }
+    PredictiveBackContent(
+        current = sub?.name ?: "root",
+        previous = "root",
+        onBack = { sub = null },
+        enabled = sub != null,
+        modifier = modifier,
+    ) { page, back ->
+        when (page) {
+            DataSub.WebDav.name -> WebDavSyncPage(onBack = back)
+            else -> DataRoot(onBack, onOpenDownloads, onOpenSync = { sub = DataSub.WebDav }, Modifier)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
+@Composable
+private fun DataRoot(onBack: () -> Unit, onOpenDownloads: () -> Unit, onOpenSync: () -> Unit, modifier: Modifier) {
     val container = LocalAppContainer.current
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
@@ -130,6 +154,8 @@ internal fun DataSettingsPage(onBack: () -> Unit, onOpenDownloads: () -> Unit, m
     val usage by produceState<StorageUsage?>(null, refresh) { value = measureStorage(context, container.imageLoader) }
     var cleaning by rememberSaveable { mutableStateOf(false) }
     var intervalDialog by rememberSaveable { mutableStateOf(false) }
+    val syncStatus by container.webDavSync.state.collectAsStateWithLifecycle()
+    val sync = webDavRowSummary(syncStatus)
 
     SettingsPageScaffold(SettingsPage.Data.title, onBack, snackbar, modifier) {
         item {
@@ -157,10 +183,9 @@ internal fun DataSettingsPage(onBack: () -> Unit, onOpenDownloads: () -> Unit, m
             SettingsGroup("同步") {
                 row { shapes ->
                     SettingsNavRow(
-                        shapes, "WebDAV 云同步", {},
-                        summary = "同步浏览记录",
-                        value = "稍后提供",
-                        enabled = false,
+                        shapes, WEBDAV_PANEL_TITLE, onOpenSync,
+                        summary = sync?.summary ?: "同步浏览记录",
+                        value = sync?.value,
                         leading = { Icon(Icons.Outlined.CloudSync, contentDescription = null) },
                     )
                 }

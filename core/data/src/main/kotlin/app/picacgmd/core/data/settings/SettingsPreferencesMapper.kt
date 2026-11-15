@@ -102,6 +102,14 @@ internal object SettingsPreferencesMapper {
             historyEnabled = preferences[Keys.historyEnabled] ?: d.historyEnabled,
             recordDetailViews = preferences[Keys.recordDetailViews] ?: d.recordDetailViews,
             autoCleanCacheInterval = preferences.readEnum(Keys.autoCleanCacheInterval, d.autoCleanCacheInterval),
+            webDav = WebDavSettings(
+                address = preferences[Keys.webDavAddress] ?: d.webDav.address,
+                username = preferences[Keys.webDavUsername] ?: d.webDav.username,
+                folder = preferences[Keys.webDavFolder] ?: d.webDav.folder,
+                autoSync = preferences[Keys.webDavAutoSync] ?: d.webDav.autoSync,
+                wifiOnly = preferences[Keys.webDavWifiOnly] ?: d.webDav.wifiOnly,
+                lastSyncedAt = preferences[Keys.webDavLastSyncedAt],
+            ),
         )
     }
 

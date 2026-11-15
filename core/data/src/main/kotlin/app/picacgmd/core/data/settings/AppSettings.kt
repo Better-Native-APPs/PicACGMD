@@ -137,6 +137,7 @@ data class AppSettings(
     val historyEnabled: Boolean = true,
     val recordDetailViews: Boolean = true,
     val autoCleanCacheInterval: CacheCleanupInterval = CacheCleanupInterval.NEVER,
+    val webDav: WebDavSettings = WebDavSettings(),
 ) {
     /** Do not expose a saved bearer token through diagnostic logs. */
     override fun toString(): String =
