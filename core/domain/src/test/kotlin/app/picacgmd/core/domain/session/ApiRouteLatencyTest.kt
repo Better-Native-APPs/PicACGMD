@@ -16,14 +16,35 @@ import kotlinx.coroutines.withTimeout
 @OptIn(ExperimentalCoroutinesApi::class)
 class ApiRouteLatencyTest {
     @Test
-    fun latencyFormattingAndGradeBoundaries() {
+    fun latencyFormatting() {
         assertEquals("0 ms", formatRouteLatency(0))
         assertEquals("123 ms", formatRouteLatency(123))
         assertEquals("失败", formatRouteLatency(null))
-        assertEquals(RouteLatencyGrade.GOOD, routeLatencyGrade(200))
-        assertEquals(RouteLatencyGrade.OK, routeLatencyGrade(201))
+    }
+
+    @Test
+    fun routeGradeIsFastUnderHalfASecond() {
+        assertEquals(RouteLatencyGrade.GOOD, routeLatencyGrade(0))
+        assertEquals(RouteLatencyGrade.GOOD, routeLatencyGrade(150))
+        assertEquals(RouteLatencyGrade.GOOD, routeLatencyGrade(350))
+        assertEquals(RouteLatencyGrade.GOOD, routeLatencyGrade(499))
+    }
+
+    @Test
+    fun routeGradeIsMediumFromHalfASecondToOneSecond() {
         assertEquals(RouteLatencyGrade.OK, routeLatencyGrade(500))
-        assertEquals(RouteLatencyGrade.SLOW, routeLatencyGrade(501))
+        assertEquals(RouteLatencyGrade.OK, routeLatencyGrade(750))
+        assertEquals(RouteLatencyGrade.OK, routeLatencyGrade(1_000))
+    }
+
+    @Test
+    fun routeGradeIsSlowOverOneSecond() {
+        assertEquals(RouteLatencyGrade.SLOW, routeLatencyGrade(1_001))
+        assertEquals(RouteLatencyGrade.SLOW, routeLatencyGrade(5_000))
+    }
+
+    @Test
+    fun routeGradeIsFailedWithoutAMeasurement() {
         assertEquals(RouteLatencyGrade.FAILED, routeLatencyGrade(null))
     }
 

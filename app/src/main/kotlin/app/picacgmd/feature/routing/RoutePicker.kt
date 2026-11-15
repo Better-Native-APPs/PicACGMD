@@ -55,6 +55,8 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.text
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -66,9 +68,12 @@ import app.picacgmd.core.designsystem.window.secureDialogProperties
 import app.picacgmd.core.domain.session.RouteLatencyGrade
 import app.picacgmd.core.domain.session.RouteOption
 import app.picacgmd.core.domain.session.RouteSource
+import app.picacgmd.core.domain.session.RoutingRepository
 import app.picacgmd.core.domain.session.fastestReachableRoute
 import app.picacgmd.core.domain.session.formatRouteLatency
 import app.picacgmd.core.domain.session.routeLatencyGrade
+import app.picacgmd.core.network.ApiRoute
+import app.picacgmd.core.network.ImageServer
 import app.picacgmd.di.LocalAppContainer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
@@ -115,19 +120,32 @@ private data class RouteMessage(val text: String, val tone: RouteTone = RouteTon
 
 /**
  * The one route picker, shared by the home search bar, list app bars, settings, login and the reader.
- * 分流 and 图片分流 sit in the same dialog; every route is probed as soon as it opens, a tap switches
- * at once and the dialog stays open so both lists can be changed in one visit.
+ * 分流 and 图片分流 sit in the same dialog; every route is probed as soon as it opens. A tap on a route
+ * switches at once and the dialog stays open so both lists can be changed in one visit; 「自动选择最快」
+ * picks for both lists and closes the dialog.
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun RoutePickerDialog(onDismiss: () -> Unit) {
     val routing = LocalAppContainer.current.routingRepository
+    RoutePickerDialog(routing, routing::measureApiRoute, routing::measureImageRoute, onDismiss)
+}
+
+/** The picker with its two probes passed in, so it can be shown without touching the network. */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+internal fun RoutePickerDialog(
+    routing: RoutingRepository,
+    measureApiRoute: suspend (ApiRoute) -> Long?,
+    measureImageRoute: suspend (ImageServer) -> Long?,
+    onDismiss: () -> Unit,
+) {
     val apiState by routing.apiRoutes.collectAsStateWithLifecycle(initialValue = null)
     val imageState by routing.imageRoutes.collectAsStateWithLifecycle(initialValue = null)
     val api = apiState ?: return
     val image = imageState ?: return
 
     val scope = rememberCoroutineScope()
+    val dismiss by rememberUpdatedState(onDismiss)
     var round by remember { mutableIntStateOf(0) }
     var work by remember { mutableStateOf<RouteWork?>(null) }
     var message by remember { mutableStateOf<RouteMessage?>(null) }
@@ -160,10 +178,10 @@ fun RoutePickerDialog(onDismiss: () -> Unit) {
             message = RouteMessage(exception.message ?: "自动切换失败，请点按分流重试", RouteTone.Error)
         }
     }
-    val apiLatencies = rememberRouteLatencies(api.options, round, routing::measureApiRoute) { results ->
+    val apiLatencies = rememberRouteLatencies(api.options, round, measureApiRoute) { results ->
         recover("分流") { routing.fallbackApiRoute(results) }
     }
-    val imageLatencies = rememberRouteLatencies(image.options, round, routing::measureImageRoute) { results ->
+    val imageLatencies = rememberRouteLatencies(image.options, round, measureImageRoute) { results ->
         recover("图片分流") { routing.fallbackImageRoute(results) }
     }
     val apiMeasured = apiLatencies.size == api.options.size
@@ -215,17 +233,12 @@ fun RoutePickerDialog(onDismiss: () -> Unit) {
                     AppButton(
                         onClick = {
                             perform(RouteWork.Switching, "切换失败") {
-                                val changed = buildList {
-                                    apiFastest?.takeIf { it != api.selected }?.let {
-                                        routing.selectApiRoute(it.value)
-                                        add(it.label)
-                                    }
-                                    imageFastest?.takeIf { it != image.selected }?.let {
-                                        routing.selectImageRoute(it.value)
-                                        add("图片${it.label}")
-                                    }
-                                }
-                                RouteMessage(if (changed.isEmpty()) "当前已是最快的分流" else "已切换至${changed.joinToString("、")}")
+                                apiFastest?.takeIf { it != api.selected }?.let { routing.selectApiRoute(it.value) }
+                                imageFastest?.takeIf { it != image.selected }?.let { routing.selectImageRoute(it.value) }
+                                // The fastest routes are in use now, so there is nothing left to do here.
+                                // A failed write throws before this line and keeps the dialog open.
+                                dismiss()
+                                null
                             }
                         },
                         enabled = measured && (apiFastest != null || imageFastest != null) && !syncing,
@@ -355,9 +368,10 @@ private fun <T> RouteSection(
 }
 
 /**
- * One route: name and measured latency, never its address. Built on the library's single-selection
- * [SegmentedListItem], so the row gets radio semantics, the group's corner rhythm and the pressed
- * shape morph for free instead of a hand-rolled tile that rebuilt a shape every animation frame.
+ * One route on a single line: the radio and the name at the start, latency and signal bars at the
+ * end, never its address. Built on the library's single-selection [SegmentedListItem], so the row
+ * gets radio semantics, the group's corner rhythm and the pressed shape morph for free instead of a
+ * hand-rolled tile that rebuilt a shape every animation frame.
  */
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -378,25 +392,29 @@ private fun RouteTile(
         onClick = onClick,
         shapes = shapes,
         enabled = enabled,
-        modifier = modifier.heightIn(min = 64.dp),
-        trailingContent = { RadioButton(selected = selected, onClick = null, modifier = Modifier.clearAndSetSemantics {}) },
-        supportingContent = {
-            // Tags wrap under the latency on narrow rows or with large fonts instead of being cut off.
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-                itemVerticalAlignment = Alignment.CenterVertically,
-            ) {
-                LatencyStatus(probing, latency)
-                if (fastest) RouteTag("最快", warn = false)
-                // The selected address is no longer in the official or built-in list.
-                if (outdated) RouteTag("旧地址", warn = true)
-            }
-        },
+        modifier = modifier.heightIn(min = RouteRowMinHeight),
+        contentPadding = RouteRowPadding,
+        leadingContent = { RadioButton(selected = selected, onClick = null, modifier = Modifier.clearAndSetSemantics {}) },
+        trailingContent = { LatencyStatus(probing, latency) },
     ) {
-        Text(label, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        // Everything shares the line while it fits. On a narrow dialog or with a large font a tag
+        // moves under the name instead of being cut off or squeezing the name into an ellipsis.
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+            itemVerticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(label, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (fastest) RouteTag("最快", warn = false)
+            // The selected address is no longer in the official or built-in list.
+            if (outdated) RouteTag("旧地址", warn = true)
+        }
     }
 }
+
+/** The smallest comfortable touch target; a row only grows when a tag has to wrap. */
+private val RouteRowMinHeight = 48.dp
+private val RouteRowPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
 
 @Composable
 private fun RouteTag(text: String, warn: Boolean) {
@@ -410,26 +428,53 @@ private fun RouteTag(text: String, warn: Boolean) {
     }
 }
 
+/** What a screen reader says for a result: the bars and the colour are not spoken, so the grade is named. */
+internal fun routeLatencyDescription(latencyMillis: Long?): String = when (routeLatencyGrade(latencyMillis)) {
+    RouteLatencyGrade.GOOD -> "延迟 $latencyMillis 毫秒，快"
+    RouteLatencyGrade.OK -> "延迟 $latencyMillis 毫秒，中等"
+    RouteLatencyGrade.SLOW -> "延迟 $latencyMillis 毫秒，慢"
+    RouteLatencyGrade.FAILED -> "测速失败"
+}
+
+/**
+ * The number sits against the bars and both against the row's end, so down the list the bars form
+ * one column and the numbers line up on their last digit.
+ */
 @Composable
 private fun LatencyStatus(probing: Boolean, latency: Long?) {
     val fade = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
     AnimatedContent(
-        targetState = if (probing) null else routeLatencyGrade(latency) to formatRouteLatency(latency),
+        targetState = if (probing) null else RouteResult(latency),
         transitionSpec = { fadeIn(fade) togetherWith fadeOut(fade) },
-        contentAlignment = Alignment.CenterStart,
+        contentAlignment = Alignment.CenterEnd,
         label = "latency",
     ) { result ->
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (result == null) {
-                Text("测速中", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                val color = latencyColor(result.first)
-                SignalBars(result.first, color)
-                Text(result.second, style = MaterialTheme.typography.labelLarge, color = color, maxLines = 1)
+        if (result == null) {
+            Text("测速中", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        } else {
+            val grade = routeLatencyGrade(result.latency)
+            val color = latencyColor(grade)
+            val spoken = AnnotatedString(routeLatencyDescription(result.latency))
+            Row(
+                // Spoken as text, next to the name: a content description would replace the row's name.
+                Modifier.clearAndSetSemantics { text = spoken },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    formatRouteLatency(result.latency),
+                    style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"),
+                    color = color,
+                    maxLines = 1,
+                )
+                SignalBars(grade, color)
             }
         }
     }
 }
+
+/** A finished probe; a null [latency] is a failed one. */
+private data class RouteResult(val latency: Long?)
 
 /** App-bar action: one tap opens the picker with both route lists. */
 @Composable
