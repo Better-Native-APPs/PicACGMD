@@ -44,7 +44,7 @@ PicACGMD 为哔咔漫画提供完整可用的原生 Android 体验：所有功�
 
 - 在 [Releases](https://github.com/Better-Native-APPs/PicACGMD/releases) 下载最新 APK；推送 `v` 开头的标签（如 `v1.0.2`，须与 `versionName` 一致）会自动构建并发布 Release，Release 说明取自 [CHANGELOG.md](CHANGELOG.md) 中该版本的条目。
 - 分支模型：`main` 只保留已发布的版本；开发提交进入 `dev` 分支。
-- 版本号依次递进（`1.0.0` → `1.0.1` → `1.0.2` …）。
+- 版本号依次递进（`1.0.0` → `1.0.1` → `1.0.2` …）；`1.1.0` 是一次例外（整体更新了架构与依赖），此后从 `1.1.0` 起继续依次递进。
 - 日常使用请安装 release 包：它关闭调试，启用代码优化、无用代码与资源压缩，并附带 ART 基线配置，适合低性能手机。
 
 ---
