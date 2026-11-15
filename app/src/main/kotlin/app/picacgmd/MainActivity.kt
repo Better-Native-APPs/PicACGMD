@@ -62,8 +62,7 @@ import app.picacgmd.lock.AppLockState
 import app.picacgmd.navigation.ExternalNavigation
 import app.picacgmd.navigation.externalNavigation
 import app.picacgmd.ui.PicaApp
-import app.picacgmd.reader.toSystemBarsMode
-import app.picacgmd.feature.reader.ui.ReaderSystemBars
+import app.picacgmd.feature.reader.ui.AppSystemBars
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -117,7 +116,6 @@ class MainActivity : ComponentActivity() {
                 SettingsDarkMode.DARK -> DarkMode.Dark
             }
             val dark = darkMode.isDark()
-            ReaderSystemBars(preferences.fullScreenDisplay.toSystemBarsMode(), lightBackground = !dark)
             var startupImagePending by rememberSaveable { mutableStateOf(savedInstanceState == null) }
             var startupImageLoaded by remember { mutableStateOf(false) }
             val showStartupImage = startupImagePending && settings != null && !locked && preferences.startupImageUri != null
@@ -153,44 +151,46 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
-            CompositionLocalProvider(
-                LocalAppContainer provides container,
-                LocalSecureWindows provides (settings?.preventScreenshots ?: true),
-                LocalImageFailureReloadAction provides if (preferences.failedReloadAction == FailedReloadAction.TAP) {
-                    ImageFailureReloadAction.Tap
-                } else ImageFailureReloadAction.PullDown,
-            ) {
-                PicaTheme(themeChoice, darkMode, preferences.pureBlack) {
-                    Surface(Modifier.fillMaxSize()) {
-                        when {
-                            settingsError != null -> StatusPane(
-                                title = "读取设置失败",
-                                description = settingsError,
-                                actions = { AppButton(onClick = ::observeSettings) { Text("重试") } },
-                            )
-                            settings == null -> Box(
-                                Modifier.fillMaxSize(), contentAlignment = Alignment.Center,
-                            ) { app.picacgmd.core.designsystem.component.LoadingState() }
-                            locked -> AppLockScreen(authenticationError, ::unlock, ::finish)
-                            showStartupImage -> AsyncImage(
-                                model = preferences.startupImageUri,
-                                contentDescription = "启动图片",
-                                contentScale = ContentScale.Fit,
-                                modifier = Modifier.fillMaxSize(),
-                                onSuccess = { startupImageLoaded = true },
-                                onError = { startupImagePending = false },
-                            )
-                            session == SessionState.Initializing -> Box(
-                                Modifier.fillMaxSize(), contentAlignment = Alignment.Center,
-                            ) { app.picacgmd.core.designsystem.component.LoadingState() }
-                            session is SessionState.SignedIn -> unlockedContent.SaveableStateProvider("app") {
-                                PicaApp(
-                                    externalNavigation = pendingNavigation,
-                                    onExternalNavigationConsumed = { pendingNavigation = null },
-                                    onExternalComicExit = ::finish,
+            AppSystemBars(lightBackground = !dark) {
+                CompositionLocalProvider(
+                    LocalAppContainer provides container,
+                    LocalSecureWindows provides (settings?.preventScreenshots ?: true),
+                    LocalImageFailureReloadAction provides if (preferences.failedReloadAction == FailedReloadAction.TAP) {
+                        ImageFailureReloadAction.Tap
+                    } else ImageFailureReloadAction.PullDown,
+                ) {
+                    PicaTheme(themeChoice, darkMode, preferences.pureBlack) {
+                        Surface(Modifier.fillMaxSize()) {
+                            when {
+                                settingsError != null -> StatusPane(
+                                    title = "读取设置失败",
+                                    description = settingsError,
+                                    actions = { AppButton(onClick = ::observeSettings) { Text("重试") } },
                                 )
+                                settings == null -> Box(
+                                    Modifier.fillMaxSize(), contentAlignment = Alignment.Center,
+                                ) { app.picacgmd.core.designsystem.component.LoadingState() }
+                                locked -> AppLockScreen(authenticationError, ::unlock, ::finish)
+                                showStartupImage -> AsyncImage(
+                                    model = preferences.startupImageUri,
+                                    contentDescription = "启动图片",
+                                    contentScale = ContentScale.Fit,
+                                    modifier = Modifier.fillMaxSize(),
+                                    onSuccess = { startupImageLoaded = true },
+                                    onError = { startupImagePending = false },
+                                )
+                                session == SessionState.Initializing -> Box(
+                                    Modifier.fillMaxSize(), contentAlignment = Alignment.Center,
+                                ) { app.picacgmd.core.designsystem.component.LoadingState() }
+                                session is SessionState.SignedIn -> unlockedContent.SaveableStateProvider("app") {
+                                    PicaApp(
+                                        externalNavigation = pendingNavigation,
+                                        onExternalNavigationConsumed = { pendingNavigation = null },
+                                        onExternalComicExit = ::finish,
+                                    )
+                                }
+                                else -> LoginScreen()
                             }
-                            else -> LoginScreen()
                         }
                     }
                 }

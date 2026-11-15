@@ -13,6 +13,28 @@ import kotlin.test.assertTrue
 
 class SettingsPreferencesMapperTest {
     @Test
+    fun existingFullScreenNamesKeepTheirMeaning() {
+        val expected = mapOf(
+            "OFF" to FullScreenDisplay.OFF,
+            "HIDE_NAVIGATION" to FullScreenDisplay.HIDE_NAVIGATION,
+            "HIDE_SYSTEM_BARS" to FullScreenDisplay.HIDE_SYSTEM_BARS,
+        )
+        expected.forEach { (stored, mode) ->
+            assertEquals(stored, mode.name)
+            val preferences = mutablePreferencesOf(SettingsKeys.fullScreenDisplay to stored)
+            assertEquals(mode, SettingsPreferencesMapper.decode(preferences).fullScreenDisplay)
+        }
+    }
+
+    @Test
+    fun unknownFullScreenNamesUseTheSuppliedDefault() {
+        val preferences = mutablePreferencesOf(SettingsKeys.fullScreenDisplay to "unknown_future_mode")
+        assertEquals(FullScreenDisplay.OFF, SettingsPreferencesMapper.decode(preferences).fullScreenDisplay)
+        val defaults = AppSettings.DEFAULT.copy(fullScreenDisplay = FullScreenDisplay.HIDE_NAVIGATION)
+        assertEquals(defaults.fullScreenDisplay, SettingsPreferencesMapper.decode(preferences, defaults).fullScreenDisplay)
+    }
+
+    @Test
     fun deviceDefaultsChangeOnlyTheDownloadThreadCount() {
         assertEquals(AppSettings.DEFAULT, AppSettings.defaultsForDevice(isLowRamDevice = false))
         assertEquals(AppSettings.DEFAULT.copy(downloadThreads = 2), AppSettings.defaultsForDevice(isLowRamDevice = true))

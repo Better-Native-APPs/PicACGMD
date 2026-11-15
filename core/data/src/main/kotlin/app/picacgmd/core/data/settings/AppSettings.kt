@@ -18,7 +18,7 @@ enum class ReaderScrollMode { IMAGE, SCREEN_DISTANCE }
 enum class ReaderSliderPosition { BOTTOM, RIGHT, LEFT }
 enum class TwoPagePlacement { CLOSE_TO, PULL_APART, EACH_CENTERED }
 enum class AppOrientation { SYSTEM, LANDSCAPE, PORTRAIT }
-enum class FullScreenDisplay { OFF, HIDE_NAVIGATION, HIDE_SYSTEM_BARS }
+enum class FullScreenDisplay { OFF, HIDE_STATUS_BAR, HIDE_NAVIGATION, HIDE_SYSTEM_BARS }
 enum class FailedReloadAction { TAP, PULL_DOWN }
 
 enum class CacheCleanupInterval(val seconds: Long) {

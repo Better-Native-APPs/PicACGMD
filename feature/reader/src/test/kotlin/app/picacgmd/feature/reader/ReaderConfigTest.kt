@@ -4,6 +4,13 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class ReaderConfigTest {
+    @Test
+    fun fullscreenKeepsPartialSystemBarChoices() {
+        assertEquals(SystemBarsMode.HiddenAll, SystemBarsMode.Visible.forReaderFullscreen())
+        assertEquals(SystemBarsMode.HiddenStatus, SystemBarsMode.HiddenStatus.forReaderFullscreen())
+        assertEquals(SystemBarsMode.HiddenNavigation, SystemBarsMode.HiddenNavigation.forReaderFullscreen())
+        assertEquals(SystemBarsMode.HiddenAll, SystemBarsMode.HiddenAll.forReaderFullscreen())
+    }
 
     @Test
     fun defaultsAreAlreadyNormalized() {

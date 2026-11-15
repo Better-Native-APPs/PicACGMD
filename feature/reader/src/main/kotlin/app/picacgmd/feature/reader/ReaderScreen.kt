@@ -515,7 +515,8 @@ fun ReaderScreen(
                     onOpenSettings = { openSheet = OpenSheet.Settings },
                     onFullscreen = {
                         controlsVisible = false
-                        if (settings.systemBars == SystemBarsMode.Visible) onConfigChange(settings.copy(systemBars = SystemBarsMode.HiddenAll))
+                        val systemBars = settings.systemBars.forReaderFullscreen()
+                        if (systemBars != settings.systemBars) onConfigChange(settings.copy(systemBars = systemBars))
                     },
                     onPreviousChapter = session::openPrevious,
                     onNextChapter = session::openNext,

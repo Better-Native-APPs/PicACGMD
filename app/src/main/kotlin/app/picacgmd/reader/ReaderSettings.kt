@@ -184,11 +184,7 @@ internal suspend fun SettingsRepository.saveReaderConfig(previous: ReaderConfig,
     if (previous.volumeKeyPaging != next.volumeKeyPaging) setVolumeKeyPaging(next.volumeKeyPaging)
     if (previous.volumeKeyChapterJump != next.volumeKeyChapterJump) setVolumeKeyChapterPaging(next.volumeKeyChapterJump)
     if (previous.systemBars != next.systemBars) {
-        setFullScreenDisplay(when (next.systemBars) {
-            SystemBarsMode.Visible -> FullScreenDisplay.OFF
-            SystemBarsMode.HiddenNavigation -> FullScreenDisplay.HIDE_NAVIGATION
-            SystemBarsMode.HiddenAll -> FullScreenDisplay.HIDE_SYSTEM_BARS
-        })
+        setFullScreenDisplay(next.systemBars.toFullScreenDisplay())
     }
     if (previous.autoFullscreen != next.autoFullscreen) setReaderFullScreen(next.autoFullscreen)
     if (previous.autoFullscreenOnForward != next.autoFullscreenOnForward) setFullScreenOnForward(next.autoFullscreenOnForward)
@@ -206,6 +202,14 @@ internal suspend fun SettingsRepository.saveReaderConfig(previous: ReaderConfig,
 
 internal fun FullScreenDisplay.toSystemBarsMode(): SystemBarsMode = when (this) {
     FullScreenDisplay.OFF -> SystemBarsMode.Visible
+    FullScreenDisplay.HIDE_STATUS_BAR -> SystemBarsMode.HiddenStatus
     FullScreenDisplay.HIDE_NAVIGATION -> SystemBarsMode.HiddenNavigation
     FullScreenDisplay.HIDE_SYSTEM_BARS -> SystemBarsMode.HiddenAll
+}
+
+internal fun SystemBarsMode.toFullScreenDisplay(): FullScreenDisplay = when (this) {
+    SystemBarsMode.Visible -> FullScreenDisplay.OFF
+    SystemBarsMode.HiddenStatus -> FullScreenDisplay.HIDE_STATUS_BAR
+    SystemBarsMode.HiddenNavigation -> FullScreenDisplay.HIDE_NAVIGATION
+    SystemBarsMode.HiddenAll -> FullScreenDisplay.HIDE_SYSTEM_BARS
 }

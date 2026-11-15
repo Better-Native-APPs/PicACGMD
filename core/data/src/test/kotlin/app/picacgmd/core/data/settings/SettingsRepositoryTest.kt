@@ -20,6 +20,21 @@ import kotlin.test.assertTrue
 
 class SettingsRepositoryTest {
     @Test
+    fun allFullScreenModesRoundTripByNameAcrossRepositoryInstances() = runTest {
+        val store = MemoryPreferencesStore()
+        val repository = SettingsRepository(store)
+        assertEquals(
+            listOf("OFF", "HIDE_STATUS_BAR", "HIDE_NAVIGATION", "HIDE_SYSTEM_BARS"),
+            FullScreenDisplay.entries.map { it.name },
+        )
+        FullScreenDisplay.entries.forEach { mode ->
+            repository.setFullScreenDisplay(mode)
+            assertEquals(mode.name, store.data.first()[SettingsKeys.fullScreenDisplay])
+            assertEquals(mode, SettingsRepository(store).settings.first().fullScreenDisplay)
+        }
+    }
+
+    @Test
     fun deviceDefaultIsNotPersistedAndAnExplicitChoiceSurvivesDifferentDefaults() = runTest {
         val store = MemoryPreferencesStore()
         val defaults = AppSettings.defaultsForDevice(isLowRamDevice = true)

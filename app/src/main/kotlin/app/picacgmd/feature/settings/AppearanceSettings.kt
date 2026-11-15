@@ -163,7 +163,7 @@ internal fun AppearanceSettingsPage(onBack: () -> Unit, modifier: Modifier = Mod
                     SettingsNavRow(
                         shapes = shapes,
                         title = "全屏显示",
-                        summary = "隐藏状态栏或导航栏",
+                        summary = "仅阅读漫画时生效",
                         value = settings.fullScreenDisplay.label(),
                         onClick = { dialog = AppearanceDialog.FullScreen },
                     )
@@ -220,6 +220,7 @@ internal fun AppearanceSettingsPage(onBack: () -> Unit, modifier: Modifier = Mod
         )
         AppearanceDialog.FullScreen -> ChoiceDialog(
             title = "全屏显示",
+            description = "仅阅读漫画时生效",
             options = FullScreenDisplay.entries,
             selected = settings?.fullScreenDisplay,
             label = { it.label() },
@@ -252,8 +253,9 @@ private fun AppOrientation.label() = when (this) {
     AppOrientation.PORTRAIT -> "竖屏"
 }
 
-private fun FullScreenDisplay.label() = when (this) {
+internal fun FullScreenDisplay.label() = when (this) {
     FullScreenDisplay.OFF -> "不隐藏"
+    FullScreenDisplay.HIDE_STATUS_BAR -> "隐藏状态栏"
     FullScreenDisplay.HIDE_NAVIGATION -> "隐藏导航栏"
     FullScreenDisplay.HIDE_SYSTEM_BARS -> "全部隐藏"
 }
