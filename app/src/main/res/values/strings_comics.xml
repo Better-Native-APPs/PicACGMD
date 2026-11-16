@@ -70,7 +70,7 @@
     <string name="detail_continue_reading">继续阅读 · %1$s</string>
     <string name="detail_author">作者</string>
     <string name="detail_team">汉化</string>
-    <string name="detail_uploader">上传者</string>
+    <string name="detail_uploader">上传</string>
     <string name="detail_uploader_level">Lv.%1$d</string>
     <string name="detail_uploader_description">上传者：%1$s，查看上传者作品</string>
     <string name="detail_updated">更新于 %1$s</string>
@@ -79,7 +79,9 @@
     <string name="detail_expand">展开</string>
     <string name="detail_collapse">收起</string>
     <string name="detail_chapters">章节 · %1$d</string>
+    <string name="detail_chapters_forward">正序</string>
     <string name="detail_chapters_reverse">倒序</string>
+    <string name="detail_chapters_order">章节顺序：%1$s</string>
     <string name="detail_chapters_expand">展开全部 %1$d 话</string>
     <string name="detail_chapter_progress">看到 %1$d/%2$d</string>
     <string name="detail_chapter_progress_page">看到第 %1$d 页</string>
@@ -89,14 +91,21 @@
     <string name="detail_comments_all">全部评论</string>
     <string name="detail_comments_empty">还没有评论</string>
     <string name="detail_hidden_by_rule">漫画符合屏蔽规则</string>
-    <string name="detail_block_mode">屏蔽模式</string>
-    <string name="detail_block_mode_hint">点按分类或标签切换屏蔽</string>
+    <string name="detail_hidden_by_rule_where">可在「设置 › 列表与浏览 › 封印与屏蔽」里取消屏蔽</string>
+    <string name="detail_keyword_hint">点按打开，长按可屏蔽</string>
+    <string name="detail_keyword_hint_tags">点按打开，长按可屏蔽；标签长按还可收藏</string>
+    <string name="detail_keyword_menu">更多操作</string>
+    <string name="detail_keyword_block">屏蔽</string>
+    <string name="detail_keyword_unblock">取消屏蔽</string>
     <string name="detail_keyword_blocked">已屏蔽</string>
-    <string name="detail_keyword_not_blocked">未屏蔽</string>
+    <string name="detail_keyword_undo">撤销</string>
+    <string name="detail_tag_favourite">收藏标签</string>
+    <string name="detail_tag_unfavourite">取消收藏</string>
+    <string name="detail_tag_favourited">已收藏</string>
     <string name="detail_keyword_blocked_message">已屏蔽「%1$s」</string>
     <string name="detail_keyword_unblocked_message">已取消屏蔽「%1$s」</string>
     <string name="detail_action_failed">操作失败：%1$s</string>
-    <string name="detail_copy_title">复制标题</string>
+    <string name="detail_copy_name">复制名称</string>
     <string name="detail_download_title">选择下载章节</string>
     <string name="detail_download_confirm">下载 %1$d 话</string>
 

@@ -63,7 +63,7 @@ data class LibraryState(
     val currentEpPages: Int? = null,
 )
 
-/** A tag or category that 屏蔽模式 has just put into the hidden keywords ([blocked]) or taken out. */
+/** A tag or category that has just been put into the hidden keywords ([blocked]) or taken out. */
 data class KeywordChange(val keyword: String, val blocked: Boolean)
 
 data class TagFavouriteChange(val tag: String, val added: Boolean)
@@ -138,7 +138,7 @@ class ComicDetailViewModel(
 
     init {
         load()
-        // Follows the settings, so a tag blocked in 屏蔽模式 changes the notice straight away. The
+        // Follows the settings, so blocking a tag here changes the notice straight away. The
         // 「隐藏看过的漫画」 rule is left out: it is about lists, and every comic opened here counts as viewed.
         viewModelScope.launch {
             combine(mutableState.map { it.comic }.distinctUntilChanged(), container.settingsRepository.settings) { comic, settings ->
@@ -147,28 +147,45 @@ class ComicDetailViewModel(
         }
     }
 
-    /** 屏蔽模式: puts [word] into the hidden keywords, or takes it out when it is in there already. */
+    /** Puts [word] into the hidden keywords, or takes it out when it is in there already, and reports which. */
     fun toggleHiddenKeyword(word: String) {
         val keyword = word.trim()
         if (keyword.isEmpty()) return
         viewModelScope.launch {
-            try {
-                // Read and written under one lock, so quick taps on several chips never undo each other.
-                val blocked = keywordWrites.withLock {
-                    val current = container.settingsRepository.settings.first().hiddenKeywords
-                    val blocking = !current.containsKeyword(keyword)
-                    container.settingsRepository.setHiddenKeywords(
-                        if (blocking) current.plusKeywords(listOf(keyword)) else current.minusKeywords(listOf(keyword)),
-                    )
-                    blocking
-                }
-                mutableKeywordChanges.tryEmit(KeywordChange(keyword, blocked))
-            } catch (cancel: CancellationException) {
-                throw cancel
-            } catch (error: Exception) {
-                mutableMessages.tryEmit(error.readable())
-            }
+            writeHiddenKeyword(keyword, blocked = null)?.let { mutableKeywordChanges.tryEmit(KeywordChange(keyword, it)) }
         }
+    }
+
+    /**
+     * Takes [change] back: the word it blocked is let through again, the word it let through is blocked
+     * again. Nothing is reported, so the message offering the undo is not followed by another one.
+     */
+    fun undoKeywordChange(change: KeywordChange) {
+        viewModelScope.launch { writeHiddenKeyword(change.keyword, blocked = !change.blocked) }
+    }
+
+    /**
+     * Sets whether [keyword] is hidden, or flips it when [blocked] is null. Returns what it is now, or
+     * null when the write failed and the failure went to [messages].
+     */
+    private suspend fun writeHiddenKeyword(keyword: String, blocked: Boolean?): Boolean? = try {
+        // Read and written under one lock, so quick changes to several words never undo each other.
+        keywordWrites.withLock {
+            val current = container.settingsRepository.settings.first().hiddenKeywords
+            val hidden = current.containsKeyword(keyword)
+            val target = blocked ?: !hidden
+            if (target != hidden) {
+                container.settingsRepository.setHiddenKeywords(
+                    if (target) current.plusKeywords(listOf(keyword)) else current.minusKeywords(listOf(keyword)),
+                )
+            }
+            target
+        }
+    } catch (cancel: CancellationException) {
+        throw cancel
+    } catch (error: Exception) {
+        mutableMessages.tryEmit(error.readable())
+        null
     }
 
     /** Best effort: without an answer the chapter row just says 「看到第 N 页」. */
