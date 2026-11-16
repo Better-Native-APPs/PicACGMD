@@ -81,7 +81,6 @@ class SettingsRepository(
     }
 
     suspend fun setFullScreenDisplay(value: FullScreenDisplay) = setEnum(Keys.fullScreenDisplay, value)
-    suspend fun setDoubleBackToExit(value: Boolean) = set(Keys.doubleBackToExit, value)
     suspend fun setStartupImageUri(value: String?) = setNullable(Keys.startupImageUri, value)
     suspend fun setLastSeenAnnouncementId(value: String?) = setNullable(Keys.lastSeenAnnouncementId, value)
     suspend fun setListLayout(value: ListLayout) = setEnum(Keys.listLayout, value)

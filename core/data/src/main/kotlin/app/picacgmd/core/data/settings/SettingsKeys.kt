@@ -29,7 +29,6 @@ internal object SettingsKeys {
     val appOrientation = stringPreferencesKey("app_orientation")
     val displayModeId = intPreferencesKey("display_mode_id")
     val fullScreenDisplay = stringPreferencesKey("full_screen_display")
-    val doubleBackToExit = booleanPreferencesKey("double_back_to_exit")
     val startupImageUri = stringPreferencesKey("startup_image_uri")
     val lastSeenAnnouncementId = stringPreferencesKey("last_seen_announcement_id")
     val listLayout = stringPreferencesKey("list_layout")

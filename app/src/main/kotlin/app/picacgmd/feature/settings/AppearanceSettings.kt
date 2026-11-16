@@ -169,15 +169,6 @@ internal fun AppearanceSettingsPage(onBack: () -> Unit, modifier: Modifier = Mod
                     )
                 }
                 row { shapes ->
-                    SettingsSwitchRow(
-                        shapes = shapes,
-                        title = "连按两次返回退出",
-                        summary = "仅在一级导航页面生效",
-                        checked = settings.doubleBackToExit,
-                        onCheckedChange = { writer.update { setDoubleBackToExit(it) } },
-                    )
-                }
-                row { shapes ->
                     SettingsNavRow(
                         shapes = shapes,
                         title = "启动图片",

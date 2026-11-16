@@ -174,7 +174,6 @@ class SettingsRepositoryTest {
         repository.setAppOrientation(AppOrientation.LANDSCAPE)
         repository.setDisplayModeId(2)
         repository.setFullScreenDisplay(FullScreenDisplay.HIDE_SYSTEM_BARS)
-        repository.setDoubleBackToExit(true)
         repository.setStartupImageUri("content://images/startup")
         repository.setFailedReloadAction(FailedReloadAction.PULL_DOWN)
         repository.setHideViewedComics(true)
@@ -209,7 +208,7 @@ class SettingsRepositoryTest {
             AppSettings.DEFAULT.copy(
                 connectTimeoutSeconds = 60, readTimeoutSeconds = 10, timeOffsetHours = 8,
                 useApiClientForImages = true, appOrientation = AppOrientation.LANDSCAPE, displayModeId = 2,
-                fullScreenDisplay = FullScreenDisplay.HIDE_SYSTEM_BARS, doubleBackToExit = true,
+                fullScreenDisplay = FullScreenDisplay.HIDE_SYSTEM_BARS,
                 startupImageUri = "content://images/startup", failedReloadAction = FailedReloadAction.PULL_DOWN,
                 hideViewedComics = true, hiddenCategories = listOf("隐藏分类"), showAuthorSearch = false,
                 showSubscriptions = false, showTagFavourites = false, showOnlineFavourites = false,

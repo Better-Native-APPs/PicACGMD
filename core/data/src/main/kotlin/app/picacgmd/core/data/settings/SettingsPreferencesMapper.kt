@@ -34,7 +34,6 @@ internal object SettingsPreferencesMapper {
             appOrientation = preferences.readEnum(Keys.appOrientation, d.appOrientation),
             displayModeId = preferences[Keys.displayModeId]?.takeIf { it > 0 },
             fullScreenDisplay = preferences.readEnum(Keys.fullScreenDisplay, d.fullScreenDisplay),
-            doubleBackToExit = preferences[Keys.doubleBackToExit] ?: d.doubleBackToExit,
             startupImageUri = preferences[Keys.startupImageUri],
             lastSeenAnnouncementId = preferences[Keys.lastSeenAnnouncementId],
             listLayout = preferences.readEnum(Keys.listLayout, d.listLayout),
