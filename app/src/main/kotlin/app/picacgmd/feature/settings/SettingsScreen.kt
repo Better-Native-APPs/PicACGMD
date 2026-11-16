@@ -62,7 +62,7 @@ import app.picacgmd.core.designsystem.component.PredictiveBackContent
  */
 enum class SettingsPage(val title: String, val summary: String) {
     Appearance("外观", "主题、配色、纯黑背景、刷新率、屏幕方向"),
-    Browsing("列表与浏览", "加载方式、列数、封印、首页分类、功能入口"),
+    Browsing("列表与浏览", "加载方式、列数、封印与屏蔽、首页分类、功能入口"),
     Reading("阅读", "默认模式、操控、音量键、缩放、电子墨水屏"),
     Downloads("下载", "线程数 1–16、自动下载、仅 Wi-Fi"),
     Network("网络", "分流、图片分流、超时"),
@@ -109,7 +109,7 @@ private val SearchIndex: List<SettingsEntry> = buildList {
     )
     add(
         SettingsPage.Browsing, "封印",
-        "封印与隐藏" to "封印分类、隐藏关键词",
+        "封印与屏蔽" to "封印分类、屏蔽关键词",
         "隐藏看过的漫画" to "按浏览记录隐藏", "屏蔽 AI 作品" to "隐藏 AI 生成的作品",
     )
     add(
@@ -117,8 +117,8 @@ private val SearchIndex: List<SettingsEntry> = buildList {
         "封印分类" to "不想看到的分类", "封印方式" to "黑名单或白名单",
     )
     add(
-        SettingsPage.Browsing, "隐藏关键词",
-        "隐藏关键词" to "按标题、作者、分类、标签隐藏", "预设关键词" to "按预设组添加或移除",
+        SettingsPage.Browsing, "屏蔽关键词",
+        "屏蔽关键词" to "按标题、作者、分类、标签隐藏漫画，取消屏蔽也在这里", "预设关键词" to "按预设组添加或移除",
     )
     add(
         SettingsPage.Browsing, "首页",

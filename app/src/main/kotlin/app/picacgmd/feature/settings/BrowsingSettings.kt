@@ -145,8 +145,8 @@ private fun BrowsingRoot(
                 row { shapes ->
                     val count = settings.shieldedCategories.size + settings.hiddenKeywords.size
                     SettingsNavRow(
-                        shapes, "封印与隐藏", onClick = { onOpen(BrowsingSub.Shield) },
-                        summary = "封印分类、隐藏关键词",
+                        shapes, "封印与屏蔽", onClick = { onOpen(BrowsingSub.Shield) },
+                        summary = "封印分类、屏蔽关键词",
                         value = if (count == 0) "未设置" else "$count 项",
                     )
                 }
@@ -329,7 +329,7 @@ private fun ShieldSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier
     val settings = rememberAppSettings()
     val (categories, error, retry) = rememberCategories()
 
-    SettingsPageScaffold("封印与隐藏", onBack, snackbar, modifier) {
+    SettingsPageScaffold("封印与屏蔽", onBack, snackbar, modifier) {
         if (settings == null) return@SettingsPageScaffold
         item {
             SettingsGroup("封印分类") {
@@ -378,7 +378,7 @@ private fun ShieldSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier
 }
 
 /**
- * 隐藏关键词: single words, plus 「快速添加预设组」 that add or remove a whole group at once. Writes go
+ * 屏蔽关键词: single words, plus 「快速添加预设组」 that add or remove a whole group at once. Writes go
  * straight to the repository, so a group change can confirm itself with a count once it is saved. They
  * run in the page's [scope], so scrolling this group away does not cancel one.
  */
@@ -415,13 +415,13 @@ private fun HiddenKeywordsGroup(keywords: List<String>, snackbar: SnackbarHostSt
         }
     }
 
-    SettingsGroup("隐藏关键词") {
+    SettingsGroup("屏蔽关键词") {
         row { shapes ->
             SegmentedListItem(
                 shapes = shapes,
                 supportingContent = {
                     Column {
-                        Text("标题、作者、分类或标签含关键词时隐藏，纯英文及数字按整词匹配")
+                        Text("标题、作者、分类或标签含关键词的漫画不再显示，纯英文及数字按整词匹配。在漫画详情页屏蔽的分类和标签也列在这里，点一下即可取消屏蔽")
                         OutlinedTextField(
                             value = draft,
                             onValueChange = {

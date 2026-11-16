@@ -17,7 +17,7 @@ import org.robolectric.annotation.Config
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/** The settings search finds the sync panel by its name and by what it does, and opens the page that holds it. */
+/** The settings search finds a setting by its name and by what it does, and opens the page that holds it. */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w360dp-h1400dp-xhdpi")
 class SettingsSearchTest {
@@ -46,6 +46,25 @@ class SettingsSearchTest {
         }
         search("稍后提供")
         composeRule.onAllNodesWithText("WebDAV 云同步").assertCountEquals(0)
+    }
+
+    @Test
+    fun blockedKeywordsAreFoundByTheWordTheComicPageUsesAndOpenTheBrowsingPage() {
+        compose()
+        search("屏蔽")
+        composeRule.onAllNodesWithText("屏蔽关键词").assertCountEquals(1)
+        composeRule.onNode(hasText("封印与屏蔽") and hasText("列表与浏览 › 封印", substring = true)).performClick()
+        composeRule.waitForIdle()
+        assertEquals(listOf(SettingsPage.Browsing), opened)
+    }
+
+    @Test
+    fun blockedKeywordsAreFoundByUnblockingAndByTheirFormerName() {
+        compose()
+        listOf("取消屏蔽", "隐藏").forEach { query ->
+            search(query)
+            composeRule.onAllNodesWithText("屏蔽关键词").assertCountEquals(1)
+        }
     }
 
     private fun compose() {
