@@ -154,11 +154,14 @@ class RoutePickerTest {
     fun autoSelectCanOnlyBeUsedOnceEveryProbeHasAnswered() {
         probeGate = CompletableDeferred()
         showPicker()
-        autoSelect().assertIsNotEnabled()
-        composeRule.onNodeWithText("正在测速…").assertExists()
+        // While the probes run, the button itself says so and cannot be used.
+        composeRule.onNodeWithText("正在测速…").assertIsNotEnabled()
+        composeRule.onAllNodesWithText("自动选择最快").assertCountEquals(0)
 
         probeGate.complete(Unit)
         composeRule.waitForIdle()
+        composeRule.onAllNodesWithText("正在测速…").assertCountEquals(0)
+        composeRule.onAllNodesWithText("点按立即切换").assertCountEquals(0)
         autoSelect().assertIsEnabled().performClick()
         composeRule.waitUntil { dismissals == 1 }
 

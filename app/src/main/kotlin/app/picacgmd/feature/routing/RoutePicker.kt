@@ -114,7 +114,7 @@ internal fun formatSyncTime(millis: Long, now: Long = System.currentTimeMillis()
 
 private enum class RouteWork { Switching, Syncing }
 
-private enum class RouteTone { Hint, Done, Error }
+private enum class RouteTone { Done, Error }
 
 private data class RouteMessage(val text: String, val tone: RouteTone = RouteTone.Done)
 
@@ -192,11 +192,9 @@ internal fun RoutePickerDialog(
     // Switching is a quick local write, so only a sync visibly disables the controls.
     val syncing = work == RouteWork.Syncing
 
-    val status = message ?: when {
-        !measured -> RouteMessage("正在测速…", RouteTone.Hint)
-        apiFastest == null && imageFastest == null -> RouteMessage("暂无可用分流，请检查网络后重新测速", RouteTone.Error)
-        else -> RouteMessage("点按立即切换", RouteTone.Hint)
-    }
+    // Measuring is shown by the 「自动选择最快」 button itself; the line under the title is for results only.
+    val status = message
+        ?: RouteMessage("暂无可用分流，请检查网络后重新测速", RouteTone.Error).takeIf { measured && apiFastest == null && imageFastest == null }
 
     BasicAlertDialog(onDismissRequest = onDismiss, properties = secureDialogProperties()) {
         Surface(
@@ -208,16 +206,17 @@ internal fun RoutePickerDialog(
                 Row(Modifier.padding(start = 24.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("分流", style = MaterialTheme.typography.headlineSmall)
-                        Text(
-                            status.text,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = when (status.tone) {
-                                RouteTone.Hint -> MaterialTheme.colorScheme.onSurfaceVariant
-                                RouteTone.Done -> latencyColor(RouteLatencyGrade.GOOD)
-                                RouteTone.Error -> MaterialTheme.colorScheme.error
-                            },
-                            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-                        )
+                        if (status != null) {
+                            Text(
+                                status.text,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = when (status.tone) {
+                                    RouteTone.Done -> latencyColor(RouteLatencyGrade.GOOD)
+                                    RouteTone.Error -> MaterialTheme.colorScheme.error
+                                },
+                                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                            )
+                        }
                     }
                     if (syncing) LoadingIndicator(Modifier.size(24.dp))
                     AppIconButton(onClick = { message = null; round++ }, enabled = !syncing) {
@@ -246,7 +245,7 @@ internal fun RoutePickerDialog(
                     ) {
                         Icon(Icons.Outlined.Speed, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("自动选择最快")
+                        Text(if (measured) "自动选择最快" else "正在测速…")
                     }
                     RouteSection(
                         title = "分流",
