@@ -14,6 +14,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.Credentials
+import okhttp3.Dns
 import okhttp3.HttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -30,6 +31,9 @@ class OkHttpWebDavClient private constructor(private val client: OkHttpClient) :
     internal constructor(socketFactory: SSLSocketFactory, trustManager: X509TrustManager, timeoutMillis: Long = 60_000) :
         this(newClient().newBuilder().sslSocketFactory(socketFactory, trustManager)
             .callTimeout(timeoutMillis, TimeUnit.MILLISECONDS).build())
+
+    /** The production client with the host's addresses chosen by a test. */
+    internal constructor(dns: Dns) : this(newClient().newBuilder().dns(dns).build())
 
     override suspend fun testConnection(account: WebDavAccount): WebDavResult<WebDavConnection> = result {
         val parent = perform(account, "PROPFIND", account.endpoint.collection, PROPFIND_BODY, depth = true)
@@ -200,11 +204,19 @@ class OkHttpWebDavClient private constructor(private val client: OkHttpClient) :
             .connectTimeout(15, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS).callTimeout(60, TimeUnit.SECONDS).build()
 
-        private fun transportError(exception: Exception): WebDavException = WebDavException(when (exception) {
-            is SSLException -> WebDavError.TLS
-            is SocketTimeoutException, is InterruptedIOException -> WebDavError.TIMEOUT
-            else -> WebDavError.CONNECTION
-        })
+        /**
+         * One request can try several addresses of the host (IPv6 first, then IPv4): the first failure is thrown and the
+         * later ones ride along as suppressed. A certificate rejected by the address that answered says more than a
+         * refused connection on the one that did not, so it decides the error.
+         */
+        private fun transportError(exception: Exception): WebDavException {
+            val failures = generateSequence<Throwable>(exception) { it.cause }.take(8).toList() + exception.suppressed
+            return WebDavException(when {
+                failures.any { it is SSLException } -> WebDavError.TLS
+                exception is SocketTimeoutException || exception is InterruptedIOException -> WebDavError.TIMEOUT
+                else -> WebDavError.CONNECTION
+            })
+        }
 
         private fun statusError(code: Int): WebDavException = WebDavException(when (code) {
             401 -> WebDavError.AUTHENTICATION

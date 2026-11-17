@@ -1,5 +1,6 @@
 package app.picacgmd.core.network.webdav
 
+import java.net.InetAddress
 import java.net.ProxySelector
 import java.security.KeyStore
 import java.util.concurrent.TimeUnit
@@ -28,6 +29,7 @@ import mockwebserver3.MockWebServer
 import mockwebserver3.RecordedRequest
 import mockwebserver3.Dispatcher
 import okhttp3.Credentials
+import okhttp3.Dns
 import okhttp3.OkHttpClient
 
 class WebDavClientTest {
@@ -253,6 +255,12 @@ class WebDavClientTest {
         OkHttpWebDavClient(tls.context.socketFactory, tls.trustManager, 100).use {
             assertFailure(WebDavError.TIMEOUT, it.getHistory(account))
         }
+    }
+
+    @Test fun aCertificateFailureWinsOverARefusedConnectionOnAnotherAddressOfTheHost() = runTest {
+        // A dual-stack host name: nothing listens on the IPv6 address, the IPv4 one presents the untrusted certificate.
+        val addresses = Dns { listOf(InetAddress.getByName("::1"), InetAddress.getByName("127.0.0.1")) }
+        OkHttpWebDavClient(addresses).use { assertFailure(WebDavError.TLS, it.getHistory(account)) }
     }
 
     @Test fun cancellationCancelsAnInFlightBodyRead() = runTest {
