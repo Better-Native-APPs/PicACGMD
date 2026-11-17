@@ -153,8 +153,8 @@ private data class PreviewTarget(val image: PageImage, val label: PageLabel)
  * @param onOpenComments the comic's comments (评论 / 看评论); the buttons are hidden when null.
  * @param onOpenRelated other comics readers also viewed (也在看); the button is hidden when null.
  * @param onOpenAllSettings the app's reader settings page (全部设置); the links are hidden when null.
- * @param routes 分流 / 图片分流 rows in the settings sheet; also what 「换分流」 on a failed page
- *   opens. Hidden when null (downloaded comics).
+ * @param routes the top-capsule shortcut and API/image route rows in the settings sheet; also what
+ *   「换分流」 on a failed page opens. Hidden when null (downloaded comics).
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -532,6 +532,7 @@ fun ReaderScreen(
                     onOpenComments = onOpenComments,
                     onOpenAllSettings = onOpenAllSettings,
                 ),
+                onOpenRoutes = routes?.onOpenApiRoutes,
             )
 
             // 全屏 shows the pages and nothing over them (2026-11-10): no back button. The system back
