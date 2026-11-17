@@ -11,8 +11,8 @@ android {
 
     defaultConfig {
         applicationId = "app.picacgmd"
-        versionCode = 110
-        versionName = "1.1.0"
+        versionCode = 111
+        versionName = "1.1.1"
     }
 
     signingConfigs {
