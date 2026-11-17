@@ -29,7 +29,8 @@ internal object SettingsKeys {
     val appOrientation = stringPreferencesKey("app_orientation")
     val displayModeId = intPreferencesKey("display_mode_id")
     val fullScreenDisplay = stringPreferencesKey("full_screen_display")
-    val startupImageUri = stringPreferencesKey("startup_image_uri")
+    /** Read only: custom launch pictures are gone; the stale value is removed on read, backup and restore. */
+    val legacyStartupImageUri = stringPreferencesKey("startup_image_uri")
     val lastSeenAnnouncementId = stringPreferencesKey("last_seen_announcement_id")
     val listLayout = stringPreferencesKey("list_layout")
     val listColumnCount = intPreferencesKey("list_column_count")

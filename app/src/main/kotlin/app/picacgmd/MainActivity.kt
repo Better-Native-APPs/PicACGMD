@@ -30,12 +30,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
-import coil3.compose.AsyncImage
 import androidx.core.content.edit
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -64,7 +61,6 @@ import app.picacgmd.navigation.ExternalNavigation
 import app.picacgmd.navigation.externalNavigation
 import app.picacgmd.ui.PicaApp
 import app.picacgmd.feature.reader.ui.AppSystemBars
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -98,10 +94,26 @@ class MainActivity : ComponentActivity() {
             },
             onError = { authenticationError = it },
         )
-        splash.setKeepOnScreenCondition { settings == null && settingsError == null }
+        val sessionManager = pikaApplication.appContainer.sessionManager
+        var initializingSession = true
+        // Only local settings/session reads hold the system splash; the lock and errors must remain reachable.
+        splash.setKeepOnScreenCondition {
+            settingsError == null && (settings == null || !locked && initializingSession)
+        }
         enableEdgeToEdge()
         acceptIntent(intent)
         observeSettings()
+        lifecycleScope.launch {
+            try {
+                sessionManager.awaitReady()
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                settingsError = exception.localizedMessage ?: "读取本机设置失败"
+            } finally {
+                initializingSession = false
+            }
+        }
         setContent {
             val container = pikaApplication.appContainer
             val preferences = settings ?: AppSettings.DEFAULT
@@ -117,15 +129,6 @@ class MainActivity : ComponentActivity() {
                 SettingsDarkMode.DARK -> DarkMode.Dark
             }
             val dark = darkMode.isDark()
-            var startupImagePending by rememberSaveable { mutableStateOf(savedInstanceState == null) }
-            var startupImageLoaded by remember { mutableStateOf(false) }
-            val showStartupImage = startupImagePending && settings != null && !locked && preferences.startupImageUri != null
-            LaunchedEffect(settings != null, locked, showStartupImage, startupImageLoaded) {
-                if (settings != null && !locked) {
-                    if (showStartupImage) delay(if (startupImageLoaded) 800 else 2_000)
-                    startupImagePending = false
-                }
-            }
             DisposableEffect(dark) {
                 enableEdgeToEdge(
                     statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark },
@@ -172,14 +175,6 @@ class MainActivity : ComponentActivity() {
                                     Modifier.fillMaxSize(), contentAlignment = Alignment.Center,
                                 ) { app.picacgmd.core.designsystem.component.LoadingState() }
                                 locked -> AppLockScreen(authenticationError, ::unlock, ::finish)
-                                showStartupImage -> AsyncImage(
-                                    model = preferences.startupImageUri,
-                                    contentDescription = "启动图片",
-                                    contentScale = ContentScale.Fit,
-                                    modifier = Modifier.fillMaxSize(),
-                                    onSuccess = { startupImageLoaded = true },
-                                    onError = { startupImagePending = false },
-                                )
                                 session == SessionState.Initializing -> Box(
                                     Modifier.fillMaxSize(), contentAlignment = Alignment.Center,
                                 ) { app.picacgmd.core.designsystem.component.LoadingState() }
@@ -210,7 +205,7 @@ class MainActivity : ComponentActivity() {
     }
 
     // Every ActivityResult launcher (ComponentActivity's ActivityResultRegistry) ends up here, so pickers the
-    // app opens itself (download folder, avatar, startup image, credential screen) don't relock on return.
+    // app opens itself (download folder, avatar, credential screen) don't relock on return.
     @Deprecated("Deprecated in Java")
     @Suppress("DEPRECATION")
     override fun startActivityForResult(intent: Intent, requestCode: Int, options: Bundle?) {

@@ -6,7 +6,11 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.database.sqlite.SQLiteDatabase
 import android.os.ParcelFileDescriptor
+import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import app.picacgmd.core.data.settings.AppTheme
 import app.picacgmd.core.data.settings.RoutingMode
 import app.picacgmd.core.data.settings.SettingsRepository
@@ -57,17 +61,21 @@ internal fun deliverBackupSnapshot(context: Context, agent: PicaBackupAgent, nam
     }
 }
 
-internal fun <T> withBackupSettings(file: File, block: suspend (SettingsRepository) -> T): T = runBlocking(Dispatchers.IO) {
+internal fun <T> withBackupSettings(file: File, block: suspend (SettingsRepository) -> T): T =
+    withBackupPreferences(file) { block(SettingsRepository(it)) }
+
+internal fun <T> withBackupPreferences(file: File, block: suspend (DataStore<Preferences>) -> T): T = runBlocking(Dispatchers.IO) {
     val job = SupervisorJob()
     val store = PreferenceDataStoreFactory.create(scope = CoroutineScope(Dispatchers.IO + job), produceFile = { file })
     try {
-        block(SettingsRepository(store))
+        block(store)
     } finally {
         job.cancelAndJoin()
     }
 }
 
-internal fun populateBackupSettings(file: File) = withBackupSettings(file) { repository ->
+internal fun populateBackupSettings(file: File): Unit = withBackupPreferences(file) { store ->
+    val repository = SettingsRepository(store)
     repository.setAccountEmail("reader@example.com")
     repository.setAuthToken("private-token", 123)
     repository.setApiRouteAddress("203.0.113.1")
@@ -75,7 +83,6 @@ internal fun populateBackupSettings(file: File) = withBackupSettings(file) { rep
     repository.setImageRouting(RoutingMode.ROUTE_2)
     repository.setTimeOffsetHours(8)
     repository.setDisplayModeId(42)
-    repository.setStartupImageUri("content://images/startup")
     repository.setDownloadTreeUri("content://documents/tree/comics")
     repository.setAppLockEnabled(true)
     repository.setBiometricUnlockEnabled(false)
@@ -90,6 +97,8 @@ internal fun populateBackupSettings(file: File) = withBackupSettings(file) { rep
     repository.setWebDavAutoSync(true)
     repository.setWebDavWifiOnly(false)
     repository.setWebDavLastSyncedAt(789L)
+    // Seed a real old key without reintroducing a setter for the removed feature.
+    store.edit { it[stringPreferencesKey("startup_image_uri")] = "content://images/startup" }
 }
 
 /** Real preference XML and default file restore, with a simulated transport and aligned test storage paths. */

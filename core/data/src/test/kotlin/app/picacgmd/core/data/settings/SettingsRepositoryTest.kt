@@ -3,6 +3,7 @@ package app.picacgmd.core.data.settings
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.mutablePreferencesOf
 import java.io.IOException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -174,7 +175,6 @@ class SettingsRepositoryTest {
         repository.setAppOrientation(AppOrientation.LANDSCAPE)
         repository.setDisplayModeId(2)
         repository.setFullScreenDisplay(FullScreenDisplay.HIDE_SYSTEM_BARS)
-        repository.setStartupImageUri("content://images/startup")
         repository.setFailedReloadAction(FailedReloadAction.PULL_DOWN)
         repository.setHideViewedComics(true)
         repository.setHiddenCategories(listOf("隐藏分类"))
@@ -209,7 +209,7 @@ class SettingsRepositoryTest {
                 connectTimeoutSeconds = 60, readTimeoutSeconds = 10, timeOffsetHours = 8,
                 useApiClientForImages = true, appOrientation = AppOrientation.LANDSCAPE, displayModeId = 2,
                 fullScreenDisplay = FullScreenDisplay.HIDE_SYSTEM_BARS,
-                startupImageUri = "content://images/startup", failedReloadAction = FailedReloadAction.PULL_DOWN,
+                failedReloadAction = FailedReloadAction.PULL_DOWN,
                 hideViewedComics = true, hiddenCategories = listOf("隐藏分类"), showAuthorSearch = false,
                 showSubscriptions = false, showTagFavourites = false, showOnlineFavourites = false,
                 copyNameTemplate = "{title}", confirmCopy = false,
@@ -225,6 +225,24 @@ class SettingsRepositoryTest {
             ),
             repository.settings.first(),
         )
+    }
+
+    @Test
+    fun legacyLaunchPictureIsRemovedOnReadWithoutChangingOtherSettings() = runTest {
+        val store = MemoryPreferencesStore()
+        store.updateData {
+            mutablePreferencesOf(
+                SettingsKeys.legacyStartupImageUri to "content://images/startup",
+                SettingsKeys.theme to "BOOK",
+            )
+        }
+        val repository = SettingsRepository(store)
+        val expected = AppSettings.DEFAULT.copy(theme = AppTheme.BOOK)
+        assertEquals(expected, repository.settings.first())
+        assertNull(store.data.first()[SettingsKeys.legacyStartupImageUri])
+        assertEquals(setOf(SettingsKeys.theme), store.data.first().asMap().keys)
+        assertEquals(expected, SettingsRepository(store).settings.first())
+        assertEquals(setOf(SettingsKeys.theme), store.data.first().asMap().keys)
     }
 
     @Test

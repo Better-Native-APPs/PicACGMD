@@ -24,7 +24,12 @@ class SettingsRepository(
     private val dataStore: DataStore<Preferences>,
     private val defaults: AppSettings = AppSettings.DEFAULT,
 ) {
-    val settings: Flow<AppSettings> = dataStore.data.map { SettingsPreferencesMapper.decode(it, defaults) }.distinctUntilChanged()
+    val settings: Flow<AppSettings> = dataStore.data.map { preferences ->
+        val current = if (Keys.legacyStartupImageUri in preferences.asMap()) {
+            dataStore.edit { it.remove(Keys.legacyStartupImageUri) }
+        } else preferences
+        SettingsPreferencesMapper.decode(current, defaults)
+    }.distinctUntilChanged()
 
     suspend fun setAccountEmail(value: String) = set(Keys.accountEmail, value)
 
@@ -81,7 +86,6 @@ class SettingsRepository(
     }
 
     suspend fun setFullScreenDisplay(value: FullScreenDisplay) = setEnum(Keys.fullScreenDisplay, value)
-    suspend fun setStartupImageUri(value: String?) = setNullable(Keys.startupImageUri, value)
     suspend fun setLastSeenAnnouncementId(value: String?) = setNullable(Keys.lastSeenAnnouncementId, value)
     suspend fun setListLayout(value: ListLayout) = setEnum(Keys.listLayout, value)
 
@@ -220,6 +224,7 @@ class SettingsRepository(
     /** Unknown keys stay out until their backup policy has been explicitly audited. */
     suspend fun filterForSystemBackup(includeAuthentication: Boolean = false) {
         dataStore.edit { preferences ->
+            preferences.remove(Keys.legacyStartupImageUri)
             val allowed = (portableBackupKeys + deviceBoundRestoreKeys +
                 if (includeAuthentication) authenticationKeys else emptyList()).toSet()
             preferences.asMap().keys.filterNot { it in allowed }.forEach { preferences.remove(it) }
@@ -266,7 +271,7 @@ class SettingsRepository(
     companion object {
         private val authenticationKeys = listOf(Keys.accountEmail, Keys.authToken, Keys.authTokenUpdatedAt)
         private val deviceBoundRestoreKeys = listOf(
-            Keys.legacyCustomApiIp, Keys.displayModeId, Keys.startupImageUri, Keys.downloadTreeUri,
+            Keys.legacyCustomApiIp, Keys.displayModeId, Keys.legacyStartupImageUri, Keys.downloadTreeUri,
             Keys.appLockEnabled, Keys.biometricUnlockEnabled, Keys.appLockTimeoutSeconds, Keys.webDavLastSyncedAt,
         )
         private val portableBackupKeys = listOf(

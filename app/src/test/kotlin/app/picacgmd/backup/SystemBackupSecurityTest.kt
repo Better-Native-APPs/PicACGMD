@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import app.picacgmd.core.data.db.PicaDatabase
 import app.picacgmd.core.data.settings.AppTheme
+import app.picacgmd.core.data.settings.SettingsRepository
 import app.picacgmd.core.domain.session.CredentialStore
 import app.picacgmd.core.domain.session.Credentials
 import app.picacgmd.core.domain.session.KeystoreCredentialStore
@@ -262,7 +263,6 @@ class SystemBackupSecurityTest {
                 authToken = payload.token,
                 authTokenUpdatedAt = 123L,
                 displayModeId = null,
-                startupImageUri = null,
                 downloadTreeUri = null,
                 appLockEnabled = false,
                 biometricUnlockEnabled = true,
@@ -555,7 +555,9 @@ class SystemBackupSecurityTest {
             payload.library, BackupDatabaseFixture.libraryRows(restarted.databaseFile),
             "Committed ${payload.label} must install its own library instead of the previous installation",
         )
-        withBackupSettings(restarted.settingsFile) { repository ->
+        withBackupPreferences(restarted.settingsFile) { store ->
+            assertNull(store.data.first()[stringPreferencesKey("startup_image_uri")])
+            val repository = SettingsRepository(store)
             val settings = repository.settings.first()
             assertEquals(payload.theme, settings.theme)
             assertEquals(listOf(payload.label), settings.pinnedHomeCategories)

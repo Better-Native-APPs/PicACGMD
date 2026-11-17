@@ -100,6 +100,15 @@ class SettingsPreferencesMapperTest {
     }
 
     @Test
+    fun legacyLaunchPictureIsIgnoredWithoutDroppingOtherPreferences() {
+        val preferences = mutablePreferencesOf(
+            SettingsKeys.legacyStartupImageUri to "content://images/startup",
+            SettingsKeys.theme to "BOOK",
+        )
+        assertEquals(AppSettings.DEFAULT.copy(theme = AppTheme.BOOK), SettingsPreferencesMapper.decode(preferences))
+    }
+
+    @Test
     fun formerCustomAddressStaysSelectedWhileTheRouteListStillOffersIt() {
         val builtIn = mutablePreferencesOf(
             SettingsKeys.apiRouteAddress to "104.20.180.50",

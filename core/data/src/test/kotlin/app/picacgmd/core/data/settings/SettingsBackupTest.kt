@@ -39,11 +39,12 @@ class SettingsBackupTest {
             val before = fixture().apply { this[unknown] = "must-not-travel" }
             val store = BackupPreferencesStore(before)
             SettingsRepository(store).filterForSystemBackup(includeAuthentication)
-            val excluded = if (includeAuthentication) emptySet() else authenticationNames
+            val excluded = retiredNames + if (includeAuthentication) emptySet() else authenticationNames
             val expected = before.asMap().filterKeys { it.name !in excluded && it != unknown }
             assertEquals(expected, store.data.value.asMap(), policyUpdateMessage)
             assertTrue(store.data.value[Keys.appLockEnabled] == true, "Restore must know that the lock was enabled")
             assertEquals(if (includeAuthentication) "secret-token" else null, store.data.value[Keys.authToken])
+            assertNull(store.data.value[Keys.legacyStartupImageUri])
         }
     }
 
@@ -66,7 +67,7 @@ class SettingsBackupTest {
         assertEquals(RoutingMode.ROUTE_2, restored.imageRoutingMode)
         assertEquals(8, restored.timeOffsetHours)
         assertNull(restored.displayModeId)
-        assertNull(restored.startupImageUri)
+        assertNull(store.data.value[Keys.legacyStartupImageUri])
         assertNull(restored.downloadTreeUri)
         assertFalse(restored.appLockEnabled)
         assertTrue(restored.biometricUnlockEnabled)
@@ -120,6 +121,25 @@ class SettingsBackupTest {
     }
 
     @Test
+    fun legacyLaunchPictureIsNeverBackedUpAndIsRemovedFromOldRestores() = runTest {
+        for (keepAuthentication in listOf(false, true)) {
+            val preferences = mutablePreferencesOf(
+                Keys.legacyStartupImageUri to "content://images/startup",
+                Keys.theme to "BOOK",
+            )
+            val backup = BackupPreferencesStore(preferences)
+            SettingsRepository(backup).filterForSystemBackup(includeAuthentication = keepAuthentication)
+            assertNull(backup.data.value[Keys.legacyStartupImageUri])
+            assertEquals("BOOK", backup.data.value[Keys.theme])
+
+            val restore = BackupPreferencesStore(preferences)
+            SettingsRepository(restore).resetAfterSystemRestore(keepAuthentication)
+            assertNull(restore.data.value[Keys.legacyStartupImageUri])
+            assertEquals("BOOK", restore.data.value[Keys.theme])
+        }
+    }
+
+    @Test
     fun removedDoubleBackSettingIsDroppedWhenRestoringAnOldBackup() = runTest {
         val removed = booleanPreferencesKey("double_back_to_exit")
         for (keepAuthentication in listOf(false, true)) {
@@ -134,6 +154,7 @@ class SettingsBackupTest {
     private val policyUpdateMessage = "Update SettingsRepository's explicit key lists and this test's expected policy; " +
         "unknown keys must remain excluded from backup and removed on restore."
     private val authenticationNames = setOf("account_email", "auth_token", "auth_token_updated_at")
+    private val retiredNames = setOf("startup_image_uri")
     private val resetNames = setOf(
         "custom_api_ip", "display_mode_id", "startup_image_uri", "download_tree_uri",
         "app_lock_enabled", "biometric_unlock_enabled", "app_lock_timeout_seconds", "webdav_last_synced_at",
@@ -147,7 +168,7 @@ class SettingsBackupTest {
         Keys.connectTimeoutSeconds to 60, Keys.readTimeoutSeconds to 10, Keys.timeOffsetHours to 8,
         Keys.useApiClientForImages to true, Keys.theme to "BOOK", Keys.darkMode to "DARK", Keys.pureBlack to true,
         Keys.appOrientation to "LANDSCAPE", Keys.displayModeId to 42, Keys.fullScreenDisplay to "HIDE_SYSTEM_BARS",
-        Keys.startupImageUri to "content://images/startup",
+        Keys.legacyStartupImageUri to "content://images/startup",
         Keys.lastSeenAnnouncementId to "announcement-1", Keys.listLayout to "COVER_AND_TITLE", Keys.listColumnCount to 7,
         Keys.categoryColumnCount to 2, Keys.paginationMode to "BUTTONS", Keys.failedReloadAction to "PULL_DOWN",
         Keys.shieldedCategories to "[\"分类一\"]", Keys.categoryShieldMode to "BLACKLIST",

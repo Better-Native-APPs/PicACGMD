@@ -4,9 +4,11 @@ import android.app.Application
 import android.content.Context
 import android.content.ContextWrapper
 import android.database.sqlite.SQLiteDatabase
+import androidx.datastore.preferences.core.stringPreferencesKey
 import app.picacgmd.core.data.db.HistoryTombstone
 import app.picacgmd.core.data.db.PicaDatabase
 import app.picacgmd.core.data.settings.AppTheme
+import app.picacgmd.core.data.settings.SettingsRepository
 import app.picacgmd.core.domain.session.KeystoreCredentialStore
 import app.picacgmd.core.domain.session.SessionManager
 import app.picacgmd.core.domain.session.SessionState
@@ -70,8 +72,14 @@ class SystemRestoreTest {
             assertFalse(storage.databaseSnapshot.readBytes().toString(Charsets.ISO_8859_1).contains(BackupDatabaseFixture.CACHE_MARKER))
             assertFalse(File(storage.databaseSnapshot.path + "-wal").exists())
             assertFalse(File(storage.databaseSnapshot.path + "-shm").exists())
-            val backup = withBackupSettings(storage.settingsSnapshot) { it.settings.first() }
-            val live = withBackupSettings(storage.settingsFile) { it.settings.first() }
+            val backup = withBackupPreferences(storage.settingsSnapshot) {
+                assertNull(it.data.first()[stringPreferencesKey("startup_image_uri")])
+                SettingsRepository(it).settings.first()
+            }
+            val live = withBackupPreferences(storage.settingsFile) {
+                assertEquals("content://images/startup", it.data.first()[stringPreferencesKey("startup_image_uri")])
+                SettingsRepository(it).settings.first()
+            }
             assertNull(backup.authToken)
             assertNull(backup.authTokenUpdatedAt)
             assertEquals("", backup.accountEmail)
@@ -257,7 +265,10 @@ class SystemRestoreTest {
     private fun assertCleanRestore(library: Map<String, List<String?>>) {
         assertEquals(library, BackupDatabaseFixture.libraryRows(storage.databaseFile))
         for (table in BackupDatabaseFixture.deviceTables) assertEquals(0, BackupDatabaseFixture.count(storage.databaseFile, table), table)
-        val settings = withBackupSettings(storage.settingsFile) { it.settings.first() }
+        val settings = withBackupPreferences(storage.settingsFile) {
+            assertNull(it.data.first()[stringPreferencesKey("startup_image_uri")])
+            SettingsRepository(it).settings.first()
+        }
         assertNull(settings.authToken)
         assertNull(settings.authTokenUpdatedAt)
         assertEquals("", settings.accountEmail)
@@ -265,7 +276,6 @@ class SystemRestoreTest {
         assertEquals(listOf("203.0.113.1"), settings.syncedApiAddresses)
         assertEquals(456L, settings.apiRoutesSyncedAt)
         assertNull(settings.displayModeId)
-        assertNull(settings.startupImageUri)
         assertNull(settings.downloadTreeUri)
         assertEquals(8, settings.timeOffsetHours)
         assertFalse(settings.appLockEnabled)

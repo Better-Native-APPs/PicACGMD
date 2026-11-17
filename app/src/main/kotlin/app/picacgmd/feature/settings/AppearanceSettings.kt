@@ -1,10 +1,7 @@
 package app.picacgmd.feature.settings
 
-import android.content.Intent
 import android.hardware.display.DisplayManager
 import android.view.Display
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -54,10 +51,9 @@ import app.picacgmd.core.designsystem.theme.ThemeChoice
 import app.picacgmd.core.designsystem.theme.isDynamicColorSupported
 import app.picacgmd.core.designsystem.theme.staticColorScheme
 import app.picacgmd.di.LocalAppContainer
-import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-private enum class AppearanceDialog { RefreshRate, Orientation, FullScreen, StartupImage }
+private enum class AppearanceDialog { RefreshRate, Orientation, FullScreen }
 
 /** Board 25 外观: theme mode, palette preview cards, pure black, display behaviour. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -70,17 +66,6 @@ internal fun AppearanceSettingsPage(onBack: () -> Unit, modifier: Modifier = Mod
     val settings = rememberAppSettings()
     var dialog by rememberSaveable { mutableStateOf<AppearanceDialog?>(null) }
     val context = LocalContext.current
-    val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) {
-            runCatching {
-                context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }.onSuccess {
-                writer.update { setStartupImageUri(uri.toString()) }
-            }.onFailure {
-                scope.launch { snackbar.showSnackbar("无法保留图片访问权限，请重新选择") }
-            }
-        }
-    }
     val displayModes = remember(context) {
         val display = context.getSystemService(DisplayManager::class.java)?.getDisplay(Display.DEFAULT_DISPLAY)
         display?.supportedModes.orEmpty().sortedBy { it.refreshRate }
@@ -168,18 +153,6 @@ internal fun AppearanceSettingsPage(onBack: () -> Unit, modifier: Modifier = Mod
                         onClick = { dialog = AppearanceDialog.FullScreen },
                     )
                 }
-                row { shapes ->
-                    SettingsNavRow(
-                        shapes = shapes,
-                        title = "启动图片",
-                        summary = "使用自选图片",
-                        value = if (settings.startupImageUri == null) "默认" else "已设置",
-                        onClick = {
-                            if (settings.startupImageUri == null) pickImage.launch(arrayOf("image/*"))
-                            else dialog = AppearanceDialog.StartupImage
-                        },
-                    )
-                }
             }
         }
     }
@@ -216,16 +189,6 @@ internal fun AppearanceSettingsPage(onBack: () -> Unit, modifier: Modifier = Mod
             selected = settings?.fullScreenDisplay,
             label = { it.label() },
             onSelect = { writer.update { setFullScreenDisplay(it) } },
-            onDismiss = { dialog = null },
-        )
-        AppearanceDialog.StartupImage -> ChoiceDialog(
-            title = "启动图片",
-            options = listOf("change", "reset"),
-            selected = null,
-            label = { if (it == "change") "换一张图片" else "恢复默认" },
-            onSelect = {
-                if (it == "change") pickImage.launch(arrayOf("image/*")) else writer.update { setStartupImageUri(null) }
-            },
             onDismiss = { dialog = null },
         )
         null -> Unit

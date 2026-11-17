@@ -6,7 +6,7 @@
     </style>
     <style name="Theme.Pica" parent="Theme.Pica.Base" />
     <style name="Theme.Pica.Starting" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">#211A1D</item>
+        <item name="windowSplashScreenBackground">#F37697</item>
         <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
         <item name="postSplashScreenTheme">@style/Theme.Pica</item>
     </style>
