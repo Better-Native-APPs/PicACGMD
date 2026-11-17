@@ -2,6 +2,7 @@ package app.picacgmd.core.domain.repository
 
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.data.settings.CategoryShieldMode
+import app.picacgmd.core.data.settings.PinnableHomeChannel
 import app.picacgmd.core.network.Category
 import app.picacgmd.core.network.ComicInfo
 import app.picacgmd.core.network.ComicSimple
@@ -34,9 +35,13 @@ enum class HomeChannelKind { RANKINGS, RANDOM, GAMES, CATEGORY }
 
 data class HomeChannel(val kind: HomeChannelKind, val title: String, val category: Category? = null)
 
-/** Built-in browse entry, never sent as a PicACG category filter. */
+/** Built-in browse entries, never sent as PicACG category filters. */
 val ALL_COMICS_CATEGORY = Category(id = "builtin-all-comics", title = "全分类")
+val RANDOM_CATEGORY = Category(id = "builtin-random", title = "随机")
+val GAMES_CATEGORY = Category(id = "builtin-games", title = "游戏专区")
+val BUILT_IN_HOME_CATEGORIES: List<Category> = listOf(ALL_COMICS_CATEGORY, RANDOM_CATEGORY, GAMES_CATEGORY)
 
+/** Name-based category pins stay separate from the built-in random/games preference IDs. */
 fun homeCategoryCatalogue(categories: List<Category>): List<Category> =
     listOf(ALL_COMICS_CATEGORY) + categories.filterNot { it.isWeb }
 
@@ -154,13 +159,17 @@ fun buildHomeModel(
             ?: catalogue.firstOrNull { categoryKey(it.title) == categoryKey(name) }
     }.distinctBy { categoryKey(it.title) }
     // Hidden grid categories and pinned shortcuts are independent preferences (SPEC §0).
-    val fixed = listOf(
-        HomeChannel(HomeChannelKind.RANKINGS, "排行榜"),
-        HomeChannel(HomeChannelKind.RANDOM, "随机"),
-        HomeChannel(HomeChannelKind.GAMES, "游戏专区"),
-    )
+    val builtIns = buildList {
+        add(HomeChannel(HomeChannelKind.RANKINGS, "排行榜"))
+        if (PinnableHomeChannel.RANDOM.id in settings.pinnedHomeChannels) {
+            add(HomeChannel(HomeChannelKind.RANDOM, RANDOM_CATEGORY.title))
+        }
+        if (PinnableHomeChannel.GAMES.id in settings.pinnedHomeChannels) {
+            add(HomeChannel(HomeChannelKind.GAMES, GAMES_CATEGORY.title))
+        }
+    }
     return HomeModel(
-        channels = fixed + pins.map { HomeChannel(HomeChannelKind.CATEGORY, it.title, it) },
-        categories = listOf(ALL_COMICS_CATEGORY) + visible,
+        channels = builtIns + pins.map { HomeChannel(HomeChannelKind.CATEGORY, it.title, it) },
+        categories = BUILT_IN_HOME_CATEGORIES + visible,
     )
 }

@@ -256,6 +256,34 @@ class SettingsRepositoryTest {
     }
 
     @Test
+    fun builtInHomePinsDefaultToBothAndRoundTripIndependentlyOfCategoryPins() = runTest {
+        val store = MemoryPreferencesStore()
+        val repository = SettingsRepository(store)
+        assertEquals(setOf("random", "games"), repository.settings.first().pinnedHomeChannels)
+        assertNull(store.data.first()[SettingsKeys.pinnedHomeChannels])
+        repository.setPinnedHomeCategories(listOf("随机", "游戏专区"))
+        for (selected in listOf(setOf("random"), setOf("games"), emptySet(), setOf("games", "random"))) {
+            repository.setPinnedHomeChannels(selected)
+            assertEquals(selected, store.data.first()[SettingsKeys.pinnedHomeChannels])
+            val restored = SettingsRepository(store).settings.first()
+            assertEquals(selected, restored.pinnedHomeChannels)
+            assertEquals(listOf("随机", "游戏专区"), restored.pinnedHomeCategories)
+        }
+    }
+
+    @Test
+    fun invalidBuiltInHomePinIdsAreRejectedWithoutWriting() = runTest {
+        val store = MemoryPreferencesStore()
+        val repository = SettingsRepository(store)
+        repository.setPinnedHomeChannels(setOf("random"))
+        val before = store.data.first().asMap()
+        for (invalid in listOf("unknown", "rankings", "Random", "", "随机")) {
+            assertFailsWith<IllegalArgumentException> { repository.setPinnedHomeChannels(setOf("games", invalid)) }
+            assertEquals(before, store.data.first().asMap())
+        }
+    }
+
+    @Test
     fun everyAllowedThreadCountWorksAndInvalidCountsDoNotWrite() = runTest {
         val repository = SettingsRepository(MemoryPreferencesStore())
         for (count in 1..16) {

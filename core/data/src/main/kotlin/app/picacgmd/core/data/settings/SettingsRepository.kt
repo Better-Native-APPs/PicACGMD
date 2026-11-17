@@ -110,6 +110,12 @@ class SettingsRepository(
     suspend fun setHiddenCategories(values: List<String>) = setList(Keys.hiddenCategories, values)
     suspend fun setCategoryOrder(values: List<String>) = setList(Keys.categoryOrder, values)
     suspend fun setPinnedHomeCategories(values: List<String>) = setList(Keys.pinnedHomeCategories, values)
+
+    suspend fun setPinnedHomeChannels(values: Set<String>) {
+        SettingsValidation.requireHomeChannels(values)
+        set(Keys.pinnedHomeChannels, values.toSet())
+    }
+
     suspend fun setShowAuthorSearch(value: Boolean) = set(Keys.showAuthorSearch, value)
     suspend fun setShowSubscriptions(value: Boolean) = set(Keys.showSubscriptions, value)
     suspend fun setShowTagFavourites(value: Boolean) = set(Keys.showTagFavourites, value)
@@ -282,7 +288,7 @@ class SettingsRepository(
             Keys.lastSeenAnnouncementId, Keys.listLayout, Keys.listColumnCount, Keys.categoryColumnCount,
             Keys.paginationMode, Keys.failedReloadAction, Keys.shieldedCategories, Keys.categoryShieldMode,
             Keys.hiddenKeywords, Keys.hideViewedComics, Keys.hideAiComics, Keys.hiddenCategories, Keys.categoryOrder,
-            Keys.pinnedHomeCategories, Keys.showAuthorSearch, Keys.showSubscriptions, Keys.showTagFavourites,
+            Keys.pinnedHomeCategories, Keys.pinnedHomeChannels, Keys.showAuthorSearch, Keys.showSubscriptions, Keys.showTagFavourites,
             Keys.showOnlineFavourites, Keys.copyNameTemplate, Keys.confirmCopy,
             Keys.readerMode, Keys.readerDirection, Keys.readerTapZones, Keys.volumeKeyPaging, Keys.volumeKeyChapterPaging,
             Keys.readerBackground, Keys.readerFilter, Keys.keepScreenOn, Keys.readerFullScreen, Keys.fullScreenOnForward,

@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 
 /** The only definitions of on-disk preference keys. Ordered lists use JSON, never StringSet. */
 internal object SettingsKeys {
@@ -45,6 +46,7 @@ internal object SettingsKeys {
     val hiddenCategories = stringPreferencesKey("hidden_categories")
     val categoryOrder = stringPreferencesKey("category_order")
     val pinnedHomeCategories = stringPreferencesKey("pinned_home_categories")
+    val pinnedHomeChannels = stringSetPreferencesKey("pinned_home_channels")
     val showAuthorSearch = booleanPreferencesKey("show_author_search")
     val showSubscriptions = booleanPreferencesKey("show_subscriptions")
     val showTagFavourites = booleanPreferencesKey("show_tag_favourites")

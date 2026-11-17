@@ -57,7 +57,7 @@ object HomeChannelDefaults {
     val PictureRim: Dp = 3.dp
 }
 
-/** The three fixed home channels of the design spec, with their board-01 shape and color. */
+/** The built-in home channels, with their board-01 shape and color; only rankings is always pinned. */
 enum class HomeChannel { Rankings, Random, Games }
 
 /**
@@ -88,7 +88,7 @@ fun HomeChannelButton(
 }
 
 /**
- * One of the fixed channels: 排行榜 = Cookie6Sided on primary container, 随机 = Clover4Leaf on
+ * One of the built-in channels: 排行榜 = Cookie6Sided on primary container, 随机 = Clover4Leaf on
  * tertiary container, 游戏专区 = Flower (board 01 reserves it for the game entry) on the highest
  * surface container. Icons come from [PicaIcons].
  */
@@ -118,7 +118,7 @@ fun HomeChannelButton(
 }
 
 /**
- * A category the user pinned to the home row (「固定到首页」): the same shaped badge as the fixed
+ * A category the user pinned to the home row (「固定到首页」): the same shaped badge as the built-in
  * channels, filled with a tonal colour picked from the name, with the category picture set into it.
  * A rim of the tonal colour, [HomeChannelDefaults.PictureRim] wide, stays around the picture so the
  * outline reads on any picture and any background. The picture is scaled to fill and centred, then

@@ -90,6 +90,7 @@ internal fun populateBackupSettings(file: File): Unit = withBackupPreferences(fi
     repository.setEInkReduceAnimations(true)
     repository.setTheme(AppTheme.BOOK)
     repository.setPinnedHomeCategories(listOf("分类二", "分类一"))
+    repository.setPinnedHomeChannels(setOf("games"))
     repository.setDownloadThreads(16)
     repository.setPreventScreenshots(true)
     repository.setAutoPunchIn(false)

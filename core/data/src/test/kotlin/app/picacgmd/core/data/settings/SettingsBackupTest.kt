@@ -45,6 +45,7 @@ class SettingsBackupTest {
             assertTrue(store.data.value[Keys.appLockEnabled] == true, "Restore must know that the lock was enabled")
             assertEquals(if (includeAuthentication) "secret-token" else null, store.data.value[Keys.authToken])
             assertNull(store.data.value[Keys.legacyStartupImageUri])
+            assertEquals(setOf("games"), store.data.value[Keys.pinnedHomeChannels])
         }
     }
 
@@ -80,6 +81,7 @@ class SettingsBackupTest {
         assertTrue(restored.preventScreenshots)
         assertEquals(AppOrientation.LANDSCAPE, restored.appOrientation)
         assertEquals(listOf("分类二", "分类一"), restored.pinnedHomeCategories)
+        assertEquals(setOf("games"), restored.pinnedHomeChannels)
         assertEquals("https://backup.example.com/dav/", restored.webDav.address)
         assertEquals("sync-reader", restored.webDav.username)
         assertEquals("Library", restored.webDav.folder)
@@ -174,7 +176,8 @@ class SettingsBackupTest {
         Keys.shieldedCategories to "[\"分类一\"]", Keys.categoryShieldMode to "BLACKLIST",
         Keys.hiddenKeywords to "[\"关键词\"]", Keys.hideViewedComics to true, Keys.hideAiComics to true,
         Keys.hiddenCategories to "[\"分类三\"]", Keys.categoryOrder to "[\"分类二\",\"分类一\"]",
-        Keys.pinnedHomeCategories to "[\"分类二\",\"分类一\"]", Keys.showAuthorSearch to false,
+        Keys.pinnedHomeCategories to "[\"分类二\",\"分类一\"]", Keys.pinnedHomeChannels to setOf("games"),
+        Keys.showAuthorSearch to false,
         Keys.showSubscriptions to false, Keys.showTagFavourites to false, Keys.showOnlineFavourites to false,
         Keys.copyNameTemplate to "{title}", Keys.confirmCopy to false, Keys.readerMode to "TWO_PAGE_GALLERY",
         Keys.readerDirection to "RIGHT_TO_LEFT", Keys.readerTapZones to "THREE_ZONES", Keys.volumeKeyPaging to true,

@@ -48,6 +48,8 @@ internal object SettingsPreferencesMapper {
             hiddenCategories = preferences.readList(Keys.hiddenCategories, d.hiddenCategories),
             categoryOrder = preferences.readList(Keys.categoryOrder, d.categoryOrder),
             pinnedHomeCategories = preferences.readList(Keys.pinnedHomeCategories, d.pinnedHomeCategories),
+            pinnedHomeChannels = (preferences[Keys.pinnedHomeChannels] ?: d.pinnedHomeChannels)
+                .filter(SettingsValidation::isPinnableHomeChannel).toSet(),
             showAuthorSearch = preferences[Keys.showAuthorSearch] ?: d.showAuthorSearch,
             showSubscriptions = preferences[Keys.showSubscriptions] ?: d.showSubscriptions,
             showTagFavourites = preferences[Keys.showTagFavourites] ?: d.showTagFavourites,

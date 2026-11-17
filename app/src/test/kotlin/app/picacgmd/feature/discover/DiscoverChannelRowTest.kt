@@ -14,6 +14,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
+import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.designsystem.component.HomeChannel
 import app.picacgmd.core.designsystem.theme.DarkMode
 import app.picacgmd.core.designsystem.theme.PicaTheme
@@ -37,6 +38,7 @@ class DiscoverChannelRowTest {
     val rules: RuleChain = RuleChain.outerRule(ComposeHostRule()).around(composeRule)
 
     private var pinned by mutableStateOf(listOf(HomeCategory("大家都在看"), HomeCategory("大濕推薦"), AllComicsHomeCategory))
+    private var pinnedChannels by mutableStateOf(AppSettings.DEFAULT.pinnedHomeChannels)
     private var darkMode by mutableStateOf(DarkMode.Light)
     private val opened = mutableListOf<String>()
 
@@ -55,12 +57,30 @@ class DiscoverChannelRowTest {
     }
 
     @Test
-    fun tapsOpenTheCategoryAndTheFixedEntriesStillWork() {
+    fun tapsOpenTheCategoryAndTheBuiltInEntriesStillWork() {
         compose()
         entry("大濕推薦").performClick()
         entry(AllComicsHomeCategory.name).performClick()
         entry("排行榜").performClick()
-        assertEquals(listOf("category:大濕推薦", "all", "channel:Rankings"), opened)
+        entry("随机").performClick()
+        entry("游戏专区").performClick()
+        assertEquals(listOf("category:大濕推薦", "all", "channel:Rankings", "channel:Random", "channel:Games"), opened)
+    }
+
+    @Test
+    fun optionalBuiltInPinsCanBeRemovedWhileRankingsAndCategoryPinsStayUsable() {
+        compose()
+        pinnedChannels = setOf("games", "unknown")
+        composeRule.waitForIdle()
+        entry("随机").assertDoesNotExist()
+        entry("游戏专区").performClick()
+
+        pinnedChannels = emptySet()
+        composeRule.waitForIdle()
+        entry("游戏专区").assertDoesNotExist()
+        entry("排行榜").performClick()
+        entry("大家都在看").performClick()
+        assertEquals(listOf("channel:Games", "channel:Rankings", "category:大家都在看"), opened)
     }
 
     @Test
@@ -85,6 +105,7 @@ class DiscoverChannelRowTest {
             PicaTheme(themeChoice = ThemeChoice.Brand, darkMode = darkMode) {
                 ChannelRow(
                     pinned = pinned,
+                    pinnedChannels = pinnedChannels,
                     onChannelClick = { channel: HomeChannel -> opened += "channel:${channel.name}" },
                     onPinnedClick = { opened += "category:$it" },
                     onAllComicsClick = { opened += "all" },

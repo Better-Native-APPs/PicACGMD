@@ -12,7 +12,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.picacgmd.core.designsystem.component.HomeChannel
 import app.picacgmd.core.domain.di.AppContainer
-import app.picacgmd.core.domain.repository.ALL_COMICS_CATEGORY
 import app.picacgmd.core.domain.repository.HomeChannelKind
 import app.picacgmd.core.domain.repository.HomeModel
 import app.picacgmd.core.domain.repository.RepositoryState
@@ -147,4 +146,4 @@ private fun HomeModel.toContent(container: AppContainer) = DiscoverContent(
 )
 
 private fun Category.toHomeCategory(container: AppContainer): HomeCategory =
-    if (id == ALL_COMICS_CATEGORY.id) AllComicsHomeCategory else HomeCategory(title, container.imageUrl(thumb))
+    toHomeCategory(thumbUrl = thumb?.let { container.imageUrl(it) })

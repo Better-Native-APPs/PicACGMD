@@ -5,7 +5,7 @@ import androidx.compose.material3.MaterialShapes
 import androidx.graphics.shapes.RoundedPolygon
 
 /**
- * Outlines a category pinned to the home row can take. None of them is used by the fixed channels
+ * Outlines a category pinned to the home row can take. None of them is used by the built-in channels
  * (排行榜 / 随机 / 游戏专区) or by the profile avatar in the search bar, so a pinned category is never
  * mistaken for one of those. Every outline keeps the centred circle of [PinnedShapeSafeDiameter] of
  * the badge untouched, so a picture only loses its corners.

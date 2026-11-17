@@ -202,6 +202,7 @@ class SettingsPreferencesMapperTest {
         assertEquals(AppSettings.DEFAULT, SettingsPreferencesMapper.decode(emptyPreferences()))
         val defaults = AppSettings.DEFAULT
         assertEquals(listOf("大家都在看", "大濕推薦"), defaults.pinnedHomeCategories)
+        assertEquals(setOf("random", "games"), defaults.pinnedHomeChannels)
         assertEquals(4, defaults.downloadThreads)
         assertEquals(PaginationMode.INFINITE, defaults.paginationMode)
         assertTrue(defaults.autoPunchIn)
@@ -236,6 +237,31 @@ class SettingsPreferencesMapperTest {
     fun emptyPinsAreDistinctFromAnUnsetPreference() {
         val preferences = mutablePreferencesOf(SettingsKeys.pinnedHomeCategories to "[]")
         assertEquals(emptyList(), SettingsPreferencesMapper.decode(preferences).pinnedHomeCategories)
+    }
+
+    @Test
+    fun builtInHomePinsUseDefaultsOnlyWhenUnsetAndPreserveExplicitSelections() {
+        assertEquals(listOf("random", "games"), PinnableHomeChannel.entries.map { it.id })
+        val defaults = AppSettings.DEFAULT.copy(pinnedHomeChannels = setOf("games"))
+        assertEquals(setOf("games"), SettingsPreferencesMapper.decode(emptyPreferences(), defaults).pinnedHomeChannels)
+        for (selected in listOf(setOf("random", "games"), setOf("random"), setOf("games"), emptySet())) {
+            val preferences = mutablePreferencesOf(SettingsKeys.pinnedHomeChannels to selected)
+            assertEquals(selected, SettingsPreferencesMapper.decode(preferences, defaults).pinnedHomeChannels)
+        }
+    }
+
+    @Test
+    fun unknownBuiltInHomePinIdsAreIgnoredWithoutDroppingKnownPinsOrOtherSettings() {
+        val preferences = mutablePreferencesOf(
+            SettingsKeys.pinnedHomeChannels to setOf("random", "unknown", "rankings", "Random", ""),
+            SettingsKeys.theme to "BOOK",
+        )
+        assertEquals(
+            AppSettings.DEFAULT.copy(pinnedHomeChannels = setOf("random"), theme = AppTheme.BOOK),
+            SettingsPreferencesMapper.decode(preferences),
+        )
+        preferences[SettingsKeys.pinnedHomeChannels] = setOf("unknown")
+        assertEquals(emptySet(), SettingsPreferencesMapper.decode(preferences).pinnedHomeChannels)
     }
 
     @Test
