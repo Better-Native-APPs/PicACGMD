@@ -16,9 +16,11 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
@@ -205,6 +207,34 @@ class SessionManagerTest {
         fixture.session.updateStoredPassword("not-remembered")
         assertNull(fixture.store.credentials)
         assertNull(fixture.preferences.settings.value.authToken)
+    }
+
+    @Test
+    fun logoutErasesTheSavedTokenEvenWhenItsCallerIsCancelledByTheSignedOutState() = runTest {
+        val memory = MemorySessionPreferences(savedSettings())
+        val writeReached = CompletableDeferred<Unit>()
+        val releaseWrite = CompletableDeferred<Unit>()
+        val preferences = object : SessionPreferences by memory {
+            override suspend fun setAuthToken(token: String?, updatedAt: Long) {
+                writeReached.complete(Unit)
+                releaseWrite.await()
+                memory.setAuthToken(token, updatedAt)
+            }
+        }
+        val store = MemoryCredentialStore(Credentials(EMAIL, PASSWORD))
+        lateinit var session: SessionManager
+        val api = PicaApi(tokenProvider = { session.token }, baseUrl = server.url("/").toString())
+        session = SessionManager(preferences, store, { api }, backgroundScope, now = { 1_000L })
+
+        val screen = launch { session.logout() }
+        writeReached.await()
+        assertIs<SessionState.SignedOut>(session.state.value)
+        screen.cancel()
+        releaseWrite.complete(Unit)
+        screen.join()
+
+        assertNull(memory.settings.value.authToken, "A cancelled caller must not leave the token for the next start")
+        assertNull(store.credentials)
     }
 
     @Test

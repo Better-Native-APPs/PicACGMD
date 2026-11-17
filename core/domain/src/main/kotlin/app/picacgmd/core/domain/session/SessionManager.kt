@@ -8,6 +8,7 @@ import app.picacgmd.core.network.PunchStatus
 import app.picacgmd.core.network.UnauthorizedException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /** Small persistence boundary so session behavior can be tested without Android or a real DataStore. */
 interface SessionPreferences {
@@ -88,15 +90,18 @@ class SessionManager(
 
     suspend fun logout() {
         awaitReady()
-        mutex.withLock {
-            currentToken = null
-            sessionVersion++
-            mutableState.value = SessionState.SignedOut
-            mutablePunchInState.value = PunchInState.Idle
-            try {
-                preferences.setAuthToken(null, now())
-            } finally {
-                credentialStore.clear()
+        // The signed-out state removes the calling screen, which cancels its scope before the token is erased.
+        withContext(NonCancellable) {
+            mutex.withLock {
+                currentToken = null
+                sessionVersion++
+                mutableState.value = SessionState.SignedOut
+                mutablePunchInState.value = PunchInState.Idle
+                try {
+                    preferences.setAuthToken(null, now())
+                } finally {
+                    credentialStore.clear()
+                }
             }
         }
     }
