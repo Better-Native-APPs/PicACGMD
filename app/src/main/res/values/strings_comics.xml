@@ -55,7 +55,6 @@
     <string name="search_filter_apply">应用</string>
     <string name="search_filter_reset">重置</string>
     <string name="search_no_result">未找到相关漫画</string>
-    <string name="search_no_result_hint">更换关键词或放宽筛选</string>
     <string name="search_clear">清除</string>
 
     <!-- Detail -->

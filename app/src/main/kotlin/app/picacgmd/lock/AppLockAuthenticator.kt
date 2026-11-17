@@ -46,7 +46,6 @@ internal class AppLockAuthenticator(
         biometricCancellation = cancellation
         val builder = BiometricPrompt.Builder(activity)
             .setTitle("解锁哔咔漫画")
-            .setSubtitle("验证身份后继续使用")
         if (Build.VERSION.SDK_INT >= 30) {
             builder.setAllowedAuthenticators(
                 BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL,
@@ -85,7 +84,7 @@ internal class AppLockAuthenticator(
 
     @Suppress("DEPRECATION") // The credential-only route is needed on API 26–29 and with biometrics disabled.
     private fun authenticateCredentials() {
-        val intent = keyguard?.createConfirmDeviceCredentialIntent("解锁哔咔漫画", "请输入系统锁屏密码")
+        val intent = keyguard?.createConfirmDeviceCredentialIntent("解锁哔咔漫画", null)
         if (intent != null) {
             credentials.launch(intent)
         } else {

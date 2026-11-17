@@ -55,11 +55,13 @@ internal fun AppLockScreen(error: String?, onUnlock: () -> Unit, onExit: () -> U
                         .padding(8.dp),
                 )
                 Text("已锁定", style = MaterialTheme.typography.headlineMedium)
-                Text(
-                    error ?: "验证身份后继续使用",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (error == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
-                )
+                error?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
                 AppButton(onClick = onUnlock, modifier = Modifier.fillMaxWidth()) { Text("解锁") }
             }
         }

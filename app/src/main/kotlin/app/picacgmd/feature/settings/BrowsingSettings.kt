@@ -116,7 +116,6 @@ private fun BrowsingRoot(
                     SettingsChoiceRow(
                         shapes = shapes,
                         title = "加载方式",
-                        summary = "连续滚动或分页跳转",
                         options = PaginationMode.entries,
                         selected = settings.paginationMode,
                         onSelect = { writer.update { setPaginationMode(it) } },
@@ -146,7 +145,6 @@ private fun BrowsingRoot(
                     val count = settings.shieldedCategories.size + settings.hiddenKeywords.size
                     SettingsNavRow(
                         shapes, "封印与屏蔽", onClick = { onOpen(BrowsingSub.Shield) },
-                        summary = "封印分类、屏蔽关键词",
                         value = if (count == 0) "未设置" else "$count 项",
                     )
                 }
@@ -154,7 +152,6 @@ private fun BrowsingRoot(
                     SettingsSwitchRow(
                         shapes, "屏蔽 AI 作品", settings.hideAiComics,
                         onCheckedChange = { writer.update { setHideAiComics(it) } },
-                        summary = "隐藏 AI 生成的作品",
                     )
                 }
                 row { shapes ->
@@ -171,7 +168,6 @@ private fun BrowsingRoot(
                 row { shapes ->
                     SettingsNavRow(
                         shapes, "分类排序与隐藏", onClick = onOpenCategories,
-                        summary = "固定、排序和隐藏分类",
                         value = "固定 ${settings.pinnedHomeCategories.size} 个",
                     )
                 }
@@ -186,7 +182,7 @@ private fun BrowsingRoot(
         item {
             SettingsGroup("功能入口") {
                 row { shapes ->
-                    SettingsSwitchRow(shapes, "按作者搜索", settings.showAuthorSearch, { writer.update { setShowAuthorSearch(it) } }, summary = "点按详情页作者名搜索")
+                    SettingsSwitchRow(shapes, "按作者搜索", settings.showAuthorSearch, { writer.update { setShowAuthorSearch(it) } })
                 }
                 row { shapes ->
                     SettingsSwitchRow(shapes, "追更", settings.showSubscriptions, { writer.update { setShowSubscriptions(it) } }, summary = "显示书架追更和更新角标")

@@ -51,14 +51,13 @@ internal fun TagFavouritesSheet(
     ModalBottomSheet(onDismissRequest = onDismiss, properties = secureModalBottomSheetProperties()) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)) {
             Text("标签收藏", style = MaterialTheme.typography.titleLarge)
-            Text("点标签查看漫画，长按或点更多可移出收藏", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (error != null) Text(error.orEmpty(), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
         }
         when {
             tags == null -> LoadingState()
             tags.isEmpty() -> EmptyState(
                 title = "还没有标签收藏",
-                description = "在漫画详情页开启「收藏标签」，再点选标签",
+                description = "在漫画详情页长按标签可收藏",
                 icon = Icons.AutoMirrored.Outlined.Label,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
             )

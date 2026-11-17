@@ -76,7 +76,6 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: (String) -> Unit) 
             if (success) {
                 Text("注册成功", style = MaterialTheme.typography.headlineMedium)
                 Text("账号：${email.trim()}")
-                Text("请返回登录，输入密码后即可使用")
                 Text("请妥善保存安全问题和答案")
                 error?.let { AccountError(it) }
                 AppButton(onBack, Modifier.fillMaxWidth(), enabled = !busy) { Text("返回登录") }

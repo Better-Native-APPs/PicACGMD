@@ -256,7 +256,7 @@ fun MeScreen(
                             row { shapes ->
                                 SettingsNavRow(
                                     shapes, "公告", onOpenAnnouncements,
-                                    summary = if (unreadAnnouncement) "有新公告" else "官方通知和活动",
+                                    summary = if (unreadAnnouncement) "有新公告" else null,
                                     leading = {
                                         BadgedBox(badge = { if (unreadAnnouncement) Badge() }) {
                                             Icon(Icons.Outlined.Campaign, contentDescription = null)
@@ -267,7 +267,6 @@ fun MeScreen(
                             row { shapes ->
                                 SettingsNavRow(
                                     shapes, "哔咔留言板", onOpenMessageBoard,
-                                    summary = "交流与反馈",
                                     leading = { Icon(Icons.Outlined.Forum, contentDescription = null) },
                                 )
                             }

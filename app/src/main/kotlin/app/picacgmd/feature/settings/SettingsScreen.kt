@@ -60,15 +60,15 @@ import app.picacgmd.core.designsystem.component.PredictiveBackContent
  * Settings sub pages (boards 25–28b). The name is stable, so a navigation route can carry it as a
  * string: `SettingsPage.valueOf(route.page)`.
  */
-enum class SettingsPage(val title: String, val summary: String) {
-    Appearance("外观", "主题、配色、纯黑背景、刷新率、屏幕方向"),
-    Browsing("列表与浏览", "加载方式、列数、封印与屏蔽、首页分类、功能入口"),
-    Reading("阅读", "默认模式、操控、音量键、缩放、电子墨水屏"),
-    Downloads("下载", "线程数 1–16、自动下载、仅 Wi-Fi"),
-    Network("网络", "分流、图片分流、超时"),
-    Privacy("隐私与安全", "应用锁、防截屏、浏览记录"),
-    Data("数据与存储", "存储占用、清理缓存、自动清理"),
-    About("关于", "版本、开源许可、隐私说明、使用说明"),
+enum class SettingsPage(val title: String) {
+    Appearance("外观"),
+    Browsing("列表与浏览"),
+    Reading("阅读"),
+    Downloads("下载"),
+    Network("网络"),
+    Privacy("隐私与安全"),
+    Data("数据与存储"),
+    About("关于"),
 }
 
 private data class PageStyle(val icon: ImageVector, val shape: RoundedPolygon)
@@ -348,7 +348,6 @@ private fun PageGroup(
                 SettingsNavRow(
                     shapes = shapes,
                     title = page.title,
-                    summary = page.summary,
                     onClick = { onOpenPage(page) },
                     leading = { ShapeBadge(style.icon, style.shape, container, content) },
                 )

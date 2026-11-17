@@ -180,7 +180,6 @@ private fun LoginForm(
             tint = MaterialTheme.colorScheme.onPrimary,
         )
         Text("登录账号", style = MaterialTheme.typography.headlineLargeEmphasized)
-        Text("使用哔咔账号登录", color = MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedTextField(
             account, { account = it; error = null }, Modifier.fillMaxWidth(), label = { Text("账号") },
             enabled = !busy, singleLine = true, isError = error != null,
