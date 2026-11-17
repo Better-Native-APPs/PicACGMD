@@ -26,6 +26,7 @@ import app.picacgmd.core.domain.session.KeystoreCredentialStore
 import app.picacgmd.core.domain.session.NetworkConfigProvider
 import app.picacgmd.core.domain.session.RoutingRepository
 import app.picacgmd.core.domain.session.SessionManager
+import app.picacgmd.core.domain.session.SessionState
 import app.picacgmd.core.domain.sync.HistorySyncService
 import app.picacgmd.core.domain.sync.KeystoreWebDavPasswordStore
 import app.picacgmd.core.domain.sync.RoomHistorySyncStore
@@ -91,6 +92,8 @@ class AppContainer(context: Context, syncWifiAvailable: () -> Boolean = { false 
         }
         networkConfigProvider.awaitReady()
         sessionManager.onAppOpen()
+        // Restored subscriptions must not trigger authenticated requests while the user is signed out.
+        if (sessionManager.state.value !is SessionState.SignedIn) return SubscriptionCheckReport(0, 0, emptyMap())
         return subscriptionRepository.checkOnAppOpen()
     }
 

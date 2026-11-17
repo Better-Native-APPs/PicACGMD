@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup disableIfNoEncryptionCapabilities="true">
+        <!-- Authentication is written to the separate secret snapshot only after the agent checks transport flags. -->
+        <include domain="file" path="system-backup/app_settings.preferences_pb" />
+        <include domain="file" path="system-backup/pikapika.db" />
+        <include domain="file" path="system-backup/secrets" />
+        <include domain="sharedpref" path="onboarding.xml" />
+        <include domain="sharedpref" path="reader_tap_overlay.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="file" path="system-backup/app_settings.preferences_pb" />
+        <include domain="file" path="system-backup/pikapika.db" />
+        <include domain="file" path="system-backup/secrets" />
+        <include domain="sharedpref" path="onboarding.xml" />
+        <include domain="sharedpref" path="reader_tap_overlay.xml" />
+    </device-transfer>
+    <!-- The allowlists exclude every other path/domain; Android also always excludes caches and no_backup. -->
+</data-extraction-rules>

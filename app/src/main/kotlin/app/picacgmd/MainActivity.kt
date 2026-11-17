@@ -40,6 +40,7 @@ import androidx.core.content.edit
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import app.picacgmd.backup.RestoreLockNotice
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.data.settings.AppTheme
 import app.picacgmd.core.data.settings.AppOrientation
@@ -192,6 +193,7 @@ class MainActivity : ComponentActivity() {
                                 else -> LoginScreen()
                             }
                         }
+                        if (settings != null && !locked) RestoreLockNotice()
                     }
                 }
             }

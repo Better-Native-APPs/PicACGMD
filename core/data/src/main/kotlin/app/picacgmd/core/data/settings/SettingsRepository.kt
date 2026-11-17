@@ -217,6 +217,33 @@ class SettingsRepository(
     suspend fun setWebDavWifiOnly(value: Boolean) = set(Keys.webDavWifiOnly, value)
     suspend fun setWebDavLastSyncedAt(value: Long) = set(Keys.webDavLastSyncedAt, value)
 
+    /** Unknown keys stay out until their backup policy has been explicitly audited. */
+    suspend fun filterForSystemBackup(includeAuthentication: Boolean = false) {
+        dataStore.edit { preferences ->
+            val allowed = (portableBackupKeys + deviceBoundRestoreKeys +
+                if (includeAuthentication) authenticationKeys else emptyList()).toSet()
+            preferences.asMap().keys.filterNot { it in allowed }.forEach { preferences.remove(it) }
+        }
+    }
+
+    /** Remove unknown/device-bound values before a restored store is used by the application. */
+    suspend fun resetAfterSystemRestore(keepAuthentication: Boolean = false) {
+        dataStore.edit { preferences ->
+            val allowed = (portableBackupKeys + if (keepAuthentication) authenticationKeys else emptyList()).toSet()
+            preferences.asMap().keys.filterNot { it in allowed }.forEach { preferences.remove(it) }
+        }
+    }
+
+    /** Install authentication from a protected snapshot in one atomic edit, including an absent timestamp. */
+    suspend fun restoreSystemBackupAuthentication(email: String, token: String?, updatedAt: Long?) {
+        require(token == null || token.isNotBlank()) { "Auth token must be nonblank or null" }
+        dataStore.edit { preferences ->
+            preferences.setNullable(Keys.accountEmail, email.takeIf(String::isNotEmpty))
+            preferences.setNullable(Keys.authToken, token)
+            preferences.setNullable(Keys.authTokenUpdatedAt, if (token != null) updatedAt else null)
+        }
+    }
+
     private suspend fun <T> set(key: Preferences.Key<T>, value: T) {
         dataStore.edit { it[key] = value }
     }
@@ -237,6 +264,34 @@ class SettingsRepository(
     }
 
     companion object {
+        private val authenticationKeys = listOf(Keys.accountEmail, Keys.authToken, Keys.authTokenUpdatedAt)
+        private val deviceBoundRestoreKeys = listOf(
+            Keys.legacyCustomApiIp, Keys.displayModeId, Keys.startupImageUri, Keys.downloadTreeUri,
+            Keys.appLockEnabled, Keys.biometricUnlockEnabled, Keys.appLockTimeoutSeconds, Keys.webDavLastSyncedAt,
+        )
+        private val portableBackupKeys = listOf(
+            Keys.apiRoutingMode, Keys.apiRouteAddress, Keys.syncedApiAddresses, Keys.apiRoutesSyncedAt,
+            Keys.imageRoutingMode, Keys.timeOffsetHours,
+            Keys.imageQuality, Keys.connectTimeoutSeconds, Keys.readTimeoutSeconds, Keys.useApiClientForImages,
+            Keys.theme, Keys.darkMode, Keys.pureBlack, Keys.appOrientation, Keys.fullScreenDisplay,
+            Keys.lastSeenAnnouncementId, Keys.listLayout, Keys.listColumnCount, Keys.categoryColumnCount,
+            Keys.paginationMode, Keys.failedReloadAction, Keys.shieldedCategories, Keys.categoryShieldMode,
+            Keys.hiddenKeywords, Keys.hideViewedComics, Keys.hideAiComics, Keys.hiddenCategories, Keys.categoryOrder,
+            Keys.pinnedHomeCategories, Keys.showAuthorSearch, Keys.showSubscriptions, Keys.showTagFavourites,
+            Keys.showOnlineFavourites, Keys.copyNameTemplate, Keys.confirmCopy,
+            Keys.readerMode, Keys.readerDirection, Keys.readerTapZones, Keys.volumeKeyPaging, Keys.volumeKeyChapterPaging,
+            Keys.readerBackground, Keys.readerFilter, Keys.keepScreenOn, Keys.readerFullScreen, Keys.fullScreenOnForward,
+            Keys.readerPageAnimation, Keys.threeZoneNextOnRight, Keys.readerScrollMode, Keys.scrollScreenFraction,
+            Keys.readerSliderPosition, Keys.twoPagePlacement, Keys.twoPageCoverAlone, Keys.readerPreloadAhead,
+            Keys.readerAutoTurnSeconds, Keys.readerAutoScrollSpeed, Keys.readerAutoScrollPauseOnTouch,
+            Keys.readerAutoNextChapter, Keys.gestureSpeed, Keys.minZoom, Keys.maxZoom, Keys.doubleTapZoom, Keys.lockDragBounds,
+            Keys.eInkReduceAnimations, Keys.eInkScrollByScreen, Keys.eInkScrollAmount, Keys.eInkTriggerDistanceCm,
+            Keys.downloadThreads, Keys.downloadWifiOnly, Keys.autoDownloadOnFavourite, Keys.autoDownloadWifiOnly,
+            Keys.autoDeleteDownloadOnUnfavourite, Keys.showCommentsInDownloads, Keys.autoPunchIn, Keys.preventScreenshots,
+            Keys.historyEnabled, Keys.recordDetailViews, Keys.autoCleanCacheInterval,
+            Keys.webDavAddress, Keys.webDavUsername, Keys.webDavFolder, Keys.webDavAutoSync, Keys.webDavWifiOnly,
+        )
+
         fun create(context: Context, defaults: AppSettings = AppSettings.DEFAULT): SettingsRepository =
             SettingsRepository(context.applicationContext.appSettingsDataStore, defaults)
     }

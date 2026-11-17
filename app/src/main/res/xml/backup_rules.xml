@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Separate includes express encryption OR device transfer, not a requirement for both flags. -->
+    <include domain="file" path="system-backup/app_settings.preferences_pb" requireFlags="clientSideEncryption" />
+    <include domain="file" path="system-backup/pikapika.db" requireFlags="clientSideEncryption" />
+    <include domain="file" path="system-backup/secrets" requireFlags="clientSideEncryption" />
+    <include domain="sharedpref" path="onboarding.xml" requireFlags="clientSideEncryption" />
+    <include domain="sharedpref" path="reader_tap_overlay.xml" requireFlags="clientSideEncryption" />
+    <include domain="file" path="system-backup/app_settings.preferences_pb" requireFlags="deviceToDeviceTransfer" />
+    <include domain="file" path="system-backup/pikapika.db" requireFlags="deviceToDeviceTransfer" />
+    <include domain="file" path="system-backup/secrets" requireFlags="deviceToDeviceTransfer" />
+    <include domain="sharedpref" path="onboarding.xml" requireFlags="deviceToDeviceTransfer" />
+    <include domain="sharedpref" path="reader_tap_overlay.xml" requireFlags="deviceToDeviceTransfer" />
+    <!-- The allowlist excludes every other path/domain; Android also always excludes caches and no_backup. -->
+</full-backup-content>

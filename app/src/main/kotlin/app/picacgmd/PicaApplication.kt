@@ -3,6 +3,7 @@ package app.picacgmd
 import android.app.Application
 import android.util.Log
 import coil3.SingletonImageLoader
+import app.picacgmd.backup.SystemBackupRestore
 import app.picacgmd.core.domain.di.AppContainer
 import app.picacgmd.core.domain.download.DownloadManager
 import app.picacgmd.core.domain.download.DownloadManagerOwner
@@ -34,6 +35,7 @@ class PicaApplication : Application(), DownloadManagerOwner {
 
     override fun onCreate() {
         super.onCreate()
+        SystemBackupRestore.onApplicationCreate(this)
         appContainer = AppContainer(this, syncWifiAvailable = { isSyncWifiAvailable(this) })
         ReaderPersistence.bindHistorySync(appContainer.webDavSync::requestAutomaticSync)
         SingletonImageLoader.setSafe { appContainer.imageLoader }
