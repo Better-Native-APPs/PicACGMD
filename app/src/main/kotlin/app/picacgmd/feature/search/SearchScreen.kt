@@ -284,7 +284,6 @@ fun SearchScreen(
                 onRetry = viewModel.pager::reload,
                 onJumpTo = viewModel.pager::jumpTo,
                 emptyTitle = stringResource(R.string.search_no_result),
-                emptyDescription = stringResource(R.string.search_no_result_hint),
                 contentPadding = PaddingValues(bottom = 16.dp),
                 modifier = Modifier.weight(1f),
                 header = {

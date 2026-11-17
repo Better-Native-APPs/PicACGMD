@@ -1,10 +1,48 @@
 package app.picacgmd.feature.detail
 
 import app.picacgmd.core.designsystem.window.secureModalBottomSheetProperties
-import app.picacgmd.core.designsystem.window.secureDialogProperties
+import app.picacgmd.core.designsystem.window.securePopupProperties
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.outlined.BookmarkRemove
+import androidx.compose.material.icons.outlined.DoNotDisturbOff
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.SwapVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.layoutId
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.offset
+import androidx.compose.ui.unit.sp
 
 import android.content.ClipData
-import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
@@ -29,9 +67,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -50,7 +88,6 @@ import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Check
@@ -63,15 +100,11 @@ import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.VisibilityOff
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.ListItem
@@ -82,8 +115,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SplitButtonDefaults
 import androidx.compose.material3.SplitButtonLayout
-import androidx.compose.material3.SuggestionChip
-import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -101,7 +132,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.nativeClipboardManager
@@ -120,7 +150,6 @@ import app.picacgmd.R
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.data.settings.renderCopyName
 import app.picacgmd.core.designsystem.component.AppButton
-import app.picacgmd.core.designsystem.component.AppIconButton
 import app.picacgmd.core.designsystem.component.AppTextButton
 import app.picacgmd.core.designsystem.component.ComicCover
 import app.picacgmd.core.designsystem.component.ComicCoverCard
@@ -140,7 +169,6 @@ import app.picacgmd.core.domain.repository.uploader
 import app.picacgmd.core.network.ComicInfo
 import app.picacgmd.core.network.ComicSimple
 import app.picacgmd.core.network.Ep
-import app.picacgmd.core.network.UserProfile
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.feature.comics.formatCount
 import app.picacgmd.feature.comics.readMarkText
@@ -152,12 +180,15 @@ import kotlinx.coroutines.flow.collectLatest
 /** Chapter rows shown before 「展开全部」 (board 10). */
 private const val COLLAPSED_CHAPTER_COUNT = 8
 
+/** Lifts a message clear of the read button: the button's height and its margin, less the message's own margin. */
+private val SnackbarAboveReadButton = 64.dp
+
 /**
  * Boards 10–11: comic detail. Wire as `composable<ComicDetailRoute> { ComicDetailScreen(comicId = it.comicId, …) }`.
  *
  * @param onRead open the reader at chapter [epOrder] (1-based) and picture index [page] (0-based).
  * @param onDownloadChapters enqueue the chosen chapters (all chapters are pre-selected in the picker).
- * @param onTeamClick 汉化组 chip; the list API filters by `chineseTeam`.
+ * @param onTeamClick 汉化 row; the list API filters by `chineseTeam`.
  * @param onCreatorClick uploader row: the uploader's comics, listed by their [id] and titled with their [name].
  */
 @Composable
@@ -194,10 +225,16 @@ fun ComicDetailScreen(
     LaunchedEffect(viewModel) {
         viewModel.notices.collect { snackbar.showSnackbar(it) }
     }
+    val undoLabel = stringResource(R.string.detail_keyword_undo)
     LaunchedEffect(viewModel) {
-        // The newest change replaces the one on screen, so a run of taps doesn't queue up a run of snackbars.
+        // The newest change replaces the one on screen, so a run of changes doesn't queue up a run of snackbars.
         viewModel.keywordChanges.collectLatest { change ->
-            snackbar.showSnackbar((if (change.blocked) blockedTemplate else unblockedTemplate).replace("%s", change.keyword))
+            val result = snackbar.showSnackbar(
+                message = (if (change.blocked) blockedTemplate else unblockedTemplate).replace("%s", change.keyword),
+                actionLabel = undoLabel,
+                duration = SnackbarDuration.Long,
+            )
+            if (result == SnackbarResult.ActionPerformed) viewModel.undoKeywordChange(change)
         }
     }
     LaunchedEffect(viewModel) {
@@ -209,17 +246,23 @@ fun ComicDetailScreen(
 
     Scaffold(
         modifier = modifier,
-        snackbarHost = { SnackbarHost(snackbar) },
+        // Above the read button and the system bar, so 「撤销」 can be reached and reading stays one tap away.
+        snackbarHost = {
+            SnackbarHost(
+                snackbar,
+                Modifier.navigationBarsPadding().padding(bottom = if (state.comic != null) SnackbarAboveReadButton else 0.dp),
+            )
+        },
         contentWindowInsets = WindowInsets(0),
     ) { padding ->
         val comic = state.comic
         when {
             comic == null && state.error != null -> Column(Modifier.fillMaxSize().padding(padding).statusBarsPadding()) {
-                DetailTopBar(title = null, onBack = onBack, solid = true)
+                DetailTopBar(onBack = onBack, solid = true)
                 ErrorState(onRetry = viewModel::load, description = state.error)
             }
             comic == null -> Column(Modifier.fillMaxSize().padding(padding).statusBarsPadding()) {
-                DetailTopBar(title = null, onBack = onBack, solid = true)
+                DetailTopBar(onBack = onBack, solid = true)
                 LoadingState()
             }
             else -> DetailBody(
@@ -262,13 +305,12 @@ fun ComicDetailScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DetailTopBar(title: String?, onBack: () -> Unit, solid: Boolean, actions: @Composable () -> Unit = {}) {
+private fun DetailTopBar(onBack: () -> Unit, solid: Boolean, title: @Composable () -> Unit = {}) {
     TopAppBar(
-        title = { if (title != null) Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        title = title,
         navigationIcon = {
             app.picacgmd.core.designsystem.component.BackButton(onBack)
         },
-        actions = { actions() },
         windowInsets = WindowInsets(0),
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = if (solid) MaterialTheme.colorScheme.surfaceContainer else Color.Transparent,
@@ -276,9 +318,13 @@ private fun DetailTopBar(title: String?, onBack: () -> Unit, solid: Boolean, act
     )
 }
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3ExpressiveApi::class)
+/**
+ * The page below the loading state, top to bottom: cover and title, the four actions, the description,
+ * the people behind the comic, categories and tags, chapters, recommendations, comments.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun DetailBody(
+internal fun DetailBody(
     comic: ComicInfo,
     preferences: AppSettings,
     state: DetailState,
@@ -311,23 +357,26 @@ private fun DetailBody(
         label = "detailTopBarContainer",
     )
     val clipboard = LocalClipboard.current
-    fun copyName(rendered: String) {
-        clipboard.nativeClipboardManager.setPrimaryClip(ClipData.newPlainText("plain text", rendered))
+    val copyText = remember(preferences.copyNameTemplate, comic.author, comic.title, comic.id) {
+        renderCopyName(preferences.copyNameTemplate, comic.author, comic.title, comic.id)
     }
-    var copyConfirmation by rememberSaveable(comic.id) { mutableStateOf<String?>(null) }
+    val copyName = { clipboard.nativeClipboardManager.setPrimaryClip(ClipData.newPlainText("plain text", copyText)) }
     var showAllChapters by rememberSaveable { mutableStateOf(false) }
     var chaptersReversed by rememberSaveable { mutableStateOf(false) }
-    var blockMode by rememberSaveable { mutableStateOf(false) }
-    // While chips are being toggled the notice above them stays as it was, so the next chip doesn't move
-    // away from under the finger; it catches up once 屏蔽模式 is off again.
-    var noticeDuringBlockMode by rememberSaveable { mutableStateOf(false) }
-    val showHiddenNotice = if (blockMode) noticeDuringBlockMode else state.hiddenByRule
+    val motion = MaterialTheme.motionScheme
     // Outside the LazyColumn: the marks keep one holder however often the row scrolls away.
     val readMarks = rememberReadMarks(remember(state.recommendations) { state.recommendations.map(ComicSimple::id) })
     Box(Modifier.fillMaxSize()) {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 112.dp)) {
-            item(key = "hero") { Hero(comic, onAuthorClick, preferences.showAuthorSearch) }
-            if (showHiddenNotice) item(key = "hidden") { HiddenNotice() }
+            item(key = "hero") { Hero(comic, copyText, preferences.confirmCopy, copyName) }
+            // Always in the list, so blocking or unblocking a word makes room for the notice instead of jumping.
+            item(key = "hidden") {
+                AnimatedVisibility(
+                    visible = state.hiddenByRule,
+                    enter = fadeIn(motion.fastEffectsSpec()) + expandVertically(motion.fastSpatialSpec()),
+                    exit = fadeOut(motion.fastEffectsSpec()) + shrinkVertically(motion.fastSpatialSpec()),
+                ) { HiddenNotice() }
+            }
             item(key = "actions") {
                 ActionRow(
                     comic = comic,
@@ -338,30 +387,39 @@ private fun DetailBody(
                     onDownload = onDownload,
                 )
             }
-            item(key = "meta") {
-                MetaChips(
-                    comic = comic,
-                    hiddenKeywords = hiddenKeywords,
-                    blockMode = blockMode,
-                    onBlockModeChange = { on ->
-                        if (on) noticeDuringBlockMode = state.hiddenByRule
-                        blockMode = on
-                    },
-                    onToggleKeyword = onToggleKeyword,
-                    onCategoryClick = onCategoryClick,
-                    onTagClick = onTagClick,
-                    onAuthorClick = onAuthorClick,
-                    onTeamClick = onTeamClick,
-                    onCreatorClick = onCreatorClick,
-                    showTagFavourites = showTagFavourites,
-                    showAuthorSearch = preferences.showAuthorSearch,
-                    favouriteTags = favouriteTags,
-                    onToggleTagFavourite = onToggleTagFavourite,
-                )
-            }
             if (comic.description.isNotBlank()) item(key = "desc") { Description(comic.description) }
+            if (comic.author.isNotBlank() || comic.chineseTeam.isNotBlank() || comic.uploader() != null) {
+                item(key = "people") {
+                    People(
+                        comic = comic,
+                        showAuthorSearch = preferences.showAuthorSearch,
+                        onAuthorClick = onAuthorClick,
+                        onTeamClick = onTeamClick,
+                        onCreatorClick = onCreatorClick,
+                    )
+                }
+            }
+            if (comic.categories.isNotEmpty() || comic.tags.isNotEmpty()) {
+                item(key = "keywords") {
+                    Keywords(
+                        comic = comic,
+                        hiddenKeywords = hiddenKeywords,
+                        showTagFavourites = showTagFavourites,
+                        favouriteTags = favouriteTags,
+                        onCategoryClick = onCategoryClick,
+                        onTagClick = onTagClick,
+                        onToggleKeyword = onToggleKeyword,
+                        onToggleTagFavourite = onToggleTagFavourite,
+                    )
+                }
+            }
             item(key = "eps-header") {
-                SectionHeader(title = stringResource(R.string.detail_chapters, state.eps?.size ?: comic.epsCount))
+                ChaptersHeader(
+                    count = state.eps?.size ?: comic.epsCount,
+                    reversed = chaptersReversed,
+                    sortable = (state.eps?.size ?: 0) > 1,
+                    onToggleOrder = { chaptersReversed = !chaptersReversed },
+                )
             }
             chapters(
                 state = state,
@@ -371,7 +429,6 @@ private fun DetailBody(
                 onRead = onRead,
                 onRetry = onRetryEps,
                 onToggleShowAll = { showAllChapters = !showAllChapters },
-                onToggleReversed = { chaptersReversed = !chaptersReversed },
             )
             if (state.recommendations.isNotEmpty()) {
                 item(key = "rec-header") { SectionHeader(title = stringResource(R.string.detail_recommend)) }
@@ -419,20 +476,19 @@ private fun DetailBody(
             Surface(color = topBarContainerColor) {
                 Column {
                     Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
-                    DetailTopBar(
-                        title = if (collapsed) comic.title else null,
-                        onBack = onBack,
-                        solid = false,
-                        actions = {
-                            AppIconButton(onClick = {
-                                val rendered = renderCopyName(preferences.copyNameTemplate, comic.author, comic.title, comic.id)
-                                if (preferences.confirmCopy) copyConfirmation = rendered
-                                else copyName(rendered)
-                            }) {
-                                Icon(Icons.Outlined.ContentCopy, stringResource(R.string.detail_copy_title))
-                            }
-                        },
-                    )
+                    DetailTopBar(onBack = onBack, solid = false) {
+                        if (collapsed) {
+                            CopyableTitle(
+                                title = comic.title,
+                                copyText = copyText,
+                                confirmCopy = preferences.confirmCopy,
+                                onCopy = copyName,
+                                style = LocalTextStyle.current,
+                                maxLines = 1,
+                                modifier = Modifier.padding(end = 16.dp),
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -447,24 +503,12 @@ private fun DetailBody(
             modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
-    copyConfirmation?.let { rendered ->
-        AlertDialog(
-            properties = secureDialogProperties(),
-            onDismissRequest = { copyConfirmation = null },
-            title = { Text("复制名称") },
-            text = { Text(rendered) },
-            confirmButton = {
-                AppTextButton(onClick = { copyName(rendered); copyConfirmation = null }) { Text("复制") }
-            },
-            dismissButton = { AppTextButton(onClick = { copyConfirmation = null }) { Text("取消") } },
-        )
-    }
 }
 
 /** Blurred cover wash behind a crisp cover and the title block: the page's one dramatic moment. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun Hero(comic: ComicInfo, onAuthorClick: (String) -> Unit, showAuthorSearch: Boolean) {
+private fun Hero(comic: ComicInfo, copyText: String, confirmCopy: Boolean, onCopy: () -> Unit) {
     val cover = rememberImageUrl(comic.thumb)
     val surface = MaterialTheme.colorScheme.surface
     Box(Modifier.fillMaxWidth()) {
@@ -486,29 +530,15 @@ private fun Hero(comic: ComicInfo, onAuthorClick: (String) -> Unit, showAuthorSe
                     badge = if (comic.finished) stringResource(R.string.comics_finished) else null,
                 )
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        comic.title,
+                    CopyableTitle(
+                        title = comic.title,
+                        copyText = copyText,
+                        confirmCopy = confirmCopy,
+                        onCopy = onCopy,
                         style = MaterialTheme.typography.titleLargeEmphasized,
                         maxLines = 4,
-                        overflow = TextOverflow.Ellipsis,
                     )
-                    if (comic.author.isNotBlank()) {
-                        Box(
-                            modifier = if (showAuthorSearch) {
-                                Modifier
-                                    .clickable(role = Role.Button) { onAuthorClick(comic.author) }
-                                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-                            } else Modifier,
-                            contentAlignment = Alignment.CenterStart,
-                        ) {
-                            Text(
-                                comic.author,
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         MetaInfo(MetaIcons.Likes, formatCount(comic.likesCount.toLong()))
                         MetaInfo(MetaIcons.Views, formatCount(comic.viewsCount))
                         MetaInfo(MetaIcons.Pages, stringResource(R.string.comics_pages_eps, comic.pagesCount, comic.epsCount))
@@ -526,19 +556,117 @@ private fun Hero(comic: ComicInfo, onAuthorClick: (String) -> Unit, showAuthorSe
     }
 }
 
+/**
+ * The comic's name. A long press copies it in the form set by the copy template: with 复制前确认 on it
+ * opens a menu whose one item shows what will be copied, and tapping that copies; with it off the long
+ * press copies at once.
+ */
+@Composable
+private fun CopyableTitle(
+    title: String,
+    copyText: String,
+    confirmCopy: Boolean,
+    onCopy: () -> Unit,
+    style: TextStyle,
+    maxLines: Int,
+    modifier: Modifier = Modifier,
+) {
+    var menu by remember { mutableStateOf(false) }
+    val label = stringResource(R.string.detail_copy_name)
+    Box(modifier) {
+        Text(
+            title,
+            style = style,
+            maxLines = maxLines,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .outset(horizontal = 8.dp, vertical = 4.dp)
+                .longPressable(label = label, held = menu) { if (confirmCopy) menu = true else onCopy() }
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+        )
+        DropdownMenu(
+            expanded = menu,
+            onDismissRequest = { menu = false },
+            properties = securePopupProperties(focusable = true),
+        ) {
+            DropdownMenuItem(
+                text = {
+                    Column(Modifier.widthIn(max = 196.dp).padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(label)
+                        Text(
+                            copyText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                },
+                onClick = { menu = false; onCopy() },
+                leadingIcon = { Icon(Icons.Outlined.ContentCopy, contentDescription = null) },
+            )
+        }
+    }
+}
+
+/** Lets the content draw and take touches [horizontal] and [vertical] beyond the space it is given. */
+private fun Modifier.outset(horizontal: Dp, vertical: Dp): Modifier = layout { measurable, constraints ->
+    val dx = horizontal.roundToPx()
+    val dy = vertical.roundToPx()
+    val placeable = measurable.measure(constraints.offset(horizontal = dx * 2, vertical = dy * 2))
+    layout(placeable.width - dx * 2, placeable.height - dy * 2) { placeable.place(-dx, -dy) }
+}
+
+/**
+ * A long press and nothing else: a tap does nothing, so no click is offered. The press shows while the
+ * finger is down and stays shown while [held]. Screen readers get the same action under [label].
+ */
+@Composable
+private fun Modifier.longPressable(label: String, held: Boolean, onLongPress: () -> Unit): Modifier {
+    val interactions = remember { MutableInteractionSource() }
+    val haptics = LocalHapticFeedback.current
+    val action by rememberUpdatedState(onLongPress)
+    return this
+        .clip(MaterialTheme.shapes.small)
+        .background(if (held) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f) else Color.Transparent)
+        .indication(interactions, LocalIndication.current)
+        .pointerInput(Unit) {
+            detectTapGestures(
+                onPress = { offset ->
+                    val press = PressInteraction.Press(offset)
+                    interactions.emit(press)
+                    interactions.emit(if (tryAwaitRelease()) PressInteraction.Release(press) else PressInteraction.Cancel(press))
+                },
+                onLongPress = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    action()
+                },
+            )
+        }
+        .semantics {
+            onLongClick(label) { action(); true }
+            customActions = listOf(CustomAccessibilityAction(label) { action(); true })
+        }
+}
+
+/** Why this comic is missing from the lists, and where the blocked words are kept. */
 @Composable
 private fun HiddenNotice() {
+    val colors = MaterialTheme.colorScheme
     Row(
         Modifier
             .padding(horizontal = 16.dp, vertical = 4.dp)
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.errorContainer, MaterialTheme.shapes.medium)
+            .background(colors.errorContainer, MaterialTheme.shapes.medium)
             .padding(12.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(Icons.Outlined.VisibilityOff, null, tint = MaterialTheme.colorScheme.onErrorContainer)
-        Text(stringResource(R.string.detail_hidden_by_rule), color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodyMedium)
+        Icon(Icons.Outlined.VisibilityOff, null, tint = colors.onErrorContainer)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(stringResource(R.string.detail_hidden_by_rule), color = colors.onErrorContainer, style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(R.string.detail_hidden_by_rule_where), color = colors.onErrorContainer, style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
 
@@ -633,269 +761,405 @@ private fun ActionToggle(
     }
 }
 
-/** One labelled row of keyword chips: the categories or the tags. */
-private class ChipGroup(@StringRes val label: Int, val names: List<String>, val onOpen: (String) -> Unit)
-
 /**
- * Author and team chips, the uploader, then the categories and tags. Those two groups share 屏蔽模式,
- * switched on the first label: while it is on, a tap puts the word into the hidden keywords or takes it out again.
+ * The people behind the comic in one block, a row each and all rows alike: who they are for this comic,
+ * their name, and an arrow when a tap leads to their comics. A missing person has no row.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun MetaChips(
+private fun People(
     comic: ComicInfo,
-    hiddenKeywords: List<String>,
-    blockMode: Boolean,
-    onBlockModeChange: (Boolean) -> Unit,
-    onToggleKeyword: (String) -> Unit,
-    onCategoryClick: (String) -> Unit,
-    onTagClick: (String) -> Unit,
+    showAuthorSearch: Boolean,
     onAuthorClick: (String) -> Unit,
     onTeamClick: (String) -> Unit,
     onCreatorClick: (String, String) -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    val uploader = comic.uploader()
+    val rows = buildList<@Composable (Shape) -> Unit> {
+        if (comic.author.isNotBlank()) add { shape ->
+            PersonRow(
+                shape = shape,
+                role = stringResource(R.string.detail_author),
+                name = comic.author,
+                onClick = if (showAuthorSearch) ({ onAuthorClick(comic.author) }) else null,
+            ) { Icon(Icons.Outlined.Person, contentDescription = null, tint = colors.onSurfaceVariant) }
+        }
+        if (comic.chineseTeam.isNotBlank()) add { shape ->
+            PersonRow(
+                shape = shape,
+                role = stringResource(R.string.detail_team),
+                name = comic.chineseTeam,
+                onClick = { onTeamClick(comic.chineseTeam) },
+            ) { Icon(Icons.Outlined.Translate, contentDescription = null, tint = colors.onSurfaceVariant) }
+        }
+        if (uploader != null) add { shape ->
+            PersonRow(
+                shape = shape,
+                role = stringResource(R.string.detail_uploader),
+                name = uploader.name,
+                level = uploader.level,
+                title = uploader.title,
+                description = stringResource(R.string.detail_uploader_description, uploader.name),
+                onClick = { onCreatorClick(uploader.id, uploader.name) },
+            ) { ShapedAvatar(imageUrl = rememberImageUrl(uploader.avatar), initial = uploader.name.trim().take(1), size = 28.dp) }
+        }
+    }
+    Column(Modifier.padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        rows.forEachIndexed { index, row ->
+            val top = if (index == 0) 20.dp else 4.dp
+            val bottom = if (index == rows.lastIndex) 20.dp else 4.dp
+            row(RoundedCornerShape(topStart = top, topEnd = top, bottomStart = bottom, bottomEnd = bottom))
+        }
+    }
+}
+
+/**
+ * One row of [People]. Without [onClick] the row only shows the name and has no arrow. TalkBack reads
+ * the row as one item, as [description] when there is one.
+ */
+@Composable
+private fun PersonRow(
+    shape: Shape,
+    role: String,
+    name: String,
+    onClick: (() -> Unit)?,
+    level: Int = 0,
+    title: String = "",
+    description: String? = null,
+    lead: @Composable () -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(colors.surfaceContainerLow)
+            .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
+            .then(
+                if (description != null) Modifier.clearAndSetSemantics { contentDescription = description }
+                else Modifier.semantics(mergeDescendants = true) {},
+            )
+            .heightIn(min = 52.dp)
+            .padding(start = 14.dp, top = 6.dp, end = 10.dp, bottom = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) { lead() }
+        Text(role, style = MaterialTheme.typography.labelLarge, color = colors.onSurfaceVariant, maxLines = 1)
+        PersonName(name = name, level = level, title = title, modifier = Modifier.weight(1f))
+        if (onClick != null) {
+            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = colors.onSurfaceVariant)
+        }
+    }
+}
+
+/**
+ * Name, level and title on one line. The level always shows whole; when the line is too short the title
+ * goes first, then the name is shortened.
+ */
+@Composable
+private fun PersonName(name: String, level: Int, title: String, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+    Layout(
+        modifier = modifier,
+        content = {
+            Text(
+                name,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.layoutId(PersonNamePart.Name),
+            )
+            if (level > 0) {
+                Text(
+                    stringResource(R.string.detail_uploader_level, level),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.onSecondaryContainer,
+                    maxLines = 1,
+                    modifier = Modifier
+                        .layoutId(PersonNamePart.Level)
+                        .background(colors.secondaryContainer, CircleShape)
+                        .padding(horizontal = 7.dp, vertical = 1.dp),
+                )
+            }
+            if (title.isNotBlank()) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.layoutId(PersonNamePart.Title),
+                )
+            }
+        },
+    ) { measurables, constraints ->
+        val gap = 8.dp.roundToPx()
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val level = measurables.firstOrNull { it.layoutId == PersonNamePart.Level }?.measure(loose)
+        val levelSpace = if (level != null) level.width + gap else 0
+        val nameWidth = (constraints.maxWidth - levelSpace).coerceAtLeast(0)
+        val nameText = measurables.first { it.layoutId == PersonNamePart.Name }.measure(loose.copy(maxWidth = nameWidth))
+        val left = constraints.maxWidth - nameText.width - levelSpace - gap
+        // A title cut down to a character or two says nothing, so it is left out instead.
+        val titleText = measurables.firstOrNull { it.layoutId == PersonNamePart.Title }
+            ?.takeIf { left >= PersonTitleMinWidth.roundToPx() }
+            ?.measure(loose.copy(maxWidth = left))
+        val height = listOfNotNull(nameText, level, titleText).maxOf { it.height }.coerceAtLeast(constraints.minHeight)
+        layout(constraints.maxWidth, height) {
+            var x = 0
+            nameText.placeRelative(x, (height - nameText.height) / 2)
+            x += nameText.width + gap
+            if (level != null) {
+                level.placeRelative(x, (height - level.height) / 2)
+                x += level.width + gap
+            }
+            titleText?.placeRelative(x, (height - titleText.height) / 2)
+        }
+    }
+}
+
+private enum class PersonNamePart { Name, Level, Title }
+
+private val PersonTitleMinWidth = 40.dp
+
+/**
+ * Categories and tags. A tap opens the word; a long press opens a menu to block it or take the block
+ * off and, for a tag while tag favourites are on, to keep it or drop it. A blocked word carries ⊘ and a
+ * kept tag a bookmark; a tag that is both shows ⊘ only.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun Keywords(
+    comic: ComicInfo,
+    hiddenKeywords: List<String>,
     showTagFavourites: Boolean,
-    showAuthorSearch: Boolean,
     favouriteTags: Set<String>,
+    onCategoryClick: (String) -> Unit,
+    onTagClick: (String) -> Unit,
+    onToggleKeyword: (String) -> Unit,
     onToggleTagFavourite: (String) -> Unit,
 ) {
-    val motion = MaterialTheme.motionScheme
-    var favouriteMode by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(showTagFavourites) { if (!showTagFavourites) favouriteMode = false }
-    val groups = listOfNotNull(
-        ChipGroup(R.string.detail_categories, comic.categories, onCategoryClick).takeIf { comic.categories.isNotEmpty() },
-        ChipGroup(R.string.detail_tags, comic.tags, onTagClick).takeIf { comic.tags.isNotEmpty() },
-    )
-    val uploader = comic.uploader()
-    Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (showAuthorSearch && comic.author.isNotBlank()) {
-                AssistChip(onClick = { onAuthorClick(comic.author) }, label = { Text(comic.author) }, leadingIcon = { Icon(Icons.Outlined.Person, stringResource(R.string.detail_author)) })
-            }
-            if (comic.chineseTeam.isNotBlank()) {
-                AssistChip(onClick = { onTeamClick(comic.chineseTeam) }, label = { Text(comic.chineseTeam) }, leadingIcon = { Icon(Icons.Outlined.Translate, stringResource(R.string.detail_team)) })
-            }
-        }
-        if (uploader != null) {
-            UploaderRow(
-                uploader = uploader,
-                onClick = { onCreatorClick(uploader.id, uploader.name) },
-                modifier = Modifier.padding(vertical = 4.dp),
-            )
-        }
-        groups.forEachIndexed { index, group ->
-            val first = index == 0
-            val isTagGroup = group.label == R.string.detail_tags
-            ChipGroupLabel(
-                stringResource(group.label),
-                trailing = if (first || (isTagGroup && showTagFavourites)) {
-                    {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (first) BlockModeToggle(blockMode) { on ->
-                                if (on) favouriteMode = false
-                                onBlockModeChange(on)
-                            }
-                            if (isTagGroup && showTagFavourites) FilterChip(
-                                selected = favouriteMode,
-                                onClick = {
-                                    favouriteMode = !favouriteMode
-                                    if (favouriteMode) onBlockModeChange(false)
-                                },
-                                label = { Text("收藏标签") },
-                                leadingIcon = { Icon(Icons.Outlined.BookmarkBorder, null, Modifier.size(FilterChipDefaults.IconSize)) },
-                            )
-                        }
-                    }
-                } else {
-                    null
-                },
-            )
-            if (first) {
-                AnimatedVisibility(
-                    visible = blockMode,
-                    enter = fadeIn(motion.fastEffectsSpec()) + expandVertically(motion.fastSpatialSpec()),
-                    exit = fadeOut(motion.fastEffectsSpec()) + shrinkVertically(motion.fastSpatialSpec()),
-                ) {
-                    Text(
-                        stringResource(R.string.detail_block_mode_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
+    Column(Modifier.padding(horizontal = 16.dp).padding(top = 2.dp, bottom = 8.dp)) {
+        if (comic.categories.isNotEmpty()) {
+            KeywordGroupLabel(stringResource(R.string.detail_categories))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                comic.categories.forEach { name ->
+                    KeywordChip(
+                        text = name,
+                        blocked = hiddenKeywords.containsKeyword(name),
+                        favourite = false,
+                        onOpen = { onCategoryClick(name) },
+                        onToggleBlocked = { onToggleKeyword(name) },
+                        onToggleFavourite = null,
                     )
                 }
             }
-            if (isTagGroup && favouriteMode && showTagFavourites) {
-                Text("点标签加入或移出收藏，关闭「收藏标签」后可搜索", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-            }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                group.names.forEach { name ->
-                    if (isTagGroup && favouriteMode && showTagFavourites) {
-                        val saved = name.trim() in favouriteTags
-                        val description = if (saved) "已收藏标签" else "未收藏标签"
-                        FilterChip(
-                            selected = saved,
-                            onClick = { onToggleTagFavourite(name) },
-                            label = { Text(name) },
-                            leadingIcon = { Icon(if (saved) Icons.Filled.Bookmark else Icons.Outlined.Add, null, Modifier.size(FilterChipDefaults.IconSize)) },
-                            modifier = Modifier.semantics { stateDescription = description },
-                        )
-                    } else {
-                        KeywordChip(
-                            text = name,
-                            blocked = hiddenKeywords.containsKeyword(name),
-                            blockMode = blockMode,
-                            onClick = { if (blockMode) onToggleKeyword(name) else group.onOpen(name) },
-                        )
-                    }
+        }
+        if (comic.tags.isNotEmpty()) {
+            KeywordGroupLabel(stringResource(R.string.detail_tags), Modifier.padding(top = if (comic.categories.isEmpty()) 0.dp else 4.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                comic.tags.forEach { name ->
+                    KeywordChip(
+                        text = name,
+                        blocked = hiddenKeywords.containsKeyword(name),
+                        favourite = showTagFavourites && name.trim() in favouriteTags,
+                        onOpen = { onTagClick(name) },
+                        onToggleBlocked = { onToggleKeyword(name) },
+                        onToggleFavourite = if (showTagFavourites) ({ onToggleTagFavourite(name) }) else null,
+                    )
                 }
             }
         }
     }
 }
 
-/**
- * The uploader: avatar, name and level over 「上传者」 and their title. A tap lists their comics, the
- * same list the 骑士榜 opens. TalkBack reads the row as one button.
- */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun UploaderRow(uploader: UserProfile, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun KeywordGroupLabel(text: String, modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxWidth().heightIn(min = 40.dp), contentAlignment = Alignment.CenterStart) {
+        Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/**
+ * A category or tag. [onToggleFavourite] is null where keeping does not apply: categories, and tags
+ * while tag favourites are off. The menu's actions are also offered to screen readers by name, so
+ * they do not depend on the long press.
+ */
+@Composable
+private fun KeywordChip(
+    text: String,
+    blocked: Boolean,
+    favourite: Boolean,
+    onOpen: () -> Unit,
+    onToggleBlocked: () -> Unit,
+    onToggleFavourite: (() -> Unit)?,
+) {
     val colors = MaterialTheme.colorScheme
-    val description = stringResource(R.string.detail_uploader_description, uploader.name)
-    val role = listOfNotNull(stringResource(R.string.detail_uploader), uploader.title.ifBlank { null }).joinToString(" · ")
-    Row(
-        modifier
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.large)
-            .background(colors.surfaceContainerLow)
-            .clickable(role = Role.Button, onClick = onClick)
-            .clearAndSetSemantics { contentDescription = description }
-            .padding(start = 12.dp, top = 10.dp, end = 10.dp, bottom = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        ShapedAvatar(imageUrl = rememberImageUrl(uploader.avatar), initial = uploader.name.trim().take(1), size = 40.dp)
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    uploader.name,
-                    style = MaterialTheme.typography.titleSmallEmphasized,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
+    val shape = MaterialTheme.shapes.small
+    var menu by remember { mutableStateOf(false) }
+    val blockLabel = stringResource(if (blocked) R.string.detail_keyword_unblock else R.string.detail_keyword_block)
+    val favouriteLabel = stringResource(if (favourite) R.string.detail_tag_unfavourite else R.string.detail_tag_favourite)
+    val menuLabel = stringResource(R.string.detail_keyword_menu)
+    val mark = when {
+        blocked -> stringResource(R.string.detail_keyword_blocked)
+        favourite -> stringResource(R.string.detail_tag_favourited)
+        else -> null
+    }
+    Box {
+        Row(
+            Modifier
+                .clip(shape)
+                .background(if (menu) colors.onSurface.copy(alpha = 0.12f) else Color.Transparent)
+                .border(1.dp, colors.outlineVariant, shape)
+                .combinedClickable(
+                    role = Role.Button,
+                    onLongClickLabel = menuLabel,
+                    onLongClick = { menu = true },
+                    onClick = onOpen,
                 )
-                if (uploader.level > 0) {
-                    Text(
-                        stringResource(R.string.detail_uploader_level, uploader.level),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = colors.onSecondaryContainer,
-                        maxLines = 1,
-                        modifier = Modifier
-                            .background(colors.secondaryContainer, CircleShape)
-                            .padding(horizontal = 6.dp, vertical = 1.dp),
+                .semantics {
+                    if (mark != null) stateDescription = mark
+                    customActions = listOfNotNull(
+                        onToggleFavourite?.let { toggle -> CustomAccessibilityAction(favouriteLabel) { toggle(); true } },
+                        CustomAccessibilityAction(blockLabel) { onToggleBlocked(); true },
                     )
                 }
+                .heightIn(min = 32.dp)
+                .padding(start = if (mark != null) 8.dp else 16.dp, end = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (blocked) {
+                Icon(Icons.Outlined.Block, contentDescription = null, modifier = Modifier.size(18.dp), tint = colors.error)
+            } else if (favourite) {
+                Icon(Icons.Filled.Bookmark, contentDescription = null, modifier = Modifier.size(18.dp), tint = colors.primary)
             }
             Text(
-                role,
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.onSurfaceVariant,
+                text,
+                style = MaterialTheme.typography.labelLarge,
+                color = if (blocked) colors.error else colors.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = colors.onSurfaceVariant)
+        DropdownMenu(
+            expanded = menu,
+            onDismissRequest = { menu = false },
+            properties = securePopupProperties(focusable = true),
+        ) {
+            if (onToggleFavourite != null) {
+                DropdownMenuItem(
+                    text = { Text(favouriteLabel) },
+                    onClick = { menu = false; onToggleFavourite() },
+                    leadingIcon = {
+                        Icon(if (favourite) Icons.Outlined.BookmarkRemove else Icons.Outlined.BookmarkBorder, contentDescription = null)
+                    },
+                )
+            }
+            DropdownMenuItem(
+                text = { Text(blockLabel) },
+                onClick = { menu = false; onToggleBlocked() },
+                leadingIcon = {
+                    Icon(if (blocked) Icons.Outlined.DoNotDisturbOff else Icons.Outlined.Block, contentDescription = null)
+                },
+            )
+        }
     }
-}
-
-@Composable
-private fun ChipGroupLabel(text: String, trailing: (@Composable () -> Unit)? = null) {
-    Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            text,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f),
-        )
-        trailing?.invoke()
-    }
-}
-
-@Composable
-private fun BlockModeToggle(on: Boolean, onChange: (Boolean) -> Unit) {
-    FilterChip(
-        selected = on,
-        onClick = { onChange(!on) },
-        label = { Text(stringResource(R.string.detail_block_mode)) },
-        leadingIcon = { Icon(Icons.Outlined.Block, contentDescription = null, modifier = Modifier.size(FilterChipDefaults.IconSize)) },
-    )
 }
 
 /**
- * A category or tag. A blocked one carries ⊘ wherever it shows. In 屏蔽模式 every chip gets an icon,
- * ＋ to block or ⊘ to unblock, so toggling one never changes its width and the chips around it stay put.
+ * The description, four lines at first. 「展开 / 收起」 is there only when those four lines do not hold
+ * the whole text; the text is measured for the width at hand before it is first drawn, so the button
+ * never appears a moment late. A tap anywhere on the block does the same as the button.
  */
-@Composable
-private fun KeywordChip(text: String, blocked: Boolean, blockMode: Boolean, onClick: () -> Unit) {
-    val colors = MaterialTheme.colorScheme
-    if (blockMode) {
-        val state = stringResource(if (blocked) R.string.detail_keyword_blocked else R.string.detail_keyword_not_blocked)
-        FilterChip(
-            selected = blocked,
-            onClick = onClick,
-            label = { Text(text) },
-            leadingIcon = {
-                Icon(if (blocked) Icons.Outlined.Block else Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(FilterChipDefaults.IconSize))
-            },
-            colors = FilterChipDefaults.filterChipColors(
-                selectedContainerColor = colors.errorContainer,
-                selectedLabelColor = colors.onErrorContainer,
-                selectedLeadingIconColor = colors.onErrorContainer,
-            ),
-            modifier = Modifier.semantics { stateDescription = state },
-        )
-    } else {
-        SuggestionChip(
-            onClick = onClick,
-            label = { Text(text) },
-            icon = if (blocked) {
-                {
-                    Icon(
-                        Icons.Outlined.Block,
-                        contentDescription = stringResource(R.string.detail_keyword_blocked),
-                        modifier = Modifier.size(SuggestionChipDefaults.IconSize),
-                        tint = colors.error,
-                    )
-                }
-            } else {
-                null
-            },
-        )
-    }
-}
-
 @Composable
 private fun Description(text: String) {
     var expanded by rememberSaveable { mutableStateOf(false) }
-    Column(
-        Modifier
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainerLow, MaterialTheme.shapes.large)
-            .clickable { expanded = !expanded }
-            .padding(14.dp)
-            .animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec()),
+    val style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp)
+    val measured = LocalTextStyle.current.merge(style)
+    val measurer = rememberTextMeasurer()
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val textWidth = with(LocalDensity.current) { (maxWidth - DescriptionSidePadding * 2).roundToPx() }.coerceAtLeast(0)
+        val overflows = remember(text, measured, textWidth, measurer) {
+            measurer.measure(
+                text = text,
+                style = measured,
+                overflow = TextOverflow.Ellipsis,
+                maxLines = DescriptionCollapsedLines,
+                constraints = Constraints(maxWidth = textWidth),
+            ).hasVisualOverflow
+        }
+        val toggle = stringResource(if (expanded) R.string.detail_collapse else R.string.detail_expand)
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .then(
+                    if (overflows) Modifier.clickable(onClickLabel = toggle, role = Role.Button) { expanded = !expanded }
+                    else Modifier,
+                )
+                .padding(horizontal = DescriptionSidePadding)
+                .padding(top = 6.dp, bottom = if (overflows) 6.dp else 12.dp)
+                .animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec()),
+        ) {
+            Text(
+                text,
+                style = style,
+                maxLines = if (overflows && !expanded) DescriptionCollapsedLines else Int.MAX_VALUE,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (overflows) {
+                Row(
+                    Modifier.padding(top = 2.dp).heightIn(min = 36.dp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(toggle, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    Icon(
+                        if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+        }
+    }
+}
+
+private const val DescriptionCollapsedLines = 4
+
+private val DescriptionSidePadding = 20.dp
+
+/**
+ * 「章节 · N」 with the order button beside it. The button names the order in use and is there only
+ * when [sortable]: with one chapter, or before the chapters have loaded, there is nothing to turn round.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun ChaptersHeader(count: Int, reversed: Boolean, sortable: Boolean, onToggleOrder: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(start = 20.dp, end = 8.dp, top = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text,
-            style = MaterialTheme.typography.bodyMedium,
-            maxLines = if (expanded) Int.MAX_VALUE else 4,
+            stringResource(R.string.detail_chapters, count),
+            style = MaterialTheme.typography.titleMediumEmphasized,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).semantics { heading() },
         )
-        Text(
-            stringResource(if (expanded) R.string.detail_collapse else R.string.detail_expand),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(top = 6.dp),
-        )
+        if (sortable) {
+            val order = stringResource(if (reversed) R.string.detail_chapters_reverse else R.string.detail_chapters_forward)
+            val description = stringResource(R.string.detail_chapters_order, order)
+            AppTextButton(onClick = onToggleOrder, modifier = Modifier.semantics { contentDescription = description }) {
+                Icon(Icons.Outlined.SwapVert, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(order, style = MaterialTheme.typography.titleSmall)
+            }
+        }
     }
 }
 
@@ -908,7 +1172,6 @@ private fun LazyListScope.chapters(
     onRead: (Int, Int) -> Unit,
     onRetry: () -> Unit,
     onToggleShowAll: () -> Unit,
-    onToggleReversed: () -> Unit,
 ) {
     val eps = state.eps
     if (eps == null) {
@@ -933,12 +1196,17 @@ private fun LazyListScope.chapters(
             onClick = { onRead(ep.order, (resumeAt?.pictureIndex ?: 1) - 1) },
         )
     }
-    item(key = "eps-actions") {
-        Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 4.dp), horizontalArrangement = Arrangement.End) {
-            AppTextButton(onClick = onToggleReversed) { Text(stringResource(R.string.detail_chapters_reverse)) }
-            if (ordered.size > COLLAPSED_CHAPTER_COUNT) {
+    if (ordered.size > COLLAPSED_CHAPTER_COUNT) {
+        item(key = "eps-actions") {
+            Box(Modifier.fillMaxWidth().padding(top = 4.dp), contentAlignment = Alignment.Center) {
                 AppTextButton(onClick = onToggleShowAll) {
                     Text(if (showAll) stringResource(R.string.detail_collapse) else stringResource(R.string.detail_chapters_expand, ordered.size))
+                    Spacer(Modifier.width(4.dp))
+                    Icon(
+                        if (showAll) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
                 }
             }
         }

@@ -8,11 +8,44 @@ import kotlin.test.assertSame
 
 class HomeModelTest {
     @Test
-    fun homeAlwaysStartsWithExactlyThreeFixedChannels() {
+    fun homeDefaultsKeepAllThreeBuiltInChannels() {
         val model = buildHomeModel(emptyList(), AppSettings())
         assertEquals(listOf("排行榜", "随机", "游戏专区"), model.channels.map { it.title })
         assertEquals(listOf(HomeChannelKind.RANKINGS, HomeChannelKind.RANDOM, HomeChannelKind.GAMES), model.channels.map { it.kind })
-        assertEquals(listOf(ALL_COMICS_CATEGORY), model.categories)
+        assertEquals(BUILT_IN_HOME_CATEGORIES, model.categories)
+    }
+
+    @Test
+    fun rankingsStaysFirstAndOptionalBuiltInsKeepTheirOrderAheadOfCategories() {
+        val selections = mapOf(
+            setOf("games", "random") to listOf(HomeChannelKind.RANKINGS, HomeChannelKind.RANDOM, HomeChannelKind.GAMES),
+            setOf("random") to listOf(HomeChannelKind.RANKINGS, HomeChannelKind.RANDOM),
+            setOf("games") to listOf(HomeChannelKind.RANKINGS, HomeChannelKind.GAMES),
+            emptySet<String>() to listOf(HomeChannelKind.RANKINGS),
+        )
+        val category = Category(id = "server-random", title = "随机")
+        selections.forEach { (selected, builtIns) ->
+            val model = buildHomeModel(
+                listOf(category),
+                AppSettings(pinnedHomeChannels = selected, pinnedHomeCategories = listOf(category.title)),
+            )
+            assertEquals(builtIns + HomeChannelKind.CATEGORY, model.channels.map { it.kind })
+            assertSame(category, model.channels.last().category)
+            assertEquals(BUILT_IN_HOME_CATEGORIES + category, model.categories)
+            assertSame(RANDOM_CATEGORY, model.categories[1])
+            assertSame(category, model.categories[3])
+            assertEquals(model.categories.size, model.categories.map { it.id }.toSet().size)
+        }
+    }
+
+    @Test
+    fun unknownBuiltInPinIdsAreIgnoredRatherThanCreatingChannels() {
+        val model = buildHomeModel(
+            emptyList(), AppSettings(pinnedHomeChannels = setOf("unknown", "rankings", "games")),
+        )
+        assertEquals(listOf(HomeChannelKind.RANKINGS, HomeChannelKind.GAMES), model.channels.map { it.kind })
+        val unknownOnly = buildHomeModel(emptyList(), AppSettings(pinnedHomeChannels = setOf("unknown")))
+        assertEquals(listOf(HomeChannelKind.RANKINGS), unknownOnly.channels.map { it.kind })
     }
 
     @Test
@@ -41,7 +74,7 @@ class HomeModelTest {
             AppSettings(pinnedHomeCategories = listOf("不存在", "广告", "大湿推荐", "大濕推薦")),
         )
         assertEquals(listOf("排行榜", "随机", "游戏专区", "大濕推薦"), model.channels.map { it.title })
-        assertEquals(listOf("全分类", "大濕推薦"), model.categories.map { it.title })
+        assertEquals(listOf("全分类", "随机", "游戏专区", "大濕推薦"), model.categories.map { it.title })
     }
 
     @Test
@@ -50,18 +83,34 @@ class HomeModelTest {
             listOf(Category(title = "甲"), Category(title = "乙"), Category(title = "丙"), Category(title = "广告", isWeb = true)),
             AppSettings(categoryOrder = listOf("丙", "甲"), hiddenCategories = listOf("乙"), pinnedHomeCategories = listOf("乙")),
         )
-        assertEquals(listOf("全分类", "丙", "甲"), model.categories.map { it.title })
+        assertEquals(listOf("全分类", "随机", "游戏专区", "丙", "甲"), model.categories.map { it.title })
         assertEquals("乙", model.channels.last().title)
     }
 
     @Test
-    fun allComicsStaysFirstEvenIfOldPreferencesHideOrReorderIt() {
+    fun builtInGridEntriesStayFirstEvenIfUnpinnedOrOldPreferencesHideOrReorderThem() {
         val model = buildHomeModel(
             listOf(Category(title = "乙"), Category(title = "甲")),
-            AppSettings(categoryOrder = listOf("甲", "全分类", "乙"), hiddenCategories = listOf("全分类")),
+            AppSettings(
+                pinnedHomeChannels = emptySet(),
+                categoryOrder = listOf("游戏专区", "甲", "随机", "全分类", "乙"),
+                hiddenCategories = listOf("全分类", "随机", "游戏专区"),
+            ),
         )
-        assertEquals(listOf("全分类", "甲", "乙"), model.categories.map { it.title })
+        assertEquals(listOf("全分类", "随机", "游戏专区", "甲", "乙"), model.categories.map { it.title })
         assertSame(ALL_COMICS_CATEGORY, model.categories.first())
+        assertEquals(BUILT_IN_HOME_CATEGORIES, model.categories.take(3))
+        assertEquals(listOf(HomeChannelKind.RANKINGS), model.channels.map { it.kind })
+    }
+
+    @Test
+    fun builtInGridEntriesAreNotMatchedByNameAgainstCategoryPins() {
+        val model = buildHomeModel(
+            emptyList(),
+            AppSettings(pinnedHomeChannels = emptySet(), pinnedHomeCategories = listOf("随机", "游戏专区")),
+        )
+        assertEquals(BUILT_IN_HOME_CATEGORIES, model.categories)
+        assertEquals(listOf(HomeChannelKind.RANKINGS), model.channels.map { it.kind })
     }
 
     @Test

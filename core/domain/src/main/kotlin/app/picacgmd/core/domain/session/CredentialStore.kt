@@ -34,12 +34,27 @@ interface CredentialStore {
     suspend fun clear()
 }
 
-/** Only ciphertext is stored on disk; the AES key never leaves AndroidKeyStore. */
 class KeystoreCredentialStore(context: Context) : CredentialStore {
-    private val file = AtomicFile(File(context.applicationContext.noBackupFilesDir, "account_credentials"))
+    private val encryptedFile = KeystoreEncryptedFile(context, "account_credentials", "app.picacgmd.account.credentials")
+
+    override suspend fun read(): Credentials? = encryptedFile.read()?.let {
+        Json.decodeFromString<Credentials>(it.toString(Charsets.UTF_8))
+    }
+
+    override suspend fun save(credentials: Credentials) {
+        require(credentials.email.isNotBlank() && credentials.password.isNotEmpty()) { "登录账号和密码不能为空" }
+        encryptedFile.save(Json.encodeToString(credentials).toByteArray(Charsets.UTF_8))
+    }
+
+    override suspend fun clear() = encryptedFile.clear()
+}
+
+/** Only ciphertext is stored on disk; each purpose has its own AndroidKeyStore key and file. */
+internal class KeystoreEncryptedFile(context: Context, fileName: String, private val keyAlias: String) {
+    private val file = AtomicFile(File(context.applicationContext.noBackupFilesDir, fileName))
     private val mutex = Mutex()
 
-    override suspend fun read(): Credentials? = withContext(Dispatchers.IO) {
+    suspend fun read(): ByteArray? = withContext(Dispatchers.IO) {
         mutex.withLock {
             if (!file.baseFile.exists()) return@withLock null
             val (iv, encrypted) = DataInputStream(ByteArrayInputStream(file.readFully())).use { input ->
@@ -49,23 +64,22 @@ class KeystoreCredentialStore(context: Context) : CredentialStore {
                 val iv = ByteArray(ivSize).also(input::readFully)
                 iv to input.readBytes()
             }
-            val key = keyStore().getKey(KEY_ALIAS, null) as? SecretKey
+            val key = keyStore().getKey(keyAlias, null) as? SecretKey
                 ?: throw IOException("读取凭据失败：密钥不可用")
             val cipher = Cipher.getInstance(TRANSFORMATION)
             cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(TAG_BITS, iv))
-            Json.decodeFromString<Credentials>(cipher.doFinal(encrypted).toString(Charsets.UTF_8))
+            cipher.doFinal(encrypted)
         }
     }
 
-    override suspend fun save(credentials: Credentials) = withContext(Dispatchers.IO) {
-        require(credentials.email.isNotBlank() && credentials.password.isNotEmpty()) { "登录账号和密码不能为空" }
+    suspend fun save(plaintext: ByteArray) = withContext(Dispatchers.IO) {
         mutex.withLock {
-            val key = (keyStore().getKey(KEY_ALIAS, null) as? SecretKey) ?: KeyGenerator
+            val key = (keyStore().getKey(keyAlias, null) as? SecretKey) ?: KeyGenerator
                 .getInstance(KeyProperties.KEY_ALGORITHM_AES, KEYSTORE)
                 .apply {
                     init(
                         KeyGenParameterSpec.Builder(
-                            KEY_ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
+                            keyAlias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
                         ).setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                             .setKeySize(256)
@@ -75,7 +89,7 @@ class KeystoreCredentialStore(context: Context) : CredentialStore {
                 }.generateKey()
             val cipher = Cipher.getInstance(TRANSFORMATION)
             cipher.init(Cipher.ENCRYPT_MODE, key)
-            val encrypted = cipher.doFinal(Json.encodeToString(credentials).toByteArray(Charsets.UTF_8))
+            val encrypted = cipher.doFinal(plaintext)
             val bytes = ByteArrayOutputStream().also { buffer ->
                 DataOutputStream(buffer).use { output ->
                     output.writeInt(FILE_VERSION)
@@ -95,10 +109,10 @@ class KeystoreCredentialStore(context: Context) : CredentialStore {
         }
     }
 
-    override suspend fun clear() = withContext(Dispatchers.IO) {
+    suspend fun clear() = withContext(Dispatchers.IO) {
         mutex.withLock {
             file.delete()
-            keyStore().deleteEntry(KEY_ALIAS)
+            keyStore().deleteEntry(keyAlias)
         }
     }
 
@@ -106,7 +120,6 @@ class KeystoreCredentialStore(context: Context) : CredentialStore {
 
     private companion object {
         const val KEYSTORE = "AndroidKeyStore"
-        const val KEY_ALIAS = "app.picacgmd.account.credentials"
         const val TRANSFORMATION = "AES/GCM/NoPadding"
         const val FILE_VERSION = 1
         const val IV_BYTES = 12

@@ -24,6 +24,7 @@
     <!-- Control layer. -->
     <string name="reader_chapters">目录</string>
     <string name="reader_more">更多</string>
+    <string name="reader_routes">分流</string>
     <string name="reader_previous_chapter">上一话</string>
     <string name="reader_next_chapter">下一话</string>
     <string name="reader_settings">阅读设置</string>

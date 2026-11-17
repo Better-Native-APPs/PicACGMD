@@ -3,6 +3,7 @@ package app.picacgmd.core.data.settings
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.mutablePreferencesOf
 import java.io.IOException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +20,21 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class SettingsRepositoryTest {
+    @Test
+    fun allFullScreenModesRoundTripByNameAcrossRepositoryInstances() = runTest {
+        val store = MemoryPreferencesStore()
+        val repository = SettingsRepository(store)
+        assertEquals(
+            listOf("OFF", "HIDE_STATUS_BAR", "HIDE_NAVIGATION", "HIDE_SYSTEM_BARS"),
+            FullScreenDisplay.entries.map { it.name },
+        )
+        FullScreenDisplay.entries.forEach { mode ->
+            repository.setFullScreenDisplay(mode)
+            assertEquals(mode.name, store.data.first()[SettingsKeys.fullScreenDisplay])
+            assertEquals(mode, SettingsRepository(store).settings.first().fullScreenDisplay)
+        }
+    }
+
     @Test
     fun deviceDefaultIsNotPersistedAndAnExplicitChoiceSurvivesDifferentDefaults() = runTest {
         val store = MemoryPreferencesStore()
@@ -159,8 +175,6 @@ class SettingsRepositoryTest {
         repository.setAppOrientation(AppOrientation.LANDSCAPE)
         repository.setDisplayModeId(2)
         repository.setFullScreenDisplay(FullScreenDisplay.HIDE_SYSTEM_BARS)
-        repository.setDoubleBackToExit(true)
-        repository.setStartupImageUri("content://images/startup")
         repository.setFailedReloadAction(FailedReloadAction.PULL_DOWN)
         repository.setHideViewedComics(true)
         repository.setHiddenCategories(listOf("隐藏分类"))
@@ -194,8 +208,8 @@ class SettingsRepositoryTest {
             AppSettings.DEFAULT.copy(
                 connectTimeoutSeconds = 60, readTimeoutSeconds = 10, timeOffsetHours = 8,
                 useApiClientForImages = true, appOrientation = AppOrientation.LANDSCAPE, displayModeId = 2,
-                fullScreenDisplay = FullScreenDisplay.HIDE_SYSTEM_BARS, doubleBackToExit = true,
-                startupImageUri = "content://images/startup", failedReloadAction = FailedReloadAction.PULL_DOWN,
+                fullScreenDisplay = FullScreenDisplay.HIDE_SYSTEM_BARS,
+                failedReloadAction = FailedReloadAction.PULL_DOWN,
                 hideViewedComics = true, hiddenCategories = listOf("隐藏分类"), showAuthorSearch = false,
                 showSubscriptions = false, showTagFavourites = false, showOnlineFavourites = false,
                 copyNameTemplate = "{title}", confirmCopy = false,
@@ -214,6 +228,24 @@ class SettingsRepositoryTest {
     }
 
     @Test
+    fun legacyLaunchPictureIsRemovedOnReadWithoutChangingOtherSettings() = runTest {
+        val store = MemoryPreferencesStore()
+        store.updateData {
+            mutablePreferencesOf(
+                SettingsKeys.legacyStartupImageUri to "content://images/startup",
+                SettingsKeys.theme to "BOOK",
+            )
+        }
+        val repository = SettingsRepository(store)
+        val expected = AppSettings.DEFAULT.copy(theme = AppTheme.BOOK)
+        assertEquals(expected, repository.settings.first())
+        assertNull(store.data.first()[SettingsKeys.legacyStartupImageUri])
+        assertEquals(setOf(SettingsKeys.theme), store.data.first().asMap().keys)
+        assertEquals(expected, SettingsRepository(store).settings.first())
+        assertEquals(setOf(SettingsKeys.theme), store.data.first().asMap().keys)
+    }
+
+    @Test
     fun pinsPreserveOrderSpellingAndExplicitEmptySelection() = runTest {
         val repository = SettingsRepository(MemoryPreferencesStore())
         repository.setPinnedHomeCategories(listOf("大濕推薦", "分类一", "大濕推薦", "大家都在看"))
@@ -221,6 +253,34 @@ class SettingsRepositoryTest {
         assertFailsWith<IllegalArgumentException> { repository.setPinnedHomeCategories(listOf("")) }
         repository.setPinnedHomeCategories(emptyList())
         assertEquals(emptyList(), repository.settings.first().pinnedHomeCategories)
+    }
+
+    @Test
+    fun builtInHomePinsDefaultToBothAndRoundTripIndependentlyOfCategoryPins() = runTest {
+        val store = MemoryPreferencesStore()
+        val repository = SettingsRepository(store)
+        assertEquals(setOf("random", "games"), repository.settings.first().pinnedHomeChannels)
+        assertNull(store.data.first()[SettingsKeys.pinnedHomeChannels])
+        repository.setPinnedHomeCategories(listOf("随机", "游戏专区"))
+        for (selected in listOf(setOf("random"), setOf("games"), emptySet(), setOf("games", "random"))) {
+            repository.setPinnedHomeChannels(selected)
+            assertEquals(selected, store.data.first()[SettingsKeys.pinnedHomeChannels])
+            val restored = SettingsRepository(store).settings.first()
+            assertEquals(selected, restored.pinnedHomeChannels)
+            assertEquals(listOf("随机", "游戏专区"), restored.pinnedHomeCategories)
+        }
+    }
+
+    @Test
+    fun invalidBuiltInHomePinIdsAreRejectedWithoutWriting() = runTest {
+        val store = MemoryPreferencesStore()
+        val repository = SettingsRepository(store)
+        repository.setPinnedHomeChannels(setOf("random"))
+        val before = store.data.first().asMap()
+        for (invalid in listOf("unknown", "rankings", "Random", "", "随机")) {
+            assertFailsWith<IllegalArgumentException> { repository.setPinnedHomeChannels(setOf("games", invalid)) }
+            assertEquals(before, store.data.first().asMap())
+        }
     }
 
     @Test

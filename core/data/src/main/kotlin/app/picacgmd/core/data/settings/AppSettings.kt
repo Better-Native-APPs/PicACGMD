@@ -18,8 +18,11 @@ enum class ReaderScrollMode { IMAGE, SCREEN_DISTANCE }
 enum class ReaderSliderPosition { BOTTOM, RIGHT, LEFT }
 enum class TwoPagePlacement { CLOSE_TO, PULL_APART, EACH_CENTERED }
 enum class AppOrientation { SYSTEM, LANDSCAPE, PORTRAIT }
-enum class FullScreenDisplay { OFF, HIDE_NAVIGATION, HIDE_SYSTEM_BARS }
+enum class FullScreenDisplay { OFF, HIDE_STATUS_BAR, HIDE_NAVIGATION, HIDE_SYSTEM_BARS }
 enum class FailedReloadAction { TAP, PULL_DOWN }
+
+/** Stable preference IDs for the built-in home entries that can be unpinned. */
+enum class PinnableHomeChannel(val id: String) { RANDOM("random"), GAMES("games") }
 
 enum class CacheCleanupInterval(val seconds: Long) {
     NEVER(0), DAY(86_400), WEEK(604_800), MONTH(2_592_000),
@@ -31,7 +34,8 @@ enum class CacheCleanupInterval(val seconds: Long) {
  * - Dynamic theme (brand-pink fallback on Android < 12), system dark mode, pure black off.
  * - Detail lists, automatic columns (0; explicit values 2–7), infinite pagination (B1).
  * - No shields/hidden words/categories; blacklist mode. Home pins are ordered server category names
- *   ["大家都在看", "大濕推薦"]. All bookshelf/search feature entries are visible.
+ *   ["大家都在看", "大濕推薦"]. Random and games are pinned; rankings is always present.
+ *   All bookshelf/search feature entries are visible.
  * - Webtoon, top-to-bottom, controller tap zones, black background, normal filter, keep screen on.
  *   Volume paging and automatic fullscreen are off; double-volume chapter paging is on.
  * - Download concurrency 2 on low-RAM devices, 4 elsewhere (allowed 1–16). Manual downloads may use
@@ -66,8 +70,6 @@ data class AppSettings(
     val appOrientation: AppOrientation = AppOrientation.SYSTEM,
     val displayModeId: Int? = null,
     val fullScreenDisplay: FullScreenDisplay = FullScreenDisplay.OFF,
-    val doubleBackToExit: Boolean = false,
-    val startupImageUri: String? = null,
     /** Id of the newest 公告 the user has opened the announcement list for; drives the 我的 unread dot. */
     val lastSeenAnnouncementId: String? = null,
     val listLayout: ListLayout = ListLayout.DETAILS,
@@ -83,6 +85,7 @@ data class AppSettings(
     val hiddenCategories: List<String> = emptyList(),
     val categoryOrder: List<String> = emptyList(),
     val pinnedHomeCategories: List<String> = listOf("大家都在看", "大濕推薦"),
+    val pinnedHomeChannels: Set<String> = setOf(PinnableHomeChannel.RANDOM.id, PinnableHomeChannel.GAMES.id),
     val showAuthorSearch: Boolean = true,
     val showSubscriptions: Boolean = true,
     val showTagFavourites: Boolean = true,
@@ -137,6 +140,7 @@ data class AppSettings(
     val historyEnabled: Boolean = true,
     val recordDetailViews: Boolean = true,
     val autoCleanCacheInterval: CacheCleanupInterval = CacheCleanupInterval.NEVER,
+    val webDav: WebDavSettings = WebDavSettings(),
 ) {
     /** Do not expose a saved bearer token through diagnostic logs. */
     override fun toString(): String =
@@ -156,6 +160,11 @@ internal object SettingsValidation {
     fun isDownloadThreads(value: Int): Boolean = value in 1..16
     fun isTimeout(value: Int): Boolean = value in setOf(10, 15, 30, 60)
     fun isLockTimeout(value: Int): Boolean = value in setOf(0, 1, 10, 60, 180, 600, 3_600)
+    fun isPinnableHomeChannel(value: String): Boolean = PinnableHomeChannel.entries.any { it.id == value }
+
+    fun requireHomeChannels(values: Set<String>) {
+        require(values.all(::isPinnableHomeChannel)) { "Home channel IDs must be random or games" }
+    }
 
     fun requireColumns(value: Int) {
         require(isColumnCount(value)) { "Column count must be 0 (auto) or 2..7" }

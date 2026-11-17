@@ -26,6 +26,12 @@ import app.picacgmd.core.domain.session.KeystoreCredentialStore
 import app.picacgmd.core.domain.session.NetworkConfigProvider
 import app.picacgmd.core.domain.session.RoutingRepository
 import app.picacgmd.core.domain.session.SessionManager
+import app.picacgmd.core.domain.session.SessionState
+import app.picacgmd.core.domain.sync.HistorySyncService
+import app.picacgmd.core.domain.sync.KeystoreWebDavPasswordStore
+import app.picacgmd.core.domain.sync.RoomHistorySyncStore
+import app.picacgmd.core.domain.sync.SettingsWebDavPreferences
+import app.picacgmd.core.network.webdav.OkHttpWebDavClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -34,7 +40,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 
 /** Retain one container on the Application; no Activity context or DI framework is needed. */
-class AppContainer(context: Context) : AutoCloseable {
+class AppContainer(context: Context, syncWifiAvailable: () -> Boolean = { false }) : AutoCloseable {
     private val applicationContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val lowRamDevice = isLowRamDevice(applicationContext)
@@ -61,6 +67,9 @@ class AppContainer(context: Context) : AutoCloseable {
     val announcementRepository: AnnouncementRepository = AnnouncementRepository(sessionManager)
     val userRepository: UserRepository = UserRepository(sessionManager, scope)
     val historyRepository: HistoryRepository = HistoryRepository(database.viewHistoryDao(), settingsRepository.settings)
+    private val webDavClient = OkHttpWebDavClient()
+    val webDavSync = HistorySyncService(SettingsWebDavPreferences(settingsRepository), KeystoreWebDavPasswordStore(applicationContext),
+        RoomHistorySyncStore(database), webDavClient, scope, syncWifiAvailable)
     val subscriptionRepository: SubscriptionRepository = SubscriptionRepository(
         database.subscriptionDao(), comicRepository, settingsRepository.settings,
     )
@@ -83,6 +92,8 @@ class AppContainer(context: Context) : AutoCloseable {
         }
         networkConfigProvider.awaitReady()
         sessionManager.onAppOpen()
+        // Restored subscriptions must not trigger authenticated requests while the user is signed out.
+        if (sessionManager.state.value !is SessionState.SignedIn) return SubscriptionCheckReport(0, 0, emptyMap())
         return subscriptionRepository.checkOnAppOpen()
     }
 
@@ -90,6 +101,7 @@ class AppContainer(context: Context) : AutoCloseable {
         scope.cancel()
         imageLoader.shutdown()
         networkConfigProvider.close()
+        webDavClient.close()
         database.close()
     }
 }

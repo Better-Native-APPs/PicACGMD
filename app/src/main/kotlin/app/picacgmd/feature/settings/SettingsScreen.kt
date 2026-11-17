@@ -60,15 +60,15 @@ import app.picacgmd.core.designsystem.component.PredictiveBackContent
  * Settings sub pages (boards 25–28b). The name is stable, so a navigation route can carry it as a
  * string: `SettingsPage.valueOf(route.page)`.
  */
-enum class SettingsPage(val title: String, val summary: String) {
-    Appearance("外观", "主题、配色、纯黑背景、刷新率、屏幕方向"),
-    Browsing("列表与浏览", "加载方式、列数、封印、首页分类、功能入口"),
-    Reading("阅读", "默认模式、操控、音量键、缩放、电子墨水屏"),
-    Downloads("下载", "线程数 1–16、自动下载、仅 Wi-Fi"),
-    Network("网络", "分流、图片分流、超时"),
-    Privacy("隐私与安全", "应用锁、防截屏、浏览记录"),
-    Data("数据与存储", "存储占用、清理缓存、自动清理"),
-    About("关于", "版本、开源许可、隐私说明、使用说明"),
+enum class SettingsPage(val title: String) {
+    Appearance("外观"),
+    Browsing("列表与浏览"),
+    Reading("阅读"),
+    Downloads("下载"),
+    Network("网络"),
+    Privacy("隐私与安全"),
+    Data("数据与存储"),
+    About("关于"),
 }
 
 private data class PageStyle(val icon: ImageVector, val shape: RoundedPolygon)
@@ -100,7 +100,7 @@ private val SearchIndex: List<SettingsEntry> = buildList {
     add(
         SettingsPage.Appearance, "显示",
         "屏幕刷新率" to "仅对本应用生效", "屏幕方向" to "跟随系统、横屏、竖屏",
-        "全屏显示" to "隐藏状态栏或导航栏", "连按两次返回退出" to "仅在一级导航页面生效", "启动图片" to "使用自选图片",
+        "全屏显示" to "仅阅读漫画时生效，可隐藏状态栏或导航栏",
     )
     add(
         SettingsPage.Browsing, "列表",
@@ -109,7 +109,7 @@ private val SearchIndex: List<SettingsEntry> = buildList {
     )
     add(
         SettingsPage.Browsing, "封印",
-        "封印与隐藏" to "封印分类、隐藏关键词",
+        "封印与屏蔽" to "封印分类、屏蔽关键词",
         "隐藏看过的漫画" to "按浏览记录隐藏", "屏蔽 AI 作品" to "隐藏 AI 生成的作品",
     )
     add(
@@ -117,8 +117,8 @@ private val SearchIndex: List<SettingsEntry> = buildList {
         "封印分类" to "不想看到的分类", "封印方式" to "黑名单或白名单",
     )
     add(
-        SettingsPage.Browsing, "隐藏关键词",
-        "隐藏关键词" to "按标题、作者、分类、标签隐藏", "预设关键词" to "按预设组添加或移除",
+        SettingsPage.Browsing, "屏蔽关键词",
+        "屏蔽关键词" to "按标题、作者、分类、标签隐藏漫画，取消屏蔽也在这里", "预设关键词" to "按预设组添加或移除",
     )
     add(
         SettingsPage.Browsing, "首页",
@@ -214,7 +214,7 @@ private val SearchIndex: List<SettingsEntry> = buildList {
     )
     add(
         SettingsPage.Data, "同步",
-        "WebDAV 云同步" to "同步浏览记录",
+        "WebDAV 云同步" to "同步浏览记录和阅读进度，可自动同步",
     )
     add(SettingsPage.About, "关于", "版本" to "", "开源许可" to "", "隐私说明" to "", "使用说明" to "")
 }
@@ -348,7 +348,6 @@ private fun PageGroup(
                 SettingsNavRow(
                     shapes = shapes,
                     title = page.title,
-                    summary = page.summary,
                     onClick = { onOpenPage(page) },
                     leading = { ShapeBadge(style.icon, style.shape, container, content) },
                 )

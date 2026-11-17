@@ -35,7 +35,7 @@ internal class BookshelfViewModelTest {
     @AfterTest fun closeServer() = pica.close()
 
     @Test
-    fun historyUndoRestoresTheRemovedSnapshotFieldForFieldInGivenOrder() = runTest {
+    fun historyUndoPreservesSnapshotFieldsAndAdvancesPastTheDeletionInGivenOrder() = runTest {
         val environment = TestAppEnvironment(pica, backgroundScope, AppSettings(historyEnabled = false))
         val first = ViewHistory("b", "Original", "Author", "server", "cover", "[\"Category\"]",
             lastEpOrder = 8, lastEpTitle = "Chapter eight", lastPictureIndex = 12, lastChapterPages = 30,
@@ -47,8 +47,10 @@ internal class BookshelfViewModelTest {
         val viewModel = BookshelfViewModel(environment.container)
         try {
             viewModel.restoreHistory(items)
-            assertEquals(items, environment.historyDao.upserts.toList())
-            assertEquals(items.associateBy { it.comicId }, environment.historyDao.entries.value)
+            val expected = listOf(items[0].copy(modifiedAt = 9_001L), items[1].copy(modifiedAt = 9_001L), items[2].copy(modifiedAt = 9_002L))
+            assertEquals(expected, environment.historyDao.upserts.toList())
+            assertEquals(expected.associateBy { it.comicId }, environment.historyDao.entries.value)
+            assertTrue(environment.historyDao.tombstones.value.isEmpty())
             assertEquals(emptyList(), viewModel.messages.value)
             assertEquals(0, pica.requestCount)
         } finally {

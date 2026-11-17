@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
@@ -66,13 +67,17 @@ import androidx.lifecycle.viewModelScope
 import coil3.compose.AsyncImage
 import app.picacgmd.R
 import app.picacgmd.core.data.settings.AppSettings
+import app.picacgmd.core.data.settings.PinnableHomeChannel
 import app.picacgmd.core.designsystem.component.AppIconToggleButton
 import app.picacgmd.core.designsystem.component.AppSwitch
 import app.picacgmd.core.designsystem.component.ConnectedChoiceGroup
 import app.picacgmd.core.designsystem.component.LoadingState
 import app.picacgmd.core.designsystem.component.SectionHeader
+import app.picacgmd.core.designsystem.icon.PicaIcons
 import app.picacgmd.core.domain.di.AppContainer
 import app.picacgmd.core.domain.repository.ALL_COMICS_CATEGORY
+import app.picacgmd.core.domain.repository.GAMES_CATEGORY
+import app.picacgmd.core.domain.repository.RANDOM_CATEGORY
 import app.picacgmd.core.domain.repository.homeCategoryCatalogue
 import app.picacgmd.core.network.Category
 import app.picacgmd.feature.discover.ALL_COMICS_THUMB_URL
@@ -134,6 +139,11 @@ class CategoriesViewModel(private val container: AppContainer) : ViewModel() {
         repository.setPinnedHomeCategories(if (pinned) current + name else current)
     }
 
+    fun setChannelPinned(channel: PinnableHomeChannel, pinned: Boolean) = viewModelScope.launch {
+        val current = settings.value.pinnedHomeChannels
+        repository.setPinnedHomeChannels(if (pinned) current + channel.id else current - channel.id)
+    }
+
     fun setVisible(name: String, visible: Boolean) = viewModelScope.launch {
         val current = settings.value.hiddenCategories.filterNot { categoryKey(it) == categoryKey(name) }
         repository.setHiddenCategories(if (visible) current else current + name)
@@ -152,7 +162,8 @@ class CategoriesViewModel(private val container: AppContainer) : ViewModel() {
  * 「分类管理」 (boards 04 §0 / 26): one page for both upstream screens. A 「每行列数」 connected
  * ButtonGroup sits on top, then drag-to-reorder pinned shortcuts and the home grid (with move
  * up / move down accessibility actions on each drag handle), 固定到首页 pin toggles and per-category
- * visibility switches. Reached from the home grid and from 设置 → 浏览设置. Wire into `CategoriesRoute`.
+ * visibility switches. Random and games use the same pin toggles but keep fixed, always-visible grid positions.
+ * Reached from the home grid and from 设置 → 浏览设置. Wire into `CategoriesRoute`.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -183,6 +194,7 @@ fun CategoriesScreen(
                     categories = state.data,
                     settings = settings,
                     onPin = viewModel::setPinned,
+                    onChannelPin = viewModel::setChannelPinned,
                     onVisible = viewModel::setVisible,
                     onReorderPinned = viewModel::reorderPinned,
                     onReorderCategories = viewModel::reorderCategories,
@@ -200,10 +212,11 @@ private val RowHeight = 64.dp
 private val ColumnCountOptions = listOf(0, 3, 4, 5)
 
 @Composable
-private fun ManageContent(
+internal fun ManageContent(
     categories: List<Category>,
     settings: AppSettings,
     onPin: (String, Boolean) -> Unit,
+    onChannelPin: (PinnableHomeChannel, Boolean) -> Unit,
     onVisible: (String, Boolean) -> Unit,
     onReorderPinned: (List<String>) -> Unit,
     onReorderCategories: (List<String>) -> Unit,
@@ -224,7 +237,6 @@ private fun ManageContent(
     val scroll = rememberScrollState()
     Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(bottom = 24.dp)) {
         SectionHeader(title = stringResource(R.string.categories_columns_title))
-        Caption(stringResource(R.string.categories_columns_hint))
         SectionCard {
             ConnectedChoiceGroup(
                 options = ColumnCountOptions,
@@ -245,7 +257,6 @@ private fun ManageContent(
             }
         }
         SectionHeader(title = stringResource(R.string.categories_pinned_title))
-        Caption(stringResource(R.string.categories_pinned_hint))
         SectionCard {
             if (pinned.isEmpty()) {
                 Text(
@@ -275,6 +286,29 @@ private fun ManageContent(
         SectionHeader(title = stringResource(R.string.categories_all_title))
         Caption(stringResource(R.string.categories_all_hint))
         SectionCard {
+            listOf(
+                PinnableHomeChannel.RANDOM to R.string.discover_channel_random,
+                PinnableHomeChannel.GAMES to R.string.discover_channel_games,
+            ).forEach { (channel, label) ->
+                val name = stringResource(label)
+                CategoryRow(
+                    category = when (channel) {
+                        PinnableHomeChannel.RANDOM -> RANDOM_CATEGORY
+                        PinnableHomeChannel.GAMES -> GAMES_CATEGORY
+                    }.copy(title = name),
+                    handle = null,
+                    icon = when (channel) {
+                        PinnableHomeChannel.RANDOM -> PicaIcons.Random
+                        PinnableHomeChannel.GAMES -> PicaIcons.Gamepad
+                    },
+                ) {
+                    PinToggle(
+                        pinned = channel.id in settings.pinnedHomeChannels,
+                        name = name,
+                        onPin = { _, pinned -> onChannelPin(channel, pinned) },
+                    )
+                }
+            }
             CategoryRow(category = ALL_COMICS_CATEGORY, handle = null, onClick = onOpenAllComics) {
                 PinToggle(pinned = categoryKey(ALL_COMICS_CATEGORY.title) in pinnedKeys, name = ALL_COMICS_CATEGORY.title, onPin = onPin)
             }
@@ -344,6 +378,7 @@ private fun CategoryRow(
     handle: Modifier?,
     dimmed: Boolean = false,
     onClick: (() -> Unit)? = null,
+    icon: ImageVector? = null,
     trailing: @Composable () -> Unit,
 ) {
     Row(
@@ -363,9 +398,15 @@ private fun CategoryRow(
             shape = MaterialTheme.shapes.medium,
             color = MaterialTheme.colorScheme.secondaryContainer,
         ) {
-            val url = if (category.id == ALL_COMICS_CATEGORY.id) ALL_COMICS_THUMB_URL else rememberImageUrl(category.thumb)
-            if (url != null) {
-                AsyncImage(model = url, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            if (icon != null) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Icon(icon, contentDescription = null, modifier = Modifier.size(28.dp))
+                }
+            } else {
+                val url = if (category.id == ALL_COMICS_CATEGORY.id) ALL_COMICS_THUMB_URL else rememberImageUrl(category.thumb)
+                if (url != null) {
+                    AsyncImage(model = url, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                }
             }
         }
         Spacer(Modifier.width(16.dp))

@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.FormatListNumbered
 import androidx.compose.material.icons.rounded.Fullscreen
@@ -137,6 +138,7 @@ internal fun BoxScope.ReaderControls(
     hasNextChapter: Boolean,
     reduceMotion: Boolean,
     actions: ReaderControlActions,
+    onOpenRoutes: (() -> Unit)? = null,
 ) {
     val insets = readerChromeInsets()
     val spec = MaterialTheme.motionScheme
@@ -154,6 +156,7 @@ internal fun BoxScope.ReaderControls(
             comicTitle = comicTitle,
             actions = actions,
             canReload = pageCount > 0,
+            onOpenRoutes = onOpenRoutes,
             modifier = Modifier
                 .windowInsetsPadding(insets.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                 .padding(start = 12.dp, end = 12.dp, top = TopCapsuleGap)
@@ -212,6 +215,7 @@ private fun TopCapsule(
     comicTitle: String,
     actions: ReaderControlActions,
     canReload: Boolean,
+    onOpenRoutes: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -240,7 +244,16 @@ private fun TopCapsule(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            // 目录 lives in the bottom toolbar only (2026-11-10); the capsule keeps one button a side.
+            // Chapters stay in the bottom toolbar; online routes sit directly beside More.
+            onOpenRoutes?.let { open ->
+                AppIconButton(onClick = open, modifier = Modifier.size(ChromeIconButtonSize)) {
+                    Icon(
+                        imageVector = Icons.Outlined.Route,
+                        contentDescription = stringResource(R.string.reader_routes),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
             MoreMenu(actions, canReload)
         }
     }

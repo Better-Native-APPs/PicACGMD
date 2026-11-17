@@ -7,11 +7,16 @@ import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.AnimationVector2D
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.SeekableTransitionState
+import androidx.compose.animation.core.TargetBasedAnimation
+import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.rememberTransition
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -28,6 +33,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -46,6 +52,8 @@ import androidx.navigationevent.NavigationEvent
 import androidx.navigationevent.NavigationEventTransitionState
 import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
 
 /*
@@ -57,7 +65,7 @@ import kotlinx.coroutines.launch
  *
  * How it is driven
  *
- * The host's transition is the only clock. Navigation seeks it with the raw gesture progress,
+ * The host's transition is the pop's only clock. Navigation seeks it with the raw gesture progress,
  * continues it to the end when the back is committed and seeks it back to 0 when it is cancelled;
  * a plain back press simply plays it. Each page reads that clock through one linear track and
  * derives every visual from it in a layer block:
@@ -74,6 +82,8 @@ import kotlinx.coroutines.launch
  *
  * The host itself adds no motion of its own on a pop (see [predictiveBackExit]): there is one
  * mapping, in one place, and no second set of tweens that could drift away from it.
+ * A forward enter instead runs on the frame's own clock. Its offset is added to the preview shift
+ * and its alpha multiplies the release fade; seeking a pop never seeks or restarts that enter.
  *
  * Everything that moves per frame is a layer property (scale, translation, alpha, outline). A
  * gesture never recomposes, remeasures or redraws page content. No shadow: an elevated full-screen
@@ -136,19 +146,75 @@ private fun followDirection(swipeEdge: Int): Float = when (swipeEdge) {
 fun predictiveBackExit(): ExitTransition = ExitTransition.None
 
 /**
- * What every [BackPreviewFrame] of one host needs to know about the back in flight. All of it is
- * read in layer blocks only.
+ * Gesture values are read in layer blocks. Appearance metadata is consumed once when a frame is
+ * first composed, so uncovering and restoration never replay a forward enter.
  */
 @Stable
 class BackPreviewState internal constructor() {
+    private class Appearance(val key: Any, var frameNanos: Long?) {
+        var forward = false
+        var claimed = false
+        var clock: Job? = null
+    }
+
+    private var latestFrameNanos: Long? = null
+    private var appearance: Appearance? = null
+
+    internal fun recordFrame(nanos: Long) {
+        latestFrameNanos = nanos
+    }
+
+    /** Capture the composition frame's timestamp, without adding an animation to the host. */
+    fun prepareAppearance(key: Any, scope: CoroutineScope) {
+        if (appearance?.key == key) return
+        clearAppearance()
+        val next = Appearance(key, latestFrameNanos)
+        appearance = next
+        next.clock = scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            while (true) {
+                withFrameNanos {
+                    recordFrame(it)
+                    next.frameNanos = it
+                }
+            }
+        }
+    }
+
+    /** Only the host's forward spec may opt the target into its own enter animation. */
+    fun confirmForwardAppearance(key: Any) {
+        appearance?.takeIf { it.key == key }?.forward = true
+    }
+
+    fun clearAppearance() {
+        appearance?.clock?.cancel()
+        appearance = null
+    }
+
+    internal fun enterMotion(
+        key: Any?,
+        slide: FiniteAnimationSpec<IntOffset>,
+        fade: FiniteAnimationSpec<Float>,
+    ): PageEnterMotion? {
+        val next = appearance?.takeIf { it.key == key } ?: return null
+        next.clock?.cancel()
+        if (!next.forward || next.claimed) return null
+        next.claimed = true
+        return PageEnterMotion(next.frameNanos, slide, fade)
+    }
+
     /**
-     * Set by every transition spec of the host: true for a pop, false for anything else, so that
-     * forward navigation and tab switches leave the frames idle. Specs are built in the composition
+     * The shrinking preview applies to page pops, not tab crossfades. Specs are built in the composition
      * that follows a target change, which is before the first frame of the transition whether it
      * is played or seeked. The value goes stale once a transition is over (a cancelled gesture
      * leaves it true); that is harmless, a page at rest sits at t = 0.
      */
     var popping: Boolean by mutableStateOf(false)
+
+    /** Pop tracks stay 300 ms even when a tab crossfade has no shrinking preview. */
+    var logicalPop: Boolean by mutableStateOf(false)
+
+    /** Tabs keep their released clock in both directions, including the entry's RESUMED timing. */
+    var tabCrossfade: Boolean by mutableStateOf(false)
 
     /** A finger is holding a back gesture right now. */
     var held: Boolean by mutableStateOf(false)
@@ -183,7 +249,38 @@ fun rememberBackPreviewState(): BackPreviewState {
     LaunchedEffect(state, dispatcher) {
         dispatcher?.transitionState?.collect(state::onGesture)
     }
+    LaunchedEffect(state) {
+        withFrameNanos(state::recordFrame)
+    }
     return state
+}
+
+/** Independent enter clock; the preview composes its transform with these offset/alpha values. */
+internal class PageEnterMotion(
+    private var startNanos: Long?,
+    private val slideSpec: FiniteAnimationSpec<IntOffset>,
+    fadeSpec: FiniteAnimationSpec<Float>,
+) {
+    private var playTimeNanos by mutableLongStateOf(0L)
+    private var width = -1
+    private var slide: TargetBasedAnimation<IntOffset, AnimationVector2D>? = null
+    private val fade = TargetBasedAnimation(fadeSpec, Float.VectorConverter, 0f, 1f)
+
+    fun frame(nanos: Long) {
+        val start = startNanos ?: nanos.also { startNanos = it }
+        playTimeNanos = (nanos - start).coerceAtLeast(0L)
+    }
+
+    fun offset(fullWidth: Int): IntOffset {
+        if (width != fullWidth) {
+            width = fullWidth
+            slide = TargetBasedAnimation(slideSpec, IntOffset.VectorConverter, IntOffset(fullWidth / 8, 0), IntOffset.Zero)
+        }
+        return requireNotNull(slide).getValueFromNanos(playTimeNanos)
+    }
+
+    val alpha: Float get() = fade.getValueFromNanos(playTimeNanos)
+    val finished: Boolean get() = slide?.isFinishedFromNanos(playTimeNanos) == true && fade.isFinishedFromNanos(playTimeNanos)
 }
 
 /**
@@ -234,14 +331,29 @@ private class ReleasePoint {
  * properties and never recomposes or redraws the page content.
  */
 @Composable
-fun AnimatedVisibilityScope.BackPreviewFrame(state: BackPreviewState, content: @Composable () -> Unit) {
+fun AnimatedVisibilityScope.BackPreviewFrame(
+    state: BackPreviewState,
+    entryKey: Any? = null,
+    content: @Composable () -> Unit,
+) {
+    val motion = MaterialTheme.motionScheme
+    val enter = remember(entryKey) {
+        state.enterMotion(entryKey, motion.defaultSpatialSpec<IntOffset>(), motion.defaultEffectsSpec<Float>())
+    }
+    LaunchedEffect(enter) {
+        if (enter != null) {
+            do {
+                withFrameNanos(enter::frame)
+            } while (!enter.finished)
+        }
+    }
     // Linear on purpose: these are the host timeline as seen from this page, not a motion curve.
     val leaving = transition.animateFloat(
-        transitionSpec = { tween(BACK_PREVIEW_MILLIS, easing = LinearEasing) },
+        transitionSpec = { if (state.logicalPop || state.tabCrossfade) tween(BACK_PREVIEW_MILLIS, easing = LinearEasing) else snap() },
         label = "backLeaving",
     ) { if (it == EnterExitState.PostExit) 1f else 0f }
     val uncovering = transition.animateFloat(
-        transitionSpec = { tween(BACK_PREVIEW_MILLIS, easing = LinearEasing) },
+        transitionSpec = { if (state.logicalPop || state.tabCrossfade) tween(BACK_PREVIEW_MILLIS, easing = LinearEasing) else snap() },
         label = "backUncovering",
     ) { if (it == EnterExitState.PreEnter) 0f else 1f }
     val pageRelease = remember { ReleasePoint() }
@@ -260,9 +372,10 @@ fun AnimatedVisibilityScope.BackPreviewFrame(state: BackPreviewState, content: @
                 val scale = 1f - (1f - EXIT_SCALE) * eased
                 scaleX = scale
                 scaleY = scale
-                translationX =
-                    if (PREVIEW_FOLLOW_GESTURE && pageRelease.gestured) state.follow * followPx * eased else 0f
-                alpha = 1f - gone
+                val enterOffset = enter?.offset(size.width.toInt())?.x?.toFloat() ?: 0f
+                translationX = enterOffset +
+                    (if (PREVIEW_FOLLOW_GESTURE && pageRelease.gestured) state.follow * followPx * eased else 0f)
+                alpha = (enter?.alpha ?: 1f) * (1f - gone)
                 shape = if (eased > 0f) RoundedCornerShape(cornerPx * eased) else RectangleShape
                 clip = true
             }
@@ -273,10 +386,11 @@ fun AnimatedVisibilityScope.BackPreviewFrame(state: BackPreviewState, content: @
         Box(
             Modifier.matchParentSize()
                 .graphicsLayer {
-                    // PreEnter until the pop is over: a page at rest is never dimmed, and neither
-                    // is the leaving page, whatever the timeline says.
-                    val uncovered = state.popping && transition.currentState == EnterExitState.PreEnter
-                    val t = if (uncovered) uncovering.value.coerceIn(0f, 1f) else 0f
+                    val t = if (state.popping && transition.currentState == EnterExitState.PreEnter) {
+                        uncovering.value.coerceIn(0f, 1f)
+                    } else {
+                        0f
+                    }
                     val gone = scrimRelease.gone(state.held, t)
                     alpha = scrimAlpha * BackGestureEasing.transform(t) * (1f - gone)
                 }
@@ -407,6 +521,7 @@ fun <T : Any> PredictiveBackContent(
         modifier = modifier.fillMaxSize(),
         transitionSpec = {
             preview.popping = popping
+            preview.logicalPop = popping
             if (popping) {
                 (EnterTransition.None togetherWith predictiveBackExit()).apply { targetContentZIndex = -1f }.using(null)
             } else {

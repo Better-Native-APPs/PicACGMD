@@ -94,7 +94,7 @@ internal fun ReadingSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifi
         item {
             SettingsGroup("操控") {
                 row { shapes ->
-                    SettingsNavRow(shapes, "操控方式", { dialog = ReadingDialog.TapZones }, summary = "翻页和菜单的点按区域", value = settings.readerTapZones.label())
+                    SettingsNavRow(shapes, "操控方式", { dialog = ReadingDialog.TapZones }, value = settings.readerTapZones.label())
                 }
                 row { shapes ->
                     SettingsSwitchRow(

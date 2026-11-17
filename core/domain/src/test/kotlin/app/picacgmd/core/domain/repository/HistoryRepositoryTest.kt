@@ -79,24 +79,58 @@ class HistoryRepositoryTest {
     }
 
     @Test
-    fun restoreUpsertsEverySnapshotFieldInTheGivenOrderEvenWhenHistoryIsDisabled() = runTest {
+    fun restorePreservesSnapshotFieldsAndAdvancesEventTimesEvenWhenHistoryIsDisabled() = runTest {
         val first = ViewHistory("b", "Original", "Author", "server", "cover", "[\"Category\"]",
             lastEpOrder = 8, lastEpTitle = "Chapter eight", lastPictureIndex = 12, lastChapterPages = 30,
             pinned = true, createdAt = 123L, updatedAt = 456L)
         val items = listOf(first, first.copy(comicId = "a", pinned = false, createdAt = 111L),
             first.copy(lastPictureIndex = 13, updatedAt = 457L))
         val repository = HistoryRepository(dao, flowOf(AppSettings(historyEnabled = false)),
-            now = { error("Restoring a snapshot must not read the clock") })
+            now = { 9_000L })
 
         repository.restore(items)
 
-        assertEquals(items, dao.upserts)
-        assertEquals(items.associateBy(ViewHistory::comicId), dao.entries.value)
+        val expected = listOf(items[0].copy(modifiedAt = 9_000L), items[1].copy(modifiedAt = 9_000L), items[2].copy(modifiedAt = 9_001L))
+        assertEquals(expected, dao.upserts)
+        assertEquals(expected.associateBy(ViewHistory::comicId), dao.entries.value)
     }
 
     @Test
     fun restoringAnEmptyHistorySnapshotMakesNoWrites() = runTest {
         repository.restore(emptyList())
         assertTrue(dao.upserts.isEmpty())
+    }
+
+    @Test
+    fun deleteClearAndUndoKeepMonotonicDeletionEvents() = runTest {
+        val repository = HistoryRepository(dao, flowOf(AppSettings()), now = { 10 })
+        val first = ViewHistory("a", "A", createdAt = 1, updatedAt = 20, pinned = true)
+        dao.upsert(first)
+        dao.upsert(ViewHistory("b", "B", createdAt = 1, updatedAt = 2))
+        repository.delete(listOf("a"))
+        assertEquals(21L, dao.getTombstone("a")!!.deletedAt)
+        repository.restore(listOf(first))
+        assertEquals(first.copy(modifiedAt = 22), dao.get("a"))
+        assertEquals(null, dao.getTombstone("a"))
+        repository.clear()
+        assertTrue(dao.entries.value.isEmpty())
+        assertEquals(23L, dao.getTombstone("a")!!.deletedAt)
+        assertEquals(10L, dao.getTombstone("b")!!.deletedAt)
+    }
+
+    @Test
+    fun pinningAndReadingAdvancePastTheLatestStoredEvent() = runTest {
+        val repository = HistoryRepository(dao, flowOf(AppSettings()), now = { 10 })
+        dao.upsert(ViewHistory("a", "A", createdAt = 1, updatedAt = 20))
+        repository.setPinned("a", true)
+        assertEquals(21L, dao.get("a")!!.modifiedAt)
+        assertEquals(20L, dao.get("a")!!.updatedAt)
+        repository.recordDetailView(ComicInfo(id = "a", title = "New title"))
+        assertEquals(22L, dao.get("a")!!.modifiedAt)
+        assertEquals(10L, dao.get("a")!!.updatedAt)
+        assertTrue(dao.get("a")!!.pinned)
+        repository.saveProgress(ComicInfo(id = "a", title = "New title"), 1, "One", 2, 3)
+        assertEquals(23L, dao.get("a")!!.modifiedAt)
+        assertEquals(10L, dao.get("a")!!.updatedAt)
     }
 }

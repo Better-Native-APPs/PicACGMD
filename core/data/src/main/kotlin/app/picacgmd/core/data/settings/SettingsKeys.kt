@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 
 /** The only definitions of on-disk preference keys. Ordered lists use JSON, never StringSet. */
 internal object SettingsKeys {
@@ -29,8 +30,8 @@ internal object SettingsKeys {
     val appOrientation = stringPreferencesKey("app_orientation")
     val displayModeId = intPreferencesKey("display_mode_id")
     val fullScreenDisplay = stringPreferencesKey("full_screen_display")
-    val doubleBackToExit = booleanPreferencesKey("double_back_to_exit")
-    val startupImageUri = stringPreferencesKey("startup_image_uri")
+    /** Read only: custom launch pictures are gone; the stale value is removed on read, backup and restore. */
+    val legacyStartupImageUri = stringPreferencesKey("startup_image_uri")
     val lastSeenAnnouncementId = stringPreferencesKey("last_seen_announcement_id")
     val listLayout = stringPreferencesKey("list_layout")
     val listColumnCount = intPreferencesKey("list_column_count")
@@ -45,6 +46,7 @@ internal object SettingsKeys {
     val hiddenCategories = stringPreferencesKey("hidden_categories")
     val categoryOrder = stringPreferencesKey("category_order")
     val pinnedHomeCategories = stringPreferencesKey("pinned_home_categories")
+    val pinnedHomeChannels = stringSetPreferencesKey("pinned_home_channels")
     val showAuthorSearch = booleanPreferencesKey("show_author_search")
     val showSubscriptions = booleanPreferencesKey("show_subscriptions")
     val showTagFavourites = booleanPreferencesKey("show_tag_favourites")
@@ -97,4 +99,10 @@ internal object SettingsKeys {
     val historyEnabled = booleanPreferencesKey("history_enabled")
     val recordDetailViews = booleanPreferencesKey("record_detail_views")
     val autoCleanCacheInterval = stringPreferencesKey("auto_clean_cache_interval")
+    val webDavAddress = stringPreferencesKey("webdav_address")
+    val webDavUsername = stringPreferencesKey("webdav_username")
+    val webDavFolder = stringPreferencesKey("webdav_folder")
+    val webDavAutoSync = booleanPreferencesKey("webdav_auto_sync")
+    val webDavWifiOnly = booleanPreferencesKey("webdav_wifi_only")
+    val webDavLastSyncedAt = longPreferencesKey("webdav_last_synced_at")
 }

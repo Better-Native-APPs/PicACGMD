@@ -31,6 +31,7 @@ import app.picacgmd.core.designsystem.component.AppIconButton
 import app.picacgmd.core.designsystem.component.ExpressivePullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
@@ -41,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import app.picacgmd.R
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.data.settings.FailedReloadAction
+import app.picacgmd.core.data.settings.PinnableHomeChannel
 import app.picacgmd.core.designsystem.component.StatusPane
 import app.picacgmd.di.LocalAppContainer
 import app.picacgmd.core.designsystem.component.CategoryChannelButton
@@ -58,8 +60,8 @@ import app.picacgmd.core.designsystem.theme.ThemeChoice
 
 /**
  * 发现 (board 04 with the §0 changes): search bar whose trailing end holds the one-tap route icon and
- * the 「我的」 avatar; fixed channels
- * 排行榜 / 随机 / 游戏专区 followed by pinned categories and the category grid, starting with 全分类.
+ * the 「我的」 avatar; always-present 排行榜, optional 随机 / 游戏专区 pins, then pinned categories
+ * and the category grid, starting with 全分类 / 随机 / 游戏专区 regardless of pin preferences.
  *
  * @param showProfileEntry false on large screens, where 「我的」 is a rail item instead (board 31).
  */
@@ -131,10 +133,11 @@ fun DiscoverScreen(
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 val columns = categoryColumns(preferences?.categoryColumnCount ?: 0, maxWidth.value)
                 LazyColumn(Modifier.fillMaxSize()) {
-                    // Fixed channels need no data, so they stay usable while loading or offline.
+                    // Built-in channels need no server data; local pin preferences also apply while loading or offline.
                     item(key = "channels", contentType = "channels") {
                         ChannelRow(
                             pinned = content?.pinnedCategories.orEmpty(),
+                            pinnedChannels = preferences?.pinnedHomeChannels ?: AppSettings.DEFAULT.pinnedHomeChannels,
                             onChannelClick = onChannelClick,
                             onPinnedClick = onCategoryClick,
                             onAllComicsClick = onAllComicsClick,
@@ -147,15 +150,16 @@ fun DiscoverScreen(
                             onActionClick = onManageCategoriesClick,
                         )
                     }
-                    // 全分类 is local, so it remains available before categories load or after a failure.
+                    // Local browse entries remain available before categories load or after a failure.
                     itemsIndexed(
-                        items = (content?.categories ?: listOf(AllComicsHomeCategory)).chunked(columns),
+                        items = (content?.categories ?: BuiltInHomeCategories).chunked(columns),
                         key = { index, _ -> "category-row-$columns-$index" },
                         contentType = { _, _ -> "category-row" },
                     ) { _, row ->
                         CategoryRow(
                             row = row,
                             columns = columns,
+                            onChannelClick = onChannelClick,
                             onCategoryClick = onCategoryClick,
                             onAllComicsClick = onAllComicsClick,
                         )
@@ -206,21 +210,27 @@ private fun DiscoverSkeleton(columns: Int) {
 }
 
 /**
- * Fixed channels, then pinned categories. Spread across the width on phones when everything fits,
- * otherwise a scrollable row.
+ * Rankings, then pinned built-in channels and categories, each in its own outline.
+ * Categories use the outline [pinnedCategoryShape] gives their name.
+ * Spread across the width on phones when everything fits, otherwise a scrollable row.
  */
 @Composable
-private fun ChannelRow(
+internal fun ChannelRow(
     pinned: List<HomeCategory>,
     onChannelClick: (HomeChannel) -> Unit,
     onPinnedClick: (String) -> Unit,
     onAllComicsClick: () -> Unit,
+    pinnedChannels: Set<String> = AppSettings.DEFAULT.pinnedHomeChannels,
 ) {
-    val channels = listOf(
-        HomeChannel.Rankings to R.string.discover_channel_rankings,
-        HomeChannel.Random to R.string.discover_channel_random,
-        HomeChannel.Games to R.string.discover_channel_games,
-    )
+    val channels = buildList {
+        add(HomeChannel.Rankings to R.string.discover_channel_rankings)
+        if (PinnableHomeChannel.RANDOM.id in pinnedChannels) {
+            add(HomeChannel.Random to R.string.discover_channel_random)
+        }
+        if (PinnableHomeChannel.GAMES.id in pinnedChannels) {
+            add(HomeChannel.Games to R.string.discover_channel_games)
+        }
+    }
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val count = channels.size + pinned.size
         val sidePadding = 12.dp
@@ -250,7 +260,8 @@ private fun ChannelRow(
                 CategoryChannelButton(
                     label = category.name,
                     imageUrl = category.thumbUrl,
-                    onClick = if (category.isAllComics) onAllComicsClick else ({ onPinnedClick(category.name) }),
+                    shape = remember(category.name) { pinnedCategoryShape(category.name) },
+                    onClick = homeCategoryClick(category, onChannelClick, onPinnedClick, onAllComicsClick),
                 )
             }
         }
@@ -258,9 +269,10 @@ private fun ChannelRow(
 }
 
 @Composable
-private fun CategoryRow(
+internal fun CategoryRow(
     row: List<HomeCategory>,
     columns: Int,
+    onChannelClick: (HomeChannel) -> Unit,
     onCategoryClick: (String) -> Unit,
     onAllComicsClick: () -> Unit,
 ) {
@@ -272,12 +284,24 @@ private fun CategoryRow(
             CategoryTile(
                 name = category.name,
                 imageUrl = category.thumbUrl,
-                onClick = if (category.isAllComics) onAllComicsClick else ({ onCategoryClick(category.name) }),
+                onClick = homeCategoryClick(category, onChannelClick, onCategoryClick, onAllComicsClick),
                 modifier = Modifier.weight(1f),
             )
         }
         repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
     }
+}
+
+private fun homeCategoryClick(
+    category: HomeCategory,
+    onChannelClick: (HomeChannel) -> Unit,
+    onCategoryClick: (String) -> Unit,
+    onAllComicsClick: () -> Unit,
+): () -> Unit = when (category.kind) {
+    HomeCategoryKind.ALL_COMICS -> onAllComicsClick
+    HomeCategoryKind.RANDOM -> ({ onChannelClick(HomeChannel.Random) })
+    HomeCategoryKind.GAMES -> ({ onChannelClick(HomeChannel.Games) })
+    HomeCategoryKind.CATEGORY -> ({ onCategoryClick(category.name) })
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)

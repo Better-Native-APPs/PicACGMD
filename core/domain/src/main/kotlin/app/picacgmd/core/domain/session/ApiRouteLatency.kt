@@ -6,10 +6,11 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 enum class RouteLatencyGrade { GOOD, OK, SLOW, FAILED }
 
+/** Under half a second is fast, up to one second is medium, anything longer is slow. */
 fun routeLatencyGrade(latencyMillis: Long?): RouteLatencyGrade = when {
     latencyMillis == null -> RouteLatencyGrade.FAILED
-    latencyMillis <= 200 -> RouteLatencyGrade.GOOD
-    latencyMillis <= 500 -> RouteLatencyGrade.OK
+    latencyMillis < 500 -> RouteLatencyGrade.GOOD
+    latencyMillis <= 1_000 -> RouteLatencyGrade.OK
     else -> RouteLatencyGrade.SLOW
 }
 

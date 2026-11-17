@@ -13,6 +13,28 @@ import kotlin.test.assertTrue
 
 class SettingsPreferencesMapperTest {
     @Test
+    fun existingFullScreenNamesKeepTheirMeaning() {
+        val expected = mapOf(
+            "OFF" to FullScreenDisplay.OFF,
+            "HIDE_NAVIGATION" to FullScreenDisplay.HIDE_NAVIGATION,
+            "HIDE_SYSTEM_BARS" to FullScreenDisplay.HIDE_SYSTEM_BARS,
+        )
+        expected.forEach { (stored, mode) ->
+            assertEquals(stored, mode.name)
+            val preferences = mutablePreferencesOf(SettingsKeys.fullScreenDisplay to stored)
+            assertEquals(mode, SettingsPreferencesMapper.decode(preferences).fullScreenDisplay)
+        }
+    }
+
+    @Test
+    fun unknownFullScreenNamesUseTheSuppliedDefault() {
+        val preferences = mutablePreferencesOf(SettingsKeys.fullScreenDisplay to "unknown_future_mode")
+        assertEquals(FullScreenDisplay.OFF, SettingsPreferencesMapper.decode(preferences).fullScreenDisplay)
+        val defaults = AppSettings.DEFAULT.copy(fullScreenDisplay = FullScreenDisplay.HIDE_NAVIGATION)
+        assertEquals(defaults.fullScreenDisplay, SettingsPreferencesMapper.decode(preferences, defaults).fullScreenDisplay)
+    }
+
+    @Test
     fun deviceDefaultsChangeOnlyTheDownloadThreadCount() {
         assertEquals(AppSettings.DEFAULT, AppSettings.defaultsForDevice(isLowRamDevice = false))
         assertEquals(AppSettings.DEFAULT.copy(downloadThreads = 2), AppSettings.defaultsForDevice(isLowRamDevice = true))
@@ -75,6 +97,15 @@ class SettingsPreferencesMapperTest {
         assertEquals("104.19.53.76", SettingsPreferencesMapper.decode(selected).apiRouteAddress)
         selected[SettingsKeys.apiRouteAddress] = ""
         assertNull(SettingsPreferencesMapper.decode(selected).apiRouteAddress)
+    }
+
+    @Test
+    fun legacyLaunchPictureIsIgnoredWithoutDroppingOtherPreferences() {
+        val preferences = mutablePreferencesOf(
+            SettingsKeys.legacyStartupImageUri to "content://images/startup",
+            SettingsKeys.theme to "BOOK",
+        )
+        assertEquals(AppSettings.DEFAULT.copy(theme = AppTheme.BOOK), SettingsPreferencesMapper.decode(preferences))
     }
 
     @Test
@@ -171,6 +202,7 @@ class SettingsPreferencesMapperTest {
         assertEquals(AppSettings.DEFAULT, SettingsPreferencesMapper.decode(emptyPreferences()))
         val defaults = AppSettings.DEFAULT
         assertEquals(listOf("大家都在看", "大濕推薦"), defaults.pinnedHomeCategories)
+        assertEquals(setOf("random", "games"), defaults.pinnedHomeChannels)
         assertEquals(4, defaults.downloadThreads)
         assertEquals(PaginationMode.INFINITE, defaults.paginationMode)
         assertTrue(defaults.autoPunchIn)
@@ -205,6 +237,31 @@ class SettingsPreferencesMapperTest {
     fun emptyPinsAreDistinctFromAnUnsetPreference() {
         val preferences = mutablePreferencesOf(SettingsKeys.pinnedHomeCategories to "[]")
         assertEquals(emptyList(), SettingsPreferencesMapper.decode(preferences).pinnedHomeCategories)
+    }
+
+    @Test
+    fun builtInHomePinsUseDefaultsOnlyWhenUnsetAndPreserveExplicitSelections() {
+        assertEquals(listOf("random", "games"), PinnableHomeChannel.entries.map { it.id })
+        val defaults = AppSettings.DEFAULT.copy(pinnedHomeChannels = setOf("games"))
+        assertEquals(setOf("games"), SettingsPreferencesMapper.decode(emptyPreferences(), defaults).pinnedHomeChannels)
+        for (selected in listOf(setOf("random", "games"), setOf("random"), setOf("games"), emptySet())) {
+            val preferences = mutablePreferencesOf(SettingsKeys.pinnedHomeChannels to selected)
+            assertEquals(selected, SettingsPreferencesMapper.decode(preferences, defaults).pinnedHomeChannels)
+        }
+    }
+
+    @Test
+    fun unknownBuiltInHomePinIdsAreIgnoredWithoutDroppingKnownPinsOrOtherSettings() {
+        val preferences = mutablePreferencesOf(
+            SettingsKeys.pinnedHomeChannels to setOf("random", "unknown", "rankings", "Random", ""),
+            SettingsKeys.theme to "BOOK",
+        )
+        assertEquals(
+            AppSettings.DEFAULT.copy(pinnedHomeChannels = setOf("random"), theme = AppTheme.BOOK),
+            SettingsPreferencesMapper.decode(preferences),
+        )
+        preferences[SettingsKeys.pinnedHomeChannels] = setOf("unknown")
+        assertEquals(emptySet(), SettingsPreferencesMapper.decode(preferences).pinnedHomeChannels)
     }
 
     @Test

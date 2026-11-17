@@ -20,6 +20,8 @@ import app.picacgmd.core.data.db.TagFavourite
 import app.picacgmd.core.data.db.TagFavouriteDao
 import app.picacgmd.core.data.db.ViewHistory
 import app.picacgmd.core.data.db.ViewHistoryDao
+import app.picacgmd.core.data.db.HistoryTombstone
+import app.picacgmd.core.data.db.HistoryMutationTime
 import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.data.settings.SettingsRepository
 import app.picacgmd.core.domain.di.AppContainer
@@ -112,6 +114,7 @@ internal class MemoryPreferencesStore : DataStore<Preferences> {
 
 internal class MemoryHistoryDao : ViewHistoryDao {
     val entries = MutableStateFlow<Map<String, ViewHistory>>(emptyMap())
+    val tombstones = MutableStateFlow<Map<String, HistoryTombstone>>(emptyMap())
     val upserts = CopyOnWriteArrayList<ViewHistory>()
     val writes = Channel<ViewHistory>(Channel.UNLIMITED)
     var beforeGet: suspend () -> Unit = {}
@@ -130,23 +133,33 @@ internal class MemoryHistoryDao : ViewHistoryDao {
         entries.value += history.comicId to history
         writes.send(history)
     }
+    override suspend fun upsertAll(histories: List<ViewHistory>) { histories.forEach { upsert(it) } }
+    override suspend fun getAll(): List<ViewHistory> = entries.value.values.toList()
+    override suspend fun getTombstones(): List<HistoryTombstone> = tombstones.value.values.toList()
+    override suspend fun getTombstone(comicId: String): HistoryTombstone? = tombstones.value[comicId]
+    override suspend fun upsertTombstones(tombstones: List<HistoryTombstone>) {
+        this.tombstones.value += tombstones.associateBy { it.comicId }
+    }
+    override suspend fun removeTombstone(comicId: String) { tombstones.value -= comicId }
+    override suspend fun pruneTombstones(before: Long) { tombstones.value = tombstones.value.filterValues { it.deletedAt >= before } }
+    override suspend fun clearTombstones() { tombstones.value = emptyMap() }
     override suspend fun updateProgress(comicId: String, epOrder: Int, epTitle: String, pictureIndex: Int, pageCount: Int, updatedAt: Long): Int {
         val previous = get(comicId) ?: return 0
         upsert(previous.copy(lastEpOrder = epOrder, lastEpTitle = epTitle, lastPictureIndex = pictureIndex,
-            lastChapterPages = pageCount, updatedAt = updatedAt))
+            lastChapterPages = pageCount, updatedAt = updatedAt, modifiedAt = HistoryMutationTime.next(updatedAt, previous.modifiedAt)))
         return 1
     }
-    override suspend fun setPinned(comicId: String, pinned: Boolean): Int {
+    override suspend fun setPinned(comicId: String, pinned: Boolean, updatedAt: Long): Int {
         val previous = get(comicId) ?: return 0
-        upsert(previous.copy(pinned = pinned))
+        upsert(previous.copy(pinned = pinned, modifiedAt = HistoryMutationTime.next(updatedAt, previous.modifiedAt)))
         return 1
     }
-    override suspend fun delete(comicIds: List<String>): Int {
+    override suspend fun deleteRows(comicIds: List<String>): Int {
         val count = comicIds.distinct().count { it in entries.value }
         entries.value -= comicIds.toSet()
         return count
     }
-    override suspend fun clear() { entries.value = emptyMap() }
+    override suspend fun clearRows() { entries.value = emptyMap() }
 }
 
 internal class MemoryShelfSubscriptionDao : SubscriptionDao() {

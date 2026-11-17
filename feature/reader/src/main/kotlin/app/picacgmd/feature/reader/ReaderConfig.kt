@@ -39,7 +39,7 @@ data class ReaderConfig(
     val volumeKeyPaging: Boolean = false,
     /** 双击音量键跳下一章 (needs [volumeKeyPaging]). */
     val volumeKeyChapterJump: Boolean = false,
-    /** App-wide system bar policy, distinct from whether reader controls are visible. */
+    /** System bar policy while reading, distinct from whether reader controls are visible. */
     val systemBars: SystemBarsMode = SystemBarsMode.HiddenAll,
     /** 进入时自动全屏: open with the controls hidden. */
     val autoFullscreen: Boolean = false,
@@ -128,7 +128,11 @@ enum class ReaderMode {
     FreeZoom,
 }
 
-enum class SystemBarsMode { Visible, HiddenNavigation, HiddenAll }
+enum class SystemBarsMode { Visible, HiddenStatus, HiddenNavigation, HiddenAll }
+
+/** Hiding the reader controls preserves a selected partial system-bar mode. */
+internal fun SystemBarsMode.forReaderFullscreen(): SystemBarsMode =
+    if (this == SystemBarsMode.Visible) SystemBarsMode.HiddenAll else this
 
 /** 翻页方向. */
 enum class ReaderDirection {

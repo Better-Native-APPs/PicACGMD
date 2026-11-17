@@ -116,7 +116,6 @@ private fun BrowsingRoot(
                     SettingsChoiceRow(
                         shapes = shapes,
                         title = "加载方式",
-                        summary = "连续滚动或分页跳转",
                         options = PaginationMode.entries,
                         selected = settings.paginationMode,
                         onSelect = { writer.update { setPaginationMode(it) } },
@@ -145,8 +144,7 @@ private fun BrowsingRoot(
                 row { shapes ->
                     val count = settings.shieldedCategories.size + settings.hiddenKeywords.size
                     SettingsNavRow(
-                        shapes, "封印与隐藏", onClick = { onOpen(BrowsingSub.Shield) },
-                        summary = "封印分类、隐藏关键词",
+                        shapes, "封印与屏蔽", onClick = { onOpen(BrowsingSub.Shield) },
                         value = if (count == 0) "未设置" else "$count 项",
                     )
                 }
@@ -154,7 +152,6 @@ private fun BrowsingRoot(
                     SettingsSwitchRow(
                         shapes, "屏蔽 AI 作品", settings.hideAiComics,
                         onCheckedChange = { writer.update { setHideAiComics(it) } },
-                        summary = "隐藏 AI 生成的作品",
                     )
                 }
                 row { shapes ->
@@ -171,7 +168,6 @@ private fun BrowsingRoot(
                 row { shapes ->
                     SettingsNavRow(
                         shapes, "分类排序与隐藏", onClick = onOpenCategories,
-                        summary = "固定、排序和隐藏分类",
                         value = "固定 ${settings.pinnedHomeCategories.size} 个",
                     )
                 }
@@ -186,7 +182,7 @@ private fun BrowsingRoot(
         item {
             SettingsGroup("功能入口") {
                 row { shapes ->
-                    SettingsSwitchRow(shapes, "按作者搜索", settings.showAuthorSearch, { writer.update { setShowAuthorSearch(it) } }, summary = "点按详情页作者名搜索")
+                    SettingsSwitchRow(shapes, "按作者搜索", settings.showAuthorSearch, { writer.update { setShowAuthorSearch(it) } })
                 }
                 row { shapes ->
                     SettingsSwitchRow(shapes, "追更", settings.showSubscriptions, { writer.update { setShowSubscriptions(it) } }, summary = "显示书架追更和更新角标")
@@ -329,7 +325,7 @@ private fun ShieldSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier
     val settings = rememberAppSettings()
     val (categories, error, retry) = rememberCategories()
 
-    SettingsPageScaffold("封印与隐藏", onBack, snackbar, modifier) {
+    SettingsPageScaffold("封印与屏蔽", onBack, snackbar, modifier) {
         if (settings == null) return@SettingsPageScaffold
         item {
             SettingsGroup("封印分类") {
@@ -378,7 +374,7 @@ private fun ShieldSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier
 }
 
 /**
- * 隐藏关键词: single words, plus 「快速添加预设组」 that add or remove a whole group at once. Writes go
+ * 屏蔽关键词: single words, plus 「快速添加预设组」 that add or remove a whole group at once. Writes go
  * straight to the repository, so a group change can confirm itself with a count once it is saved. They
  * run in the page's [scope], so scrolling this group away does not cancel one.
  */
@@ -415,13 +411,13 @@ private fun HiddenKeywordsGroup(keywords: List<String>, snackbar: SnackbarHostSt
         }
     }
 
-    SettingsGroup("隐藏关键词") {
+    SettingsGroup("屏蔽关键词") {
         row { shapes ->
             SegmentedListItem(
                 shapes = shapes,
                 supportingContent = {
                     Column {
-                        Text("标题、作者、分类或标签含关键词时隐藏，纯英文及数字按整词匹配")
+                        Text("标题、作者、分类或标签含关键词的漫画不再显示，纯英文及数字按整词匹配。在漫画详情页屏蔽的分类和标签也列在这里，点一下即可取消屏蔽")
                         OutlinedTextField(
                             value = draft,
                             onValueChange = {

@@ -34,8 +34,6 @@ internal object SettingsPreferencesMapper {
             appOrientation = preferences.readEnum(Keys.appOrientation, d.appOrientation),
             displayModeId = preferences[Keys.displayModeId]?.takeIf { it > 0 },
             fullScreenDisplay = preferences.readEnum(Keys.fullScreenDisplay, d.fullScreenDisplay),
-            doubleBackToExit = preferences[Keys.doubleBackToExit] ?: d.doubleBackToExit,
-            startupImageUri = preferences[Keys.startupImageUri],
             lastSeenAnnouncementId = preferences[Keys.lastSeenAnnouncementId],
             listLayout = preferences.readEnum(Keys.listLayout, d.listLayout),
             listColumnCount = preferences.readInt(Keys.listColumnCount, d.listColumnCount, SettingsValidation::isColumnCount),
@@ -50,6 +48,8 @@ internal object SettingsPreferencesMapper {
             hiddenCategories = preferences.readList(Keys.hiddenCategories, d.hiddenCategories),
             categoryOrder = preferences.readList(Keys.categoryOrder, d.categoryOrder),
             pinnedHomeCategories = preferences.readList(Keys.pinnedHomeCategories, d.pinnedHomeCategories),
+            pinnedHomeChannels = (preferences[Keys.pinnedHomeChannels] ?: d.pinnedHomeChannels)
+                .filter(SettingsValidation::isPinnableHomeChannel).toSet(),
             showAuthorSearch = preferences[Keys.showAuthorSearch] ?: d.showAuthorSearch,
             showSubscriptions = preferences[Keys.showSubscriptions] ?: d.showSubscriptions,
             showTagFavourites = preferences[Keys.showTagFavourites] ?: d.showTagFavourites,
@@ -102,6 +102,14 @@ internal object SettingsPreferencesMapper {
             historyEnabled = preferences[Keys.historyEnabled] ?: d.historyEnabled,
             recordDetailViews = preferences[Keys.recordDetailViews] ?: d.recordDetailViews,
             autoCleanCacheInterval = preferences.readEnum(Keys.autoCleanCacheInterval, d.autoCleanCacheInterval),
+            webDav = WebDavSettings(
+                address = preferences[Keys.webDavAddress] ?: d.webDav.address,
+                username = preferences[Keys.webDavUsername] ?: d.webDav.username,
+                folder = preferences[Keys.webDavFolder] ?: d.webDav.folder,
+                autoSync = preferences[Keys.webDavAutoSync] ?: d.webDav.autoSync,
+                wifiOnly = preferences[Keys.webDavWifiOnly] ?: d.webDav.wifiOnly,
+                lastSyncedAt = preferences[Keys.webDavLastSyncedAt],
+            ),
         )
     }
 

@@ -129,6 +129,10 @@ private class ReaderViewModel(
     private fun reportError(action: String, exception: Exception) {
         onMessage("$action：${exception.message ?: "请重试"}")
     }
+
+    override fun onCleared() {
+        ReaderPersistence.readerClosed()
+    }
 }
 
 @Composable

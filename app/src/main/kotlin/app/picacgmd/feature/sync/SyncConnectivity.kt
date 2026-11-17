@@ -1,0 +1,12 @@
+package app.picacgmd.feature.sync
+
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+
+internal fun isSyncWifiAvailable(context: Context): Boolean {
+    val connectivity = context.applicationContext.getSystemService(ConnectivityManager::class.java) ?: return false
+    val capabilities = connectivity.getNetworkCapabilities(connectivity.activeNetwork)
+    // Wi-Fi-only means the Wi-Fi transport, metered or not.
+    return capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+}

@@ -110,7 +110,7 @@ internal class DownloadedReaderSourceTest {
 
         assertEquals(previous.copy(title = comic.title, author = comic.author, thumbFileServer = comic.thumbFileServer,
             thumbPath = comic.thumbPath, categoriesJson = comic.categoriesJson, lastEpOrder = 5,
-            lastEpTitle = "Chapter 5", lastPictureIndex = 4, lastChapterPages = 19, updatedAt = 9_000L), written)
+            lastEpTitle = "Chapter 5", lastPictureIndex = 4, lastChapterPages = 19, updatedAt = 9_000L, modifiedAt = 9_000L), written)
         assertEquals(0, pica.requestCount)
     }
 

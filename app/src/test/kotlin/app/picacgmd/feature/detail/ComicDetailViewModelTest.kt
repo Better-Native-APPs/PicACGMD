@@ -25,6 +25,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -433,6 +434,146 @@ internal class ComicDetailViewModelTest {
         }
     }
 
+    @Test
+    fun undoingABlockLetsTheWordThroughAgainAndSaysNothingMore() = runTest {
+        pica.respondWith { taggedResponse(it.url.encodedPath) }
+        val environment = TestAppEnvironment(pica, backgroundScope)
+        environment.settings.setHiddenKeywords(listOf("kept"))
+        val viewModel = ComicDetailViewModel(environment.container, "comic", environment.downloads)
+        val changes = mutableListOf<KeywordChange>()
+        val messages = mutableListOf<String>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.keywordChanges.toList(changes) }
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.messages.toList(messages) }
+        try {
+            testScheduler.runCurrent()
+            viewModel.state.awaitValue { it.commentsLoaded }
+            assertFalse(viewModel.state.value.hiddenByRule)
+
+            viewModel.toggleHiddenKeyword(" Cat ")
+            viewModel.state.awaitValue { it.hiddenByRule }
+            assertEquals(listOf("kept", "Cat"), hiddenKeywords(environment))
+            assertEquals(listOf(KeywordChange("Cat", blocked = true)), changes)
+
+            viewModel.undoKeywordChange(changes.single())
+            viewModel.state.awaitValue { !it.hiddenByRule }
+            assertEquals(listOf("kept"), hiddenKeywords(environment))
+            assertEquals(listOf(KeywordChange("Cat", blocked = true)), changes)
+            assertEquals(emptyList(), messages)
+        } finally {
+            viewModel.viewModelScope.cancel()
+        }
+    }
+
+    @Test
+    fun undoingAnUnblockBlocksTheWordAgainAndSaysNothingMore() = runTest {
+        pica.respondWith { taggedResponse(it.url.encodedPath) }
+        val environment = TestAppEnvironment(pica, backgroundScope)
+        environment.settings.setHiddenKeywords(listOf("cat", "kept"))
+        val viewModel = ComicDetailViewModel(environment.container, "comic", environment.downloads)
+        val changes = mutableListOf<KeywordChange>()
+        val messages = mutableListOf<String>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.keywordChanges.toList(changes) }
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.messages.toList(messages) }
+        try {
+            testScheduler.runCurrent()
+            viewModel.state.awaitValue { it.commentsLoaded && it.hiddenByRule }
+
+            viewModel.toggleHiddenKeyword("Cat")
+            viewModel.state.awaitValue { !it.hiddenByRule }
+            assertEquals(listOf("kept"), hiddenKeywords(environment))
+            assertEquals(listOf(KeywordChange("Cat", blocked = false)), changes)
+
+            viewModel.undoKeywordChange(changes.single())
+            viewModel.state.awaitValue { it.hiddenByRule }
+            assertEquals(listOf("kept", "Cat"), hiddenKeywords(environment))
+            assertEquals(listOf(KeywordChange("Cat", blocked = false)), changes)
+            assertEquals(emptyList(), messages)
+        } finally {
+            viewModel.viewModelScope.cancel()
+        }
+    }
+
+    @Test
+    fun undoLeavesAWordAloneOnceItIsAlreadyAsItWasBefore() = runTest {
+        pica.respondWith { taggedResponse(it.url.encodedPath) }
+        val environment = TestAppEnvironment(pica, backgroundScope)
+        val viewModel = ComicDetailViewModel(environment.container, "comic", environment.downloads)
+        val changes = mutableListOf<KeywordChange>()
+        val messages = mutableListOf<String>()
+        val notices = mutableListOf<String>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.keywordChanges.toList(changes) }
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.messages.toList(messages) }
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.notices.toList(notices) }
+        try {
+            testScheduler.runCurrent()
+            viewModel.state.awaitValue { it.commentsLoaded }
+            // The word was let through elsewhere in the meantime, and another one was blocked.
+            environment.settings.setHiddenKeywords(listOf("OTHER", "kept"))
+
+            viewModel.undoKeywordChange(KeywordChange("Cat", blocked = true))
+            testScheduler.runCurrent()
+            assertEquals(listOf("OTHER", "kept"), hiddenKeywords(environment))
+
+            viewModel.undoKeywordChange(KeywordChange("other", blocked = false))
+            testScheduler.runCurrent()
+            assertEquals(listOf("OTHER", "kept"), hiddenKeywords(environment))
+            assertEquals(emptyList(), changes)
+            assertEquals(emptyList(), messages)
+            assertEquals(emptyList(), notices)
+        } finally {
+            viewModel.viewModelScope.cancel()
+        }
+    }
+
+    @Test
+    fun repeatingEitherUndoIsSilentAndPreservesUnrelatedBlockedWords() = runTest {
+        pica.respondWith { taggedResponse(it.url.encodedPath) }
+        val environment = TestAppEnvironment(pica, backgroundScope)
+        environment.settings.setHiddenKeywords(listOf("kept"))
+        val viewModel = ComicDetailViewModel(environment.container, "comic", environment.downloads)
+        val changes = mutableListOf<KeywordChange>()
+        val messages = mutableListOf<String>()
+        val notices = mutableListOf<String>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.keywordChanges.toList(changes) }
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.messages.toList(messages) }
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.notices.toList(notices) }
+        try {
+            testScheduler.runCurrent()
+            viewModel.state.awaitValue { it.commentsLoaded }
+            viewModel.toggleHiddenKeyword("Cat")
+            viewModel.state.awaitValue { it.hiddenByRule }
+            val blocked = changes.single()
+
+            repeat(2) { viewModel.undoKeywordChange(blocked) }
+            viewModel.state.awaitValue { !it.hiddenByRule }
+            testScheduler.runCurrent()
+            assertEquals(listOf("kept"), hiddenKeywords(environment))
+            assertEquals(listOf(blocked), changes)
+
+            environment.settings.setHiddenKeywords(listOf("kept", "Cat"))
+            viewModel.state.awaitValue { it.hiddenByRule }
+            viewModel.toggleHiddenKeyword("Cat")
+            viewModel.state.awaitValue { !it.hiddenByRule }
+            val unblocked = changes.last()
+
+            repeat(2) { viewModel.undoKeywordChange(unblocked) }
+            viewModel.state.awaitValue { it.hiddenByRule }
+            testScheduler.runCurrent()
+            assertEquals(listOf("kept", "Cat"), hiddenKeywords(environment))
+            assertEquals(listOf(blocked, unblocked), changes)
+            assertEquals(emptyList(), messages)
+            assertEquals(emptyList(), notices)
+        } finally {
+            viewModel.viewModelScope.cancel()
+        }
+    }
+
+    private suspend fun hiddenKeywords(environment: TestAppEnvironment): List<String> =
+        awaitRealTime { environment.settings.settings.first().hiddenKeywords }
+
+    private fun taggedResponse(path: String) =
+        if (path == "/comics/comic") successResponse(TAGGED_COMIC) else standardResponse(path)
+
     private fun standardResponse(path: String) = successResponse(when (path) {
         "/comics/comic" -> COMIC
         "/comics/comic/eps" -> CHAPTERS
@@ -443,6 +584,7 @@ internal class ComicDetailViewModelTest {
 
     private companion object {
         const val COMIC = """{"comic":{"_id":"comic","title":"Comic","likesCount":7}}"""
+        const val TAGGED_COMIC = """{"comic":{"_id":"comic","title":"Comic","tags":["cat","train"]}}"""
         const val CHAPTERS = """{"eps":{"docs":[{"_id":"last","title":"Last","order":5},{"_id":"first","title":"First","order":1},{"_id":"first","title":"Duplicate","order":2}],"page":1,"pages":1}}"""
         const val RECOMMENDATIONS = """{"comics":[{"_id":"recommend","title":"Recommendation"}]}"""
         const val COMMENTS = """{"topComments":[{"_id":"top","content":"Pinned"}],"comments":{"docs":[{"_id":"top","content":"Duplicate"},{"_id":"second"},{"_id":"third"},{"_id":"fourth"}],"page":1,"pages":1}}"""

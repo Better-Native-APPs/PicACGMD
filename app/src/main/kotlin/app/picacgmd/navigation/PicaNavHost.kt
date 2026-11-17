@@ -6,8 +6,6 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -16,6 +14,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.remember
@@ -25,16 +24,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.IntOffset
 import androidx.lifecycle.compose.dropUnlessResumed
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavController
 import androidx.navigation.NavDestination
+import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.toRoute
+import androidx.navigationevent.NavigationEventDispatcher
+import androidx.navigationevent.NavigationEventHandler
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
+import kotlinx.coroutines.CoroutineScope
 import app.picacgmd.R
 import app.picacgmd.core.designsystem.component.HomeChannel
 import app.picacgmd.core.designsystem.component.BackPreviewFrame
@@ -83,17 +91,11 @@ fun PicaNavHost(
     modifier: Modifier = Modifier,
     externalComicId: String? = null,
     onExternalComicExit: () -> Unit = {},
-    rootBackHandler: @Composable () -> Unit = {},
 ) {
-    val motion = MaterialTheme.motionScheme
-    val slideSpec = motion.defaultSpatialSpec<IntOffset>()
-    val fadeSpec = motion.defaultEffectsSpec<Float>()
-    val fastFadeSpec = motion.fastEffectsSpec<Float>()
     // Read through State so the graph builder lambda stays the same across window size changes.
     val compact = rememberUpdatedState(compactNavigation)
     val externalId = rememberUpdatedState(externalComicId)
     val externalExit = rememberUpdatedState(onExternalComicExit)
-    val rootBack = rememberUpdatedState(rootBackHandler)
     val applicationContext = LocalContext.current.applicationContext
     val downloadManager = remember(applicationContext) {
         (applicationContext as DownloadManagerOwner).downloadManager
@@ -102,65 +104,212 @@ fun PicaNavHost(
     val snackbar = remember { SnackbarHostState() }
     val downloads = remember(downloadManager, scope, snackbar) { DownloadActions(downloadManager, scope, snackbar) }
     val onReaderMessage: (String) -> Unit = { message -> scope.launch { snackbar.showSnackbar(message) } }
-    // The exit specs below say whether a transition is a pop, so only a popped page and the one it
-    // uncovers get the back preview; in every other transition the frames stay idle. This holds
-    // for a back gesture too: NavHost picks the pop exit transition as soon as the gesture starts and
-    // builds the spec in the composition that follows, before it seeks the first frame. Nothing
-    // resets the flag when a gesture is cancelled, and nothing has to: the pages are back at rest,
-    // and the next transition, whichever it is, builds its specs again.
+    // Let an entry finish before the host can preview a back. Screen-local handlers stay ahead.
     val backPreview = rememberBackPreviewState()
-    val popEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
-        if (isTabSwitch(compact.value)) {
-            fadeIn(fadeSpec)
-        } else {
-            EnterTransition.None
-        }
-    }
-    val popExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
-        backPreview.popping = !isTabSwitch(compact.value)
-        if (isTabSwitch(compact.value)) {
-            fadeOut(fastFadeSpec)
-        } else {
-            // No motion from the host: BackPreviewFrame moves the page, off the same
-            // timeline, so there is nothing here for the gesture to seek twice.
-            predictiveBackExit()
-        }
+    val entryBack = rememberForwardEntryBackState(navController, compact, backPreview)
+    val externalComic = rememberUpdatedState(externalComicId)
+    val transitions = picaNavTransitions(compact, backPreview, entryBack) { target ->
+        target.destination.hasRoute<ComicDetailRoute>() &&
+            target.toRoute<ComicDetailRoute>().comicId == externalComic.value
     }
 
     Box(modifier.fillMaxSize()) {
-        CompositionLocalProvider(LocalBackPreview provides backPreview) {
+        CompositionLocalProvider(LocalBackPreview provides backPreview, LocalEntryBack provides entryBack) {
             NavHost(
                 navController = navController,
                 startDestination = DiscoverGraph,
                 modifier = Modifier.fillMaxSize(),
-                enterTransition = {
-                    if (isTabSwitch(compact.value)) {
-                        fadeIn(fadeSpec)
-                    } else {
-                        slideInHorizontally(slideSpec) { it / 8 } + fadeIn(fadeSpec)
-                    }
-                },
-                exitTransition = {
-                    backPreview.popping = false
-                    if (isTabSwitch(compact.value)) {
-                        fadeOut(fastFadeSpec)
-                    } else {
-                        slideOutHorizontally(slideSpec) { -it / 16 } + fadeOut(fastFadeSpec)
-                    }
-                },
-                popEnterTransition = popEnter,
-                popExitTransition = popExit,
+                enterTransition = transitions.enter,
+                exitTransition = transitions.exit,
+                popEnterTransition = transitions.popEnter,
+                popExitTransition = transitions.popExit,
                 // The host asks for the transition of a back gesture apart from the one of a finished back,
                 // and would otherwise play its own. Here they are one: the gesture seeks what back plays.
-                predictivePopEnterTransition = { popEnter() },
-                predictivePopExitTransition = { popExit() },
+                predictivePopEnterTransition = { transitions.popEnter(this) },
+                predictivePopExitTransition = { transitions.popExit(this) },
                 sizeTransform = null,
             ) {
-                topLevelGraphs(navController, compact, rootBack)
+                topLevelGraphs(navController, compact)
                 sharedDestinations(navController, externalId, externalExit, downloads, onReaderMessage)
             }
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
+    }
+}
+
+internal class PicaNavTransitions(
+    val enter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition,
+    val exit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition,
+    val popEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition,
+    val popExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition,
+)
+
+@Composable
+internal fun picaNavTransitions(
+    compact: State<Boolean>,
+    backPreview: BackPreviewState,
+    entryBack: ForwardEntryBackState,
+    skipForwardEnter: (NavBackStackEntry) -> Boolean = { false },
+): PicaNavTransitions {
+    val motion = MaterialTheme.motionScheme
+    val fadeSpec = motion.defaultEffectsSpec<Float>()
+    val fastFadeSpec = motion.fastEffectsSpec<Float>()
+    return PicaNavTransitions(
+        enter = {
+            val tab = isTabSwitch(compact.value)
+            backPreview.logicalPop = false
+            backPreview.tabCrossfade = tab
+            if (entryBack.onForwardTransition(initialState, targetState) && !skipForwardEnter(targetState)) {
+                backPreview.confirmForwardAppearance(targetState.id)
+            } else {
+                backPreview.clearAppearance()
+            }
+            if (tab) {
+                fadeIn(fadeSpec)
+            } else {
+                EnterTransition.None
+            }
+        },
+        exit = {
+            backPreview.logicalPop = false
+            backPreview.tabCrossfade = isTabSwitch(compact.value)
+            backPreview.popping = false
+            // The old page is already transparent before its spatial slide can finish.
+            fadeOut(fastFadeSpec)
+        },
+        popEnter = {
+            val tab = isTabSwitch(compact.value)
+            backPreview.logicalPop = true
+            backPreview.tabCrossfade = tab
+            backPreview.clearAppearance()
+            if (tab) fadeIn(fadeSpec) else EnterTransition.None
+        },
+        popExit = {
+            val tab = isTabSwitch(compact.value)
+            backPreview.logicalPop = true
+            backPreview.tabCrossfade = tab
+            backPreview.clearAppearance()
+            backPreview.popping = !tab
+            if (tab) fadeOut(fastFadeSpec) else predictiveBackExit()
+        },
+    )
+}
+
+/** Keeps one back handler for the host, including gestures that outlive the entering page. */
+internal class ForwardEntryBackState(
+    private val navController: NavHostController,
+    private val compact: State<Boolean>,
+    private val backPreview: BackPreviewState,
+    private val lifecycle: Lifecycle,
+    private val scope: CoroutineScope,
+) {
+    private data class Entry(val sourceId: String, val target: NavBackStackEntry)
+
+    private var pending: Entry? = null
+    private var observed = navController.currentBackStackEntry
+    private var observedPreviousId = navController.previousBackStackEntry?.id
+    private var dispatcher: NavigationEventDispatcher? = null
+    private val handler = object : NavigationEventHandler<NavigationEventInfo>(NavigationEventInfo.None, false) {
+        override fun onBackCompleted() = Unit
+    }
+    private val targetObserver = LifecycleEventObserver { _, _ -> refresh() }
+    private val hostObserver = LifecycleEventObserver { _, _ -> refresh() }
+    private val destinationListener = NavController.OnDestinationChangedListener { controller, _, _ ->
+        val target = controller.currentBackStackEntry
+        val source = observed
+        val previousId = controller.previousBackStackEntry?.id
+        if (source != null && target != null && source.id != target.id) backPreview.prepareAppearance(target.id, scope)
+        val forward = source != null && target != null && source.id != target.id &&
+            target.id != observedPreviousId &&
+            (previousId == source.id || previousId == observedPreviousId || pending?.target?.id == source.id)
+        observed = target
+        observedPreviousId = previousId
+        if (pending?.target?.id != target?.id) clear()
+        if (forward) onForwardTransition(source, target)
+        refresh()
+    }
+
+    val isBlocking: Boolean get() = handler.isBackEnabled
+
+    fun start() {
+        lifecycle.addObserver(hostObserver)
+        navController.addOnDestinationChangedListener(destinationListener)
+    }
+
+    fun install(dispatcher: NavigationEventDispatcher) {
+        if (this.dispatcher === dispatcher) return
+        handler.remove()
+        this.dispatcher = dispatcher
+        dispatcher.addHandler(handler)
+        refresh()
+    }
+
+    fun onForwardTransition(source: NavBackStackEntry, target: NavBackStackEntry): Boolean {
+        if (source.id == target.id || navController.currentBackStackEntry?.id != target.id ||
+            isTabSwitch(source.destination, target.destination, compact.value)
+        ) return false
+        backPreview.prepareAppearance(target.id, scope)
+        if (pending?.target?.id != target.id) {
+            clear()
+            pending = Entry(source.id, target)
+            target.lifecycle.addObserver(targetObserver)
+        }
+        backPreview.popping = false
+        refresh()
+        return true
+    }
+
+    private fun refresh() {
+        val target = pending?.target
+        if (target != null && (navController.currentBackStackEntry?.id != target.id ||
+                target.lifecycle.currentState == Lifecycle.State.RESUMED)
+        ) {
+            clear()
+            return
+        }
+        handler.isBackEnabled = target != null && target.lifecycle.currentState != Lifecycle.State.DESTROYED &&
+            lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+    }
+
+    private fun clear() {
+        pending?.target?.lifecycle?.removeObserver(targetObserver)
+        pending = null
+        handler.isBackEnabled = false
+    }
+
+    fun close() {
+        navController.removeOnDestinationChangedListener(destinationListener)
+        lifecycle.removeObserver(hostObserver)
+        clear()
+        backPreview.clearAppearance()
+        handler.remove()
+        dispatcher = null
+    }
+}
+
+@Composable
+internal fun rememberForwardEntryBackState(
+    navController: NavHostController,
+    compact: State<Boolean>,
+    backPreview: BackPreviewState,
+    lifecycle: Lifecycle = LocalLifecycleOwner.current.lifecycle,
+): ForwardEntryBackState {
+    val scope = rememberCoroutineScope()
+    val state = remember(navController, lifecycle) { ForwardEntryBackState(navController, compact, backPreview, lifecycle, scope) }
+    DisposableEffect(state) {
+        state.start()
+        onDispose { state.close() }
+    }
+    return state
+}
+
+@Composable
+internal fun ForwardEntryBackBlocker(state: ForwardEntryBackState) {
+    val dispatcher = LocalNavigationEventDispatcherOwner.current?.navigationEventDispatcher
+    DisposableEffect(state, dispatcher) {
+        dispatcher?.let(state::install)
+        // The host owns registration; disposing an outgoing page must not hand off its dead gesture.
+        onDispose {}
     }
 }
 
@@ -175,8 +324,12 @@ fun PicaNavHost(
  * the page was reached: the back stack looks the same either way.
  */
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.isTabSwitch(compact: Boolean): Boolean {
-    val from = initialState.destination.tab(compact) ?: return false
-    val to = targetState.destination.tab(compact) ?: return false
+    return isTabSwitch(initialState.destination, targetState.destination, compact)
+}
+
+private fun isTabSwitch(initial: NavDestination, target: NavDestination, compact: Boolean): Boolean {
+    val from = initial.tab(compact) ?: return false
+    val to = target.tab(compact) ?: return false
     return from != to
 }
 
@@ -190,24 +343,24 @@ private fun NavHostController.backAction(): () -> Unit = dropUnlessResumed {
 }
 
 private val LocalBackPreview = staticCompositionLocalOf<BackPreviewState> { error("No back preview state") }
+private val LocalEntryBack = staticCompositionLocalOf<ForwardEntryBackState> { error("No entry back state") }
 
 /** Every destination, including the reader, carries its own predictive back preview frame. */
 private inline fun <reified T : Any> NavGraphBuilder.page(
     noinline content: @Composable AnimatedContentScope.(NavBackStackEntry) -> Unit,
 ) {
     composable<T> { entry ->
-        BackPreviewFrame(LocalBackPreview.current) { content(entry) }
+        ForwardEntryBackBlocker(LocalEntryBack.current)
+        BackPreviewFrame(LocalBackPreview.current, entryKey = entry.id) { content(entry) }
     }
 }
 
 private fun NavGraphBuilder.topLevelGraphs(
     navController: NavHostController,
     compact: State<Boolean>,
-    rootBack: State<@Composable () -> Unit>,
 ) {
     navigation<DiscoverGraph>(startDestination = DiscoverRoute) {
         page<DiscoverRoute> {
-            rootBack.value()
             val allComicsTitle = stringResource(R.string.title_categories)
             DiscoverScreen(
                 showProfileEntry = compact.value,
@@ -231,7 +384,6 @@ private fun NavGraphBuilder.topLevelGraphs(
     }
     navigation<BookshelfGraph>(startDestination = BookshelfRoute) {
         page<BookshelfRoute> {
-            rootBack.value()
             BookshelfScreen(
                 onOpenComic = { navController.navigate(ComicDetailRoute(it)) },
                 onContinueReading = { id, ep, page -> navController.navigate(ReaderRoute(id, ep, page)) },
@@ -240,7 +392,6 @@ private fun NavGraphBuilder.topLevelGraphs(
     }
     navigation<DownloadsGraph>(startDestination = DownloadsRoute) {
         page<DownloadsRoute> {
-            rootBack.value()
             DownloadsScreen(
                 onReadDownloaded = { navController.navigate(DownloadedReaderRoute(it)) },
                 onOpenSettings = { navController.navigate(DownloadSettingsRoute) },
@@ -253,7 +404,6 @@ private fun NavGraphBuilder.topLevelGraphs(
         page<MeRoute> {
             // Behind the avatar on phones, back returns to the page it was opened from, as the
             // arrow in its app bar does; only where it is a rail tab is it a root page.
-            if (!compact.value) rootBack.value()
             val messageBoardTitle = stringResource(R.string.comments_message_board)
             MeScreen(
                 onOpenSettings = { navController.navigate(SettingsRoute) },
@@ -328,7 +478,9 @@ private fun NavGraphBuilder.sharedDestinations(
         val comicId = entry.toRoute<ComicDetailRoute>().comicId
         ComicDetailScreen(
             comicId = comicId,
-            onBack = if (comicId == externalComicId.value) ({ onExternalComicExit.value() }) else navController.backAction(),
+            onBack = if (comicId == externalComicId.value) {
+                dropUnlessResumed { onExternalComicExit.value() }
+            } else navController.backAction(),
             onRead = { id, epOrder, page -> navController.navigate(ReaderRoute(id, epOrder, page)) },
             onDownloadChapters = downloads::enqueueChapters,
             onCategoryClick = { navController.navigate(ComicListRoute(category = it)) },
