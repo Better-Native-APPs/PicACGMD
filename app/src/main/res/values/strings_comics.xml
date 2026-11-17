@@ -92,8 +92,6 @@
     <string name="detail_comments_empty">还没有评论</string>
     <string name="detail_hidden_by_rule">漫画符合屏蔽规则</string>
     <string name="detail_hidden_by_rule_where">可在「设置 › 列表与浏览 › 封印与屏蔽」里取消屏蔽</string>
-    <string name="detail_keyword_hint">点按打开，长按可屏蔽</string>
-    <string name="detail_keyword_hint_tags">点按打开，长按可屏蔽；标签长按还可收藏</string>
     <string name="detail_keyword_menu">更多操作</string>
     <string name="detail_keyword_block">屏蔽</string>
     <string name="detail_keyword_unblock">取消屏蔽</string>

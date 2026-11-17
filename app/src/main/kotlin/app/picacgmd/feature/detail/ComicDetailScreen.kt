@@ -16,7 +16,6 @@ import androidx.compose.material.icons.outlined.BookmarkRemove
 import androidx.compose.material.icons.outlined.DoNotDisturbOff
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.SwapVert
-import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.LocalTextStyle
@@ -942,8 +941,7 @@ private fun Keywords(
     onToggleKeyword: (String) -> Unit,
     onToggleTagFavourite: (String) -> Unit,
 ) {
-    val colors = MaterialTheme.colorScheme
-    Column(Modifier.padding(horizontal = 16.dp).padding(top = 2.dp)) {
+    Column(Modifier.padding(horizontal = 16.dp).padding(top = 2.dp, bottom = 8.dp)) {
         if (comic.categories.isNotEmpty()) {
             KeywordGroupLabel(stringResource(R.string.detail_categories))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -973,20 +971,6 @@ private fun Keywords(
                     )
                 }
             }
-        }
-        Row(
-            Modifier.padding(top = 10.dp, bottom = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Outlined.TouchApp, contentDescription = null, modifier = Modifier.size(16.dp), tint = colors.onSurfaceVariant)
-            Text(
-                stringResource(
-                    if (showTagFavourites && comic.tags.isNotEmpty()) R.string.detail_keyword_hint_tags else R.string.detail_keyword_hint,
-                ),
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.onSurfaceVariant,
-            )
         }
     }
 }

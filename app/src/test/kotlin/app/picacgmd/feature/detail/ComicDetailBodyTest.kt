@@ -348,12 +348,12 @@ class ComicDetailBodyTest {
     }
 
     @Test
-    fun keywordMenusReplaceTheOldModeSwitchesAndTheGestureHintRemainsVisible() {
+    fun keywordMenusReplaceTheOldModeSwitchesWithoutAGestureHint() {
         compose()
 
         composeRule.onNodeWithText("屏蔽模式").assertDoesNotExist()
         composeRule.onNodeWithText(detailString(R.string.detail_tag_favourite)).assertDoesNotExist()
-        composeRule.onNodeWithText(detailString(R.string.detail_keyword_hint_tags)).assertIsDisplayed()
+        composeRule.onNodeWithText("长按可屏蔽", substring = true).assertDoesNotExist()
         composeRule.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.ToggleableState) and hasText("屏蔽模式")).assertCountEquals(0)
     }
 
