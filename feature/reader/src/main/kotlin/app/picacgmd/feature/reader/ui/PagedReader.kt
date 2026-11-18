@@ -1,7 +1,6 @@
 package app.picacgmd.feature.reader.ui
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -213,7 +212,7 @@ internal fun PagedReader(
                         TapAction.ToggleControls, TapAction.None -> host.onTapAction(action)
                     }
                 }
-                detectTapGestures(
+                detectReaderTapGestures(
                     onDoubleTap = { position -> run(doubleTapAction(latestConfig.tapMode), position) },
                     onLongPress = { position ->
                         val shown = latestSlots.pagesOf(pagerState.settledPage)
