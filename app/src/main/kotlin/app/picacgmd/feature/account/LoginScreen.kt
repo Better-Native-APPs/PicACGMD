@@ -49,8 +49,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
@@ -156,17 +158,25 @@ private fun LoginForm(
     val container = LocalAppContainer.current
     val settings by container.settingsRepository.settings.collectAsStateWithLifecycle(AppSettings.DEFAULT)
     val session by container.sessionManager.state.collectAsStateWithLifecycle()
-    var account by rememberSaveable { mutableStateOf(settings.accountEmail) }
+    var account by rememberSaveable(stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(settings.accountEmail, TextRange(settings.accountEmail.length)))
+    }
+    var accountEdited by rememberSaveable { mutableStateOf(false) }
     var password by remember { mutableStateOf("") }
     var rememberCredentials by rememberSaveable { mutableStateOf(true) }
     var error by remember { mutableStateOf((session as? SessionState.Expired)?.message) }
     var submitting by remember { mutableStateOf(false) }
     val busy = submitting || session == SessionState.SigningIn
     val scope = rememberCoroutineScope()
-    LaunchedEffect(settings.accountEmail) { if (account.isBlank()) account = settings.accountEmail }
+    LaunchedEffect(settings.accountEmail) {
+        if (!accountEdited && account.text.isBlank()) {
+            account = TextFieldValue(settings.accountEmail, TextRange(settings.accountEmail.length))
+        }
+    }
     LaunchedEffect(registeredAccount) {
         if (registeredAccount != null) {
-            account = registeredAccount
+            account = TextFieldValue(registeredAccount, TextRange(registeredAccount.length))
+            accountEdited = true
             password = ""
             error = null
             onRegisteredAccountConsumed()
@@ -181,7 +191,7 @@ private fun LoginForm(
         )
         Text("登录账号", style = MaterialTheme.typography.headlineLargeEmphasized)
         OutlinedTextField(
-            account, { account = it; error = null }, Modifier.fillMaxWidth(), label = { Text("账号") },
+            account, { account = it; accountEdited = true; error = null }, Modifier.fillMaxWidth(), label = { Text("账号") },
             enabled = !busy, singleLine = true, isError = error != null,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
         )
@@ -208,7 +218,7 @@ private fun LoginForm(
                 error = null
                 scope.launch {
                     try {
-                        container.sessionManager.login(account.trim(), password, rememberCredentials)
+                        container.sessionManager.login(account.text.trim(), password, rememberCredentials)
                         password = ""
                         onBack?.invoke()
                     } catch (exception: CancellationException) {
@@ -221,7 +231,7 @@ private fun LoginForm(
                 }
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !busy && account.isNotBlank() && password.isNotEmpty(),
+            enabled = !busy && account.text.isNotBlank() && password.isNotEmpty(),
         ) {
             if (busy) LoadingIndicator(Modifier.size(24.dp))
             Text(if (busy) "正在登录" else "登录")

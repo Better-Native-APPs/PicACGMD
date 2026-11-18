@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import app.picacgmd.core.designsystem.component.AppButton
 import app.picacgmd.di.LocalAppContainer
@@ -41,15 +42,16 @@ internal fun ForgotPasswordScreen(onBack: () -> Unit) {
     val container = LocalAppContainer.current
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
-    var email by rememberSaveable { mutableStateOf("") }
-    var questions by remember { mutableStateOf<List<String>>(emptyList()) }
+    var emailInput by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
+    val email = emailInput.text
+    var questions by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var question by rememberSaveable { mutableIntStateOf(0) }
     var answer by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     AccountScaffold("找回密码", onBack) {
-        OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), label = { Text("账号") }, singleLine = true, enabled = questions.isEmpty() && !busy)
+        OutlinedTextField(emailInput, { emailInput = it }, Modifier.fillMaxWidth(), label = { Text("账号") }, singleLine = true, enabled = questions.isEmpty() && !busy)
         if (questions.isNotEmpty() && newPassword == null) {
             Text("选择一个安全问题", style = MaterialTheme.typography.titleMedium)
             Card(Modifier.selectableGroup()) {
