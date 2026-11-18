@@ -37,6 +37,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -55,9 +56,11 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.picacgmd.PicaApplication
+import app.picacgmd.core.data.settings.DownloadQuality
 import app.picacgmd.core.designsystem.window.secureModalBottomSheetProperties
 import app.picacgmd.core.designsystem.theme.PicaTheme
 import app.picacgmd.di.LocalAppContainer
+import app.picacgmd.feature.settings.ChoiceDialog
 import app.picacgmd.feature.settings.SettingsGroup
 import app.picacgmd.feature.settings.SettingsNavRow
 import app.picacgmd.feature.settings.SettingsPageScaffold
@@ -96,6 +99,7 @@ fun DownloadSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         if (treeUri == null) it.storageRoot?.startsWith("content://") != true else it.storageRoot == treeUri
     }?.sumOf { it.downloadedBytes }
     var choosingLocation by remember { mutableStateOf(false) }
+    var choosingQuality by rememberSaveable { mutableStateOf(false) }
     val folderName by produceState<String?>(null, treeUri) {
         value = treeUri?.let { selected -> withContext(Dispatchers.IO) {
             try {
@@ -175,6 +179,11 @@ fun DownloadSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         item {
             SettingsGroup("网络") {
                 row { shapes ->
+                    SettingsNavRow(
+                        shapes, "下载画质", { choosingQuality = true }, value = settings.downloadQuality.label(),
+                    )
+                }
+                row { shapes ->
                     SettingsSwitchRow(
                         shapes, "仅在不计流量的网络下载", settings.downloadWifiOnly, { writer.update { setDownloadWifiOnly(it) } },
                         summary = "手动下载也只用 Wi-Fi 等不计流量的网络",
@@ -224,6 +233,11 @@ fun DownloadSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         }
     }
 
+    if (choosingQuality) ChoiceDialog(
+        "下载画质", DownloadQuality.entries, settings?.downloadQuality, { it.label() },
+        { writer.update { setDownloadQuality(it) } }, { choosingQuality = false },
+    )
+
     if (choosingLocation) ModalBottomSheet(
         onDismissRequest = { choosingLocation = false },
         properties = secureModalBottomSheetProperties(),
@@ -252,6 +266,11 @@ fun DownloadSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         )
         Spacer(Modifier.height(24.dp))
     }
+}
+
+private fun DownloadQuality.label() = when (this) {
+    DownloadQuality.ORIGINAL -> "原图"
+    DownloadQuality.SAME_AS_IMAGE -> "与图片质量相同"
 }
 
 /** Big number + 1–16 slider with ticks + quick presets; the warning appears only above 8. */

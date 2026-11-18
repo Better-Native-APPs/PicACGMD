@@ -85,6 +85,7 @@ internal object SettingsKeys {
     val eInkScrollAmount = floatPreferencesKey("e_ink_scroll_amount")
     val eInkTriggerDistanceCm = floatPreferencesKey("e_ink_trigger_distance_cm")
     val downloadThreads = intPreferencesKey("download_threads")
+    val downloadQuality = stringPreferencesKey("download_quality")
     val downloadWifiOnly = booleanPreferencesKey("download_wifi_only")
     val downloadTreeUri = stringPreferencesKey("download_tree_uri")
     val autoDownloadOnFavourite = booleanPreferencesKey("auto_download_on_favourite")

@@ -89,7 +89,7 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 row { shapes ->
                     SettingsNavRow(
                         shapes, "图片质量", { dialog = NetworkDialog.Quality },
-                        summary = if (network.dataSaverEnabled) "省流量模式开启中，在线阅读使用低画质" else "仅影响在线图片，下载为原图",
+                        summary = if (network.dataSaverEnabled) "省流量模式开启中，在线阅读使用低画质" else "用于在线阅读；下载画质在下载设置中选择",
                         value = if (network.dataSaverEnabled) null else settings.imageQuality.label(),
                     )
                 }

@@ -32,6 +32,24 @@ class DataSaverSettingsTest {
     private val composeRule = createComposeRule()
     @get:Rule val rules: RuleChain = RuleChain.outerRule(ComposeHostRule()).around(composeRule)
 
+    @Test fun qualityRowPointsToDownloadSettingsWhenDataSaverIsOff() {
+        setReaderTestNetwork(unmetered = true)
+        val connectivity = RuntimeEnvironment.getApplication().getSystemService(ConnectivityManager::class.java)
+        shadowOf(connectivity).setRestrictBackgroundStatus(ConnectivityManager.RESTRICT_BACKGROUND_STATUS_DISABLED)
+
+        ReaderDataSaverFixture().use { fixture ->
+            composeRule.setContent {
+                CompositionLocalProvider(LocalAppContainer provides fixture.container) {
+                    MaterialTheme { NetworkSettingsPage(onBack = {}) }
+                }
+            }
+            composeRule.waitForIdle()
+
+            composeRule.onNodeWithText("用于在线阅读；下载画质在下载设置中选择").assertIsDisplayed()
+            composeRule.onNodeWithText("仅影响在线图片，下载为原图").assertDoesNotExist()
+        }
+    }
+
     @Test fun qualityRowExplainsTheDataSaverOverride() {
         setReaderTestNetwork(unmetered = true)
         val connectivity = RuntimeEnvironment.getApplication().getSystemService(ConnectivityManager::class.java)

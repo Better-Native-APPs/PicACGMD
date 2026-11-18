@@ -184,6 +184,7 @@ class SettingsRepository(
         set(Keys.downloadThreads, value)
     }
 
+    suspend fun setDownloadQuality(value: DownloadQuality) = setEnum(Keys.downloadQuality, value)
     suspend fun setDownloadWifiOnly(value: Boolean) = set(Keys.downloadWifiOnly, value)
 
     suspend fun setDownloadTreeUri(value: String?) {
@@ -297,7 +298,7 @@ class SettingsRepository(
             Keys.readerAutoTurnSeconds, Keys.readerAutoScrollSpeed, Keys.readerAutoScrollPauseOnTouch,
             Keys.readerAutoNextChapter, Keys.gestureSpeed, Keys.minZoom, Keys.maxZoom, Keys.doubleTapZoom, Keys.lockDragBounds,
             Keys.eInkReduceAnimations, Keys.eInkScrollByScreen, Keys.eInkScrollAmount, Keys.eInkTriggerDistanceCm,
-            Keys.downloadThreads, Keys.downloadWifiOnly, Keys.autoDownloadOnFavourite, Keys.autoDownloadWifiOnly,
+            Keys.downloadThreads, Keys.downloadQuality, Keys.downloadWifiOnly, Keys.autoDownloadOnFavourite, Keys.autoDownloadWifiOnly,
             Keys.autoDeleteDownloadOnUnfavourite, Keys.showCommentsInDownloads, Keys.autoPunchIn, Keys.preventScreenshots,
             Keys.historyEnabled, Keys.recordDetailViews, Keys.autoCleanCacheInterval,
             Keys.webDavAddress, Keys.webDavUsername, Keys.webDavFolder, Keys.webDavAutoSync, Keys.webDavWifiOnly,

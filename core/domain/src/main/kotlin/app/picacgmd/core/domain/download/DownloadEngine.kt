@@ -7,6 +7,7 @@ import app.picacgmd.core.data.db.DownloadPicture
 import app.picacgmd.core.data.db.DownloadStatus
 import app.picacgmd.core.data.db.acceptsResult
 import app.picacgmd.core.data.settings.AppSettings
+import app.picacgmd.core.data.settings.DownloadQuality
 import app.picacgmd.core.domain.session.toImageServer
 import app.picacgmd.core.network.Ep
 import app.picacgmd.core.network.ImageQuality
@@ -474,8 +475,13 @@ internal class DownloadEngine(
             var index = 0
             do {
                 val result = retry {
+                    val preferences = latestSettings.value
+                    val quality = when (preferences.downloadQuality) {
+                        DownloadQuality.ORIGINAL -> ImageQuality.ORIGINAL
+                        DownloadQuality.SAME_AS_IMAGE -> ImageQuality.valueOf(preferences.imageQuality.name)
+                    }
                     apiProvider().comicPicturePageWithQuality(
-                        ep.comicId, ep.epOrder, page, ImageQuality.valueOf(latestSettings.value.imageQuality.name),
+                        ep.comicId, ep.epOrder, page, quality,
                     ).getOrThrow()
                 }.pages
                 val pictures = result.docs.map { picture ->

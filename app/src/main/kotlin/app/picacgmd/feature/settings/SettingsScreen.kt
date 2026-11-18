@@ -164,6 +164,7 @@ private val SearchIndex: List<SettingsEntry> = buildList {
     )
     add(
         SettingsPage.Downloads, "网络",
+        "下载画质" to "原图、与图片质量相同",
         "仅在不计流量的网络下载" to "手动下载也只用 Wi-Fi 等不计流量的网络",
     )
     add(
@@ -181,7 +182,7 @@ private val SearchIndex: List<SettingsEntry> = buildList {
     )
     add(
         SettingsPage.Network, "看图",
-        "图片质量" to "仅影响在线图片，下载为原图",
+        "图片质量" to "用于在线阅读；下载画质在下载设置中选择",
     )
     add(
         SettingsPage.Network, "连接",
