@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
@@ -70,13 +69,17 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.max
 import app.picacgmd.feature.reader.R
 import app.picacgmd.core.designsystem.component.AppFilledIconButton
 import app.picacgmd.core.designsystem.component.AppIconButton
@@ -89,10 +92,31 @@ private val ChromeMaxWidth = 640.dp
 private val CapsuleShadow = 3.dp
 private val SideSliderMaxHeight = 495.dp
 private val ChromeIconButtonSize = 48.dp
+private val TitleVerticalPadding = 6.dp
 
-/** Height of the top capsule, for what must stay clear of it. */
+/** Height of the top capsule at the default font size; it is taller when its two title lines need more. */
 internal val TopCapsuleHeight = 56.dp
 internal val TopCapsuleGap = 8.dp
+
+/**
+ * Height of the top capsule at the current font scale, for what must stay clear of it.
+ *
+ * The lines are measured rather than taken from the styles' line heights: at large font scales the
+ * glyphs, Chinese ones most of all, are taller than the line height the style asks for.
+ */
+@Composable
+internal fun topCapsuleHeight(): Dp {
+    val measurer = rememberTextMeasurer()
+    val typography = MaterialTheme.typography
+    val density = LocalDensity.current
+    return remember(measurer, typography, density) {
+        val lines = listOf(typography.titleSmall, typography.bodySmall)
+            .sumOf { measurer.measure(TitleHeightSample, it, maxLines = 1).size.height }
+        max(TopCapsuleHeight, with(density) { lines.toDp() } + TitleVerticalPadding * 2)
+    }
+}
+
+private const val TitleHeightSample = "漫画 Ag"
 
 /** What the buttons of the control layer do. Null means that there is nowhere to go. */
 @Stable
@@ -199,7 +223,7 @@ internal fun BoxScope.ReaderControls(
                 modifier = Modifier
                     .windowInsetsPadding(insets)
                     // Clear of the top capsule and of the toolbar, whatever the screen's height.
-                    .padding(start = 12.dp, end = 12.dp, top = TopCapsuleGap + TopCapsuleHeight + 16.dp, bottom = 92.dp)
+                    .padding(start = 12.dp, end = 12.dp, top = TopCapsuleGap + topCapsuleHeight() + 16.dp, bottom = 92.dp)
                     .fillMaxHeight(),
                 contentAlignment = Alignment.Center,
             ) {
@@ -219,7 +243,7 @@ private fun TopCapsule(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = modifier.height(TopCapsuleHeight),
+        modifier = modifier.heightIn(min = TopCapsuleHeight),
         shape = RoundedCornerShape(TopCapsuleHeight / 2),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shadowElevation = CapsuleShadow,
@@ -229,7 +253,8 @@ private fun TopCapsule(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             BackButton(actions.onBack, Modifier.size(ChromeIconButtonSize))
-            Column(Modifier.weight(1f)) {
+            // Large system fonts make the two lines taller than the capsule, which then grows around them.
+            Column(Modifier.weight(1f).padding(vertical = TitleVerticalPadding)) {
                 Text(
                     text = chapterTitle,
                     style = MaterialTheme.typography.titleSmall,
