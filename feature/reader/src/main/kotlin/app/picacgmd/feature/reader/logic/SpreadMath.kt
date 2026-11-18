@@ -33,7 +33,23 @@ internal data class PageSlots(val pageCount: Int, val spreads: Boolean, val cove
         if (first.isEmpty() || last.isEmpty()) return IntRange.EMPTY
         return first.first..last.last
     }
+
+    /**
+     * Whole slots after the current one that a preload window of [aheadPages] pages reaches, the pages
+     * being counted from the first page of the current slot. Never less than one: the neighbouring
+     * slot shows while paging.
+     */
+    fun slotsAhead(aheadPages: Int): Int = (aheadPages / perSlot).coerceAtLeast(1)
 }
+
+/**
+ * Whether the pictures of the screen [slot] may load while the reader is on [currentSlot]: a screen
+ * further ahead than [aheadSlots] screens waits, however early the pager composes it. A screen at or
+ * behind the current one never waits, and one that was let through ([alreadyLoading]) keeps loading
+ * when the current screen moves back, so that its download is not thrown away.
+ */
+internal fun slotMayLoad(slot: Int, currentSlot: Int, aheadSlots: Int, alreadyLoading: Boolean): Boolean =
+    alreadyLoading || slot - currentSlot <= aheadSlots
 
 /** The two pages of a spread as they sit on screen. */
 internal data class SpreadSides(val left: Int, val right: Int)

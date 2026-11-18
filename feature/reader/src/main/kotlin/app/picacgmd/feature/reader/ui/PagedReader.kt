@@ -18,11 +18,14 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
@@ -60,6 +63,7 @@ import app.picacgmd.feature.reader.logic.forwardSwipeFor
 import app.picacgmd.feature.reader.logic.rememberReaderMemoryBudget
 import app.picacgmd.feature.reader.logic.screenToContent
 import app.picacgmd.feature.reader.logic.singleTapAction
+import app.picacgmd.feature.reader.logic.slotMayLoad
 import app.picacgmd.feature.reader.logic.spreadAnchor
 import app.picacgmd.feature.reader.logic.spreadPageAt
 import app.picacgmd.feature.reader.logic.spreadSides
@@ -259,6 +263,7 @@ internal fun PagedReader(
             behind = ReaderConfig.PRELOAD_BEHIND * slots.perSlot,
             pagesPerSlot = slots.perSlot,
         )
+        val loadAheadSlots = slots.slotsAhead(preloadWindow.ahead)
 
         PreloadPages(
             pages = pages,
@@ -286,8 +291,11 @@ internal fun PagedReader(
 
         val pageContent: @Composable PagerScope.(Int) -> Unit = { slot ->
             val shown = slots.pagesOf(slot)
+            val mayLoad = rememberSlotMayLoad(slot, pagerState, loadAheadSlots)
             when {
                 shown.isEmpty() -> ChapterEndPage { inner -> endContent?.invoke(pull, inner) }
+                // Composed early by the pager and not on screen: an empty screen until its turn comes.
+                !mayLoad -> Box(Modifier.fillMaxSize())
                 shown.first == shown.last -> key(host.reloads.nonce(shown.first)) {
                     PagedPage(
                         page = pages[shown.first],
@@ -343,6 +351,21 @@ internal fun PagedReader(
             )
         }
     }
+}
+
+/**
+ * Whether the screen [slot] may load its pictures yet, see [slotMayLoad]. While it scrolls, the pager
+ * composes a screen beyond the ones next to the current screen; its pictures would otherwise load
+ * outside the reader's preload window.
+ */
+@Composable
+private fun rememberSlotMayLoad(slot: Int, pagerState: PagerState, aheadSlots: Int): Boolean {
+    var loading by remember { mutableStateOf(false) }
+    val mayLoad by remember(slot, pagerState, aheadSlots) {
+        derivedStateOf { slotMayLoad(slot, pagerState.currentPage, aheadSlots, loading) }
+    }
+    if (mayLoad && !loading) SideEffect { loading = true }
+    return mayLoad
 }
 
 /** One page filling a screen of the pager ([slot]); zooms while it is the settled screen. */
