@@ -3,7 +3,7 @@
     <string name="download_notification_running">正在下载 %1$d 本 · %2$s</string>
     <string name="download_notification_progress">%1$s · 剩余 %2$d 张</string>
     <string name="download_notification_preparing">正在获取章节和图片清单</string>
-    <string name="download_notification_waiting_wifi">等待 Wi-Fi</string>
+    <string name="download_notification_waiting_wifi">等待不计流量的网络</string>
     <string name="download_notification_pause_all">全部暂停</string>
     <string name="download_notification_open">打开下载</string>
     <string name="download_notification_completed">%1$d 本下载完成</string>

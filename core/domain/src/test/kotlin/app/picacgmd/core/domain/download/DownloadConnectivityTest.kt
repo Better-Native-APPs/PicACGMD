@@ -5,11 +5,11 @@ import kotlin.test.assertEquals
 
 class DownloadConnectivityTest {
     @Test
-    fun wifiRuleBlocksOnlyWhenWifiOnlyIsEnabledWithoutWifi() {
-        for (wifiOnly in listOf(false, true)) {
+    fun restrictionBlocksOnlyWhenEnabledWithoutAnUnmeteredNetwork() {
+        for (restricted in listOf(false, true)) {
             for (connected in listOf(false, true)) {
-                for (wifi in listOf(false, true)) {
-                    assertEquals(wifiOnly && !wifi, wifiRuleBlocks(wifiOnly, DownloadNetworkState(connected, wifi)))
+                for (unmetered in listOf(false, true)) {
+                    assertEquals(restricted && !unmetered, wifiRuleBlocks(restricted, DownloadNetworkState(connected, unmetered)))
                 }
             }
         }

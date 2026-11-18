@@ -9,14 +9,14 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 
-internal fun wifiRuleBlocks(wifiOnly: Boolean, network: DownloadNetworkState): Boolean = wifiOnly && !network.wifi
+internal fun wifiRuleBlocks(wifiOnly: Boolean, network: DownloadNetworkState): Boolean = wifiOnly && !network.unmetered
 
 internal fun currentDownloadNetwork(context: Context): DownloadNetworkState {
     val connectivity = context.getSystemService(ConnectivityManager::class.java)
     val capabilities = connectivity.activeNetwork?.let(connectivity::getNetworkCapabilities)
     return DownloadNetworkState(
         connected = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true,
-        wifi = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true,
+        unmetered = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) == true,
     )
 }
 

@@ -326,7 +326,7 @@ internal class DownloadEngine(
                 activeComic = null
                 // The wait flag belongs to a run; a stale one would label the next run's first notification.
                 mutableProgress.update {
-                    it.copy(bytesPerSecond = 0, currentComicTitle = null, currentEpTitle = null, waitingForWifi = false)
+                    it.copy(bytesPerSecond = 0, currentComicTitle = null, currentEpTitle = null, waitingForUnmetered = false)
                 }
             }
         }
@@ -584,7 +584,7 @@ internal class DownloadEngine(
         val event = try {
             val staged = retry {
                 if (claimed == null) {
-                    // Keep the claim generation even if Wi-Fi disappears between the two DAO calls.
+                    // Keep the claim generation even if the network becomes disallowed between the two DAO calls.
                     withContext(NonCancellable) {
                         if (dao.claimPicture(picture.pictureId, nowMillis()) != 1) throw PictureNotClaimed()
                         claimed = dao.getPicture(picture.pictureId) ?: throw PictureNotClaimed()
@@ -789,7 +789,7 @@ internal class DownloadEngine(
         }
     }
 
-    /** A Wi-Fi change cancels sockets, then retries the same attempt after an allowed network returns. */
+    /** A network-policy change cancels sockets, then retries the same attempt after an allowed network returns. */
     private suspend fun <T> networkOperation(block: suspend () -> T): T {
         while (true) {
             networkAllowed.first { it }
@@ -819,9 +819,9 @@ internal class DownloadEngine(
     private suspend fun updateNetworkGate() {
         val preferences = latestSettings.value
         val connection = latestNetwork.value
-        networkAllowed.value = connection.connected && (!preferences.downloadWifiOnly || connection.wifi)
+        networkAllowed.value = connection.connected && (!preferences.downloadWifiOnly || connection.unmetered)
         limiter.setEnabled(networkAllowed.value)
-        mutableProgress.update { it.copy(waitingForWifi = preferences.downloadWifiOnly && !connection.wifi) }
+        mutableProgress.update { it.copy(waitingForUnmetered = preferences.downloadWifiOnly && !connection.unmetered) }
     }
 
     private fun imageUrl(image: PicaImage): String = imageUrlProvider?.invoke(image) ?: PicaImageUrls.build(

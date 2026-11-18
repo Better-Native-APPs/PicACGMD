@@ -79,7 +79,7 @@ class DownloadManager(
         onStorageFallback = settingsRepository::clearDownloadTreeUriIfMatches,
     )
     val progress: StateFlow<DownloadProgress> = engine.progress
-    val waitingForWifi: Flow<Boolean> = combine(
+    val waitingForUnmetered: Flow<Boolean> = combine(
         settingsRepository.settings.map { it.downloadWifiOnly },
         observeDownloadNetwork(this.context),
     ) { wifiOnly, network -> wifiRuleBlocks(wifiOnly, network) }.distinctUntilChanged()
@@ -185,6 +185,7 @@ class DownloadManager(
             enqueueWifiWaiter()
             return
         }
+        // The engine applies live settings; an unmetered queue constraint would strand work when the switch is turned off.
         val request = OneTimeWorkRequestBuilder<DownloadWorker>()
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
@@ -197,12 +198,12 @@ class DownloadManager(
     @RequiresApi(Build.VERSION_CODES.P)
     private fun enqueueWifiWaiter() {
         val network = NetworkRequest.Builder()
-            .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .addCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
             .build()
         val request = OneTimeWorkRequestBuilder<DownloadWifiWaitWorker>()
-            .setConstraints(Constraints.Builder().setRequiredNetworkRequest(network, NetworkType.CONNECTED).build())
+            .setConstraints(Constraints.Builder().setRequiredNetworkRequest(network, NetworkType.UNMETERED).build())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .addTag(WIFI_WORK_NAME)
             .build()

@@ -176,8 +176,8 @@ fun DownloadSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             SettingsGroup("网络") {
                 row { shapes ->
                     SettingsSwitchRow(
-                        shapes, "仅 Wi-Fi 下载", settings.downloadWifiOnly, { writer.update { setDownloadWifiOnly(it) } },
-                        summary = "手动下载也需连接 Wi-Fi",
+                        shapes, "仅在不计流量的网络下载", settings.downloadWifiOnly, { writer.update { setDownloadWifiOnly(it) } },
+                        summary = "手动下载也只用 Wi-Fi 等不计流量的网络",
                     )
                 }
             }
@@ -192,7 +192,7 @@ fun DownloadSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 }
                 row { shapes ->
                     SettingsSwitchRow(
-                        shapes, "自动下载仅限 Wi-Fi", settings.autoDownloadWifiOnly, { writer.update { setAutoDownloadWifiOnly(it) } },
+                        shapes, "自动下载仅限不计流量的网络", settings.autoDownloadWifiOnly, { writer.update { setAutoDownloadWifiOnly(it) } },
                         enabled = settings.autoDownloadOnFavourite,
                     )
                 }

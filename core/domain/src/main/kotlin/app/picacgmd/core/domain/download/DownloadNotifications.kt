@@ -25,7 +25,7 @@ internal class DownloadNotifications(private val context: Context, private val s
         val speed = String.format(Locale.SIMPLIFIED_CHINESE, "%.1f MB/s", progress.bytesPerSecond / 1_000_000.0)
         val title = context.getString(R.string.download_notification_running, progress.activeComics, speed)
         val text = when {
-            progress.waitingForWifi -> context.getString(R.string.download_notification_waiting_wifi)
+            progress.waitingForUnmetered -> context.getString(R.string.download_notification_waiting_wifi)
             !progress.pictureTotalsKnown -> context.getString(R.string.download_notification_preparing)
             else -> context.getString(R.string.download_notification_progress,
                 progress.currentEpTitle ?: context.getString(R.string.download_notification_preparing), progress.remainingPictures)

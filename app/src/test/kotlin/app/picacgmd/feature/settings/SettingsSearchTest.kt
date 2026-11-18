@@ -67,6 +67,31 @@ class SettingsSearchTest {
         }
     }
 
+    @Test
+    fun unmeteredDownloadsAreFoundByWifiAndTrafficAndOpenTheDownloadsPage() {
+        compose()
+        listOf("Wi-Fi", "流量").forEach { query ->
+            search(query)
+            composeRule.onAllNodesWithText("仅在不计流量的网络下载").assertCountEquals(1)
+            composeRule.onAllNodesWithText("手动下载也只用 Wi-Fi 等不计流量的网络", substring = true).assertCountEquals(1)
+        }
+        composeRule.onNode(hasText("仅在不计流量的网络下载") and hasText("下载 › 网络", substring = true)).performClick()
+        composeRule.waitForIdle()
+        assertEquals(listOf(SettingsPage.Downloads), opened)
+    }
+
+    @Test
+    fun automaticUnmeteredDownloadsAreFoundByWifiAndTrafficAndOpenTheDownloadsPage() {
+        compose()
+        listOf("Wi-Fi", "流量").forEach { query ->
+            search(query)
+            composeRule.onAllNodesWithText("自动下载仅限不计流量的网络").assertCountEquals(1)
+        }
+        composeRule.onNode(hasText("自动下载仅限不计流量的网络") and hasText("下载 › 自动化", substring = true)).performClick()
+        composeRule.waitForIdle()
+        assertEquals(listOf(SettingsPage.Downloads), opened)
+    }
+
     private fun compose() {
         composeRule.setContent { MaterialTheme { SettingsScreen(onBack = {}, onOpenPage = { opened += it }) } }
     }

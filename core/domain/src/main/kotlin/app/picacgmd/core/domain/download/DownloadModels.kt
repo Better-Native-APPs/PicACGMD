@@ -6,9 +6,9 @@ import app.picacgmd.core.data.db.DownloadEp
 /** A null chapter selection means all chapters, resolved after the request is persisted. */
 data class DownloadRequest(val comic: DownloadComic, val eps: List<DownloadEp>? = null)
 
-data class DownloadNetworkState(val connected: Boolean, val wifi: Boolean) {
+data class DownloadNetworkState(val connected: Boolean, val unmetered: Boolean) {
     companion object {
-        val OFFLINE: DownloadNetworkState = DownloadNetworkState(connected = false, wifi = false)
+        val OFFLINE: DownloadNetworkState = DownloadNetworkState(connected = false, unmetered = false)
     }
 }
 
@@ -24,7 +24,7 @@ data class DownloadProgress(
     val bytesPerSecond: Long = 0,
     val currentComicTitle: String? = null,
     val currentEpTitle: String? = null,
-    val waitingForWifi: Boolean = false,
+    val waitingForUnmetered: Boolean = false,
     val configuredThreads: Int = 4,
     val effectiveThreads: Int = 4,
     /** False while any selected chapter's page manifest is still unknown (including failed fetches). */

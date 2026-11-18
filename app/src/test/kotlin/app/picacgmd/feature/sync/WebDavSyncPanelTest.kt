@@ -348,20 +348,20 @@ class WebDavSyncPanelTest {
     }
 
     @Test
-    fun wifiOnlyCanBeChangedOnlyWhileAutomaticSyncIsOn() {
+    fun unmeteredOnlyCanBeChangedOnlyWhileAutomaticSyncIsOn() {
         compose()
         switch("自动同步").assertIsOff().assertIsEnabled()
-        switch("仅在 Wi-Fi 下自动同步").assertIsOn().assertIsNotEnabled()
+        switch("仅在不计流量的网络下自动同步").assertIsOn().assertIsNotEnabled()
         composeRule.onNodeWithText("开启自动同步后可用", substring = true).assertExists()
 
         switch("自动同步").performClick()
         composeRule.waitForIdle()
         assertTrue(actions.state.value.config.autoSync)
         switch("自动同步").assertIsOn()
-        switch("仅在 Wi-Fi 下自动同步").assertIsEnabled().performClick()
+        switch("仅在不计流量的网络下自动同步").assertIsEnabled().performClick()
         composeRule.waitForIdle()
         assertFalse(actions.state.value.config.wifiOnly)
-        switch("仅在 Wi-Fi 下自动同步").assertIsOff()
+        switch("仅在不计流量的网络下自动同步").assertIsOff()
     }
 
     @Test

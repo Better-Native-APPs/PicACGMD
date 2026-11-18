@@ -56,7 +56,7 @@ class DownloadEngineTest {
         root = Files.createTempDirectory("picacgmd-download-test-").toFile()
         dao = FakeDownloadDao()
         settings = MutableStateFlow(AppSettings.DEFAULT.copy(imageRoutingMode = RoutingMode.NONE))
-        network = MutableStateFlow(DownloadNetworkState(connected = true, wifi = true))
+        network = MutableStateFlow(DownloadNetworkState(connected = true, unmetered = true))
     }
 
     @AfterTest
@@ -151,16 +151,16 @@ class DownloadEngineTest {
     }
 
     @Test
-    fun wifiOnlyCanBeChangedLiveWithoutRestartingTheWorker() = runTest {
+    fun unmeteredOnlyCanBeChangedLiveWithoutRestartingTheWorker() = runTest {
         seed(1)
         settings.value = settings.value.copy(downloadWifiOnly = true)
-        network.value = DownloadNetworkState(connected = true, wifi = false)
+        network.value = DownloadNetworkState(connected = true, unmetered = false)
         imageServer.enqueue(imageResponse())
         val engine = engine(this)
         val worker = launch { engine.runUntilIdle() }
         runCurrent()
         assertEquals(0, imageServer.requestCount)
-        assertTrue(engine.progress.value.waitingForWifi)
+        assertTrue(engine.progress.value.waitingForUnmetered)
         settings.value = settings.value.copy(downloadWifiOnly = false)
         worker.join()
         assertEquals(1, imageServer.requestCount)
@@ -168,16 +168,51 @@ class DownloadEngineTest {
     }
 
     @Test
-    fun aRunCancelledWhileWaitingDoesNotLeaveTheWaitFlagBehind() = runTest {
+    fun aMeteredConnectionWaitsUntilAnUnmeteredConnectionReplacesIt() = runTest {
         seed(1)
         settings.value = settings.value.copy(downloadWifiOnly = true)
-        network.value = DownloadNetworkState(connected = true, wifi = false)
+        network.value = DownloadNetworkState(true, false)
+        imageServer.enqueue(imageResponse())
         val engine = engine(this)
         val worker = launch { engine.runUntilIdle() }
         runCurrent()
-        assertTrue(engine.progress.value.waitingForWifi)
+        assertEquals(0, imageServer.requestCount)
+        assertTrue(engine.progress.value.waitingForUnmetered)
+
+        network.value = DownloadNetworkState(true, true)
+        worker.join()
+
+        assertEquals(1, imageServer.requestCount)
+        assertFalse(engine.progress.value.waitingForUnmetered)
+        assertEquals(DownloadStatus.DONE, dao.getPicture("picture-1")?.status)
+    }
+
+    @Test
+    fun anUnmeteredConnectionDownloadsWithTheRestrictionEnabled() = runTest {
+        seed(1)
+        settings.value = settings.value.copy(downloadWifiOnly = true)
+        network.value = DownloadNetworkState(true, true)
+        imageServer.enqueue(imageResponse())
+        val engine = engine(this)
+
+        engine.runUntilIdle()
+
+        assertEquals(1, imageServer.requestCount)
+        assertFalse(engine.progress.value.waitingForUnmetered)
+        assertEquals(DownloadStatus.DONE, dao.getPicture("picture-1")?.status)
+    }
+
+    @Test
+    fun aRunCancelledWhileWaitingDoesNotLeaveTheWaitFlagBehind() = runTest {
+        seed(1)
+        settings.value = settings.value.copy(downloadWifiOnly = true)
+        network.value = DownloadNetworkState(connected = true, unmetered = false)
+        val engine = engine(this)
+        val worker = launch { engine.runUntilIdle() }
+        runCurrent()
+        assertTrue(engine.progress.value.waitingForUnmetered)
         worker.cancelAndJoin()
-        assertFalse(engine.progress.value.waitingForWifi)
+        assertFalse(engine.progress.value.waitingForUnmetered)
         assertEquals(0, imageServer.requestCount)
     }
 
