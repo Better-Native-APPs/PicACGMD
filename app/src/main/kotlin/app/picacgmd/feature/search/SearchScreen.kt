@@ -10,6 +10,7 @@ import app.picacgmd.feature.comics.LayoutMenuItems
 import app.picacgmd.feature.routing.RouteMenuButton
 import app.picacgmd.feature.routing.RouteMenuItem
 import app.picacgmd.feature.routing.RoutePickerDialog
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -186,6 +187,8 @@ fun SearchScreen(
     var text by rememberSaveable { mutableStateOf(initialKeyword.orEmpty()) }
     var showFilter by rememberSaveable { mutableStateOf(false) }
     var selection by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    BackHandler(enabled = selection.isNotEmpty()) { selection = emptyList() }
+
     // Loading or failed pages are not settled lists, so restored selections must wait for the first page to return.
     LaunchedEffect(state.comics, state.loading, state.error) {
         if (!state.loading && state.error == null) {

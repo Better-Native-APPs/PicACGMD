@@ -3,6 +3,7 @@ package app.picacgmd.feature.comics
 import app.picacgmd.core.designsystem.window.securePopupProperties
 
 import app.picacgmd.feature.routing.RouteMenuButton
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -153,6 +154,8 @@ private fun ComicListContent(
     val sort by viewModel.sort.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     var selection by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    BackHandler(enabled = selection.isNotEmpty()) { selection = emptyList() }
+
     // Loading or failed pages are not settled lists, so restored selections must wait for the first page to return.
     LaunchedEffect(state.comics, state.loading, state.error) {
         if (!state.loading && state.error == null) {
