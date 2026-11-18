@@ -40,6 +40,8 @@ import androidx.compose.ui.unit.dp
 import app.picacgmd.core.data.settings.ImageQuality
 import app.picacgmd.core.designsystem.component.AppTextButton
 import app.picacgmd.di.LocalAppContainer
+import app.picacgmd.reader.rememberReaderNetworkMonitor
+import app.picacgmd.reader.rememberReaderNetworkState
 import kotlinx.coroutines.launch
 
 private enum class NetworkDialog { Quality, ConnectTimeout, ReadTimeout, TimeOffset }
@@ -58,6 +60,7 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val writer = remember(container) { SettingsWriter(container.settingsRepository, scope, snackbar) }
     val settings = rememberAppSettings()
+    val network = rememberReaderNetworkState(rememberReaderNetworkMonitor())
     val routes = rememberRouteSummary()
     var picker by rememberSaveable { mutableStateOf(false) }
     var dialog by rememberSaveable { mutableStateOf<NetworkDialog?>(null) }
@@ -84,7 +87,11 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
         item {
             SettingsGroup("看图") {
                 row { shapes ->
-                    SettingsNavRow(shapes, "图片质量", { dialog = NetworkDialog.Quality }, summary = "仅影响在线图片，下载为原图", value = settings.imageQuality.label())
+                    SettingsNavRow(
+                        shapes, "图片质量", { dialog = NetworkDialog.Quality },
+                        summary = if (network.dataSaverEnabled) "省流量模式开启中，在线阅读使用低画质" else "仅影响在线图片，下载为原图",
+                        value = if (network.dataSaverEnabled) null else settings.imageQuality.label(),
+                    )
                 }
             }
         }

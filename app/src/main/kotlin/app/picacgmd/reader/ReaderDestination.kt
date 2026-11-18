@@ -46,6 +46,7 @@ private class ReaderViewModel(
     private val container: AppContainer,
     private val comicId: String,
     private val onMessage: (String) -> Unit,
+    private val networkMonitor: ReaderNetworkMonitor,
     private val episodeOrder: Int = 1,
     private val page: Int = 0,
     private val downloads: DownloadManager? = null,
@@ -102,7 +103,10 @@ private class ReaderViewModel(
             historyRepository = container.historyRepository,
             networkConfigProvider = container.networkConfigProvider,
             onProgressError = { reportError("保存阅读进度失败", it) },
-            qualityProvider = { config.quality },
+            qualityProvider = {
+                val network = networkMonitor.currentState()
+                effectiveReaderLoading(network.dataSaverEnabled, network.metered, config.quality, config.preloadAhead).quality
+            },
         )
         val index = source.indexOfEpisode(episodeOrder)
         return ReaderStart(source, index.coerceAtLeast(0), if (index >= 0) page else 0)
@@ -148,10 +152,11 @@ internal fun OnlineReaderDestination(
     modifier: Modifier = Modifier,
 ) {
     val container = LocalAppContainer.current
+    val networkMonitor = rememberReaderNetworkMonitor()
     val viewModel = viewModel(key = "online-reader:$comicId:$episodeOrder:$page") {
-        ReaderViewModel(container, comicId, onMessage, episodeOrder, page)
+        ReaderViewModel(container, comicId, onMessage, networkMonitor, episodeOrder, page)
     }
-    ReaderDestination(viewModel, onBack, modifier, onOpenComments, onOpenRelated, onOpenAllSettings)
+    ReaderDestination(viewModel, onBack, modifier, onOpenComments, onOpenRelated, onOpenAllSettings, networkMonitor)
 }
 
 @Composable
@@ -166,11 +171,12 @@ internal fun DownloadedReaderDestination(
     modifier: Modifier = Modifier,
 ) {
     val container = LocalAppContainer.current
+    val networkMonitor = rememberReaderNetworkMonitor()
     val downloads = (LocalContext.current.applicationContext as DownloadManagerOwner).downloadManager
     val viewModel = viewModel(key = "downloaded-reader:$comicId:${episodeOrder ?: "history"}") {
-        ReaderViewModel(container, comicId, onMessage, downloads = downloads, downloadedEpisode = episodeOrder)
+        ReaderViewModel(container, comicId, onMessage, networkMonitor, downloads = downloads, downloadedEpisode = episodeOrder)
     }
-    ReaderDestination(viewModel, onBack, modifier, onOpenComments, onOpenRelated, onOpenAllSettings)
+    ReaderDestination(viewModel, onBack, modifier, onOpenComments, onOpenRelated, onOpenAllSettings, networkMonitor)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -182,7 +188,9 @@ private fun ReaderDestination(
     onOpenComments: () -> Unit,
     onOpenRelated: () -> Unit,
     onOpenAllSettings: () -> Unit,
+    networkMonitor: ReaderNetworkMonitor,
 ) {
+    val network = rememberReaderNetworkState(networkMonitor)
     val start = viewModel.start
     if (start != null) {
         // Online pages show 分流 / 图片分流 in the reader settings; both open the app's one picker.
@@ -199,12 +207,15 @@ private fun ReaderDestination(
             null
         }
         if (picker) RoutePickerDialog { picker = false }
+        val userConfig = viewModel.config
+        // Downloaded pages are read from storage, so the network has no say in how many are prepared.
+        val effectiveConfig = if (routes != null) userConfig.withNetworkPreload(network) else userConfig
         ReaderScreen(
             source = start.source,
-            config = viewModel.config,
+            config = effectiveConfig,
             startChapter = start.chapter,
             startPage = start.page,
-            onConfigChange = viewModel::updateConfig,
+            onConfigChange = { viewModel.updateConfig(it.withUserLoadingPreferences(effectiveConfig, userConfig)) },
             onBack = onBack,
             modifier = modifier,
             onOpenComments = onOpenComments,
