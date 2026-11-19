@@ -108,7 +108,7 @@ import app.picacgmd.feature.reader.ui.StripReader
 import app.picacgmd.feature.reader.ui.TapOverlayMemory
 import app.picacgmd.feature.reader.ui.TapZoneOverlay
 import app.picacgmd.feature.reader.ui.TopCapsuleGap
-import app.picacgmd.feature.reader.ui.TopCapsuleHeight
+import app.picacgmd.feature.reader.ui.topCapsuleHeight
 import app.picacgmd.feature.reader.ui.palette
 import app.picacgmd.feature.reader.ui.readerChromeInsets
 import app.picacgmd.feature.reader.ui.rememberPageColorFilter
@@ -659,8 +659,9 @@ fun ReaderScreen(
 private const val FULLSCREEN_LOADING_BACK_DELAY_MILLIS = 1_500L
 
 /** Below the top capsule while it is on screen; otherwise [resting] below the top of the screen. */
+@Composable
 private fun hintTopPadding(controlsShown: Boolean, resting: Dp): Dp =
-    if (controlsShown) TopCapsuleGap + TopCapsuleHeight + 8.dp else resting
+    if (controlsShown) TopCapsuleGap + topCapsuleHeight() + 8.dp else resting
 
 /** The new chapter fades in; together with the chapter's name, that is the whole transition. */
 @Composable

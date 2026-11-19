@@ -101,6 +101,16 @@ internal fun AppSettings.toReaderConfig(base: ReaderConfig = ReaderConfig()): Re
     gestureSpeed = gestureSpeed,
 ).normalized()
 
+internal fun ReaderConfig.withNetworkPreload(network: ReaderNetworkState): ReaderConfig = copy(
+    // Changing the displayed quality makes the reader reload pages that are already loaded.
+    preloadAhead = effectiveReaderLoading(network.dataSaverEnabled, network.metered, quality, preloadAhead).preloadAhead,
+)
+
+internal fun ReaderConfig.withUserLoadingPreferences(previous: ReaderConfig, user: ReaderConfig): ReaderConfig = copy(
+    quality = if (quality == previous.quality) user.quality else quality,
+    preloadAhead = if (preloadAhead == previous.preloadAhead) user.preloadAhead else preloadAhead,
+)
+
 /** Only write changed, represented preferences; unsupported reader options remain session-local. */
 internal suspend fun SettingsRepository.saveReaderConfig(previous: ReaderConfig, next: ReaderConfig) {
     if (previous.mode != next.mode) setReaderMode(

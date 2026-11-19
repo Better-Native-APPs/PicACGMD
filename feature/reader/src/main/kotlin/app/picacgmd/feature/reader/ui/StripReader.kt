@@ -4,7 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.ScrollableDefaults
 import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -325,7 +324,7 @@ internal fun StripReader(
                             TapAction.ToggleControls, TapAction.None -> host.onTapAction(action)
                         }
                     }
-                    detectTapGestures(
+                    detectReaderTapGestures(
                         onDoubleTap = { position -> run(doubleTapAction(latestConfig.tapMode), position) },
                         onLongPress = { position ->
                             val info = listState.layoutInfo

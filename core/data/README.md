@@ -256,6 +256,7 @@ setEInkScrollByScreen(value: Boolean)
 setEInkScrollAmount(value: Float)
 setEInkTriggerDistanceCm(value: Float)
 setDownloadThreads(value: Int)
+setDownloadQuality(value: DownloadQuality)
 setDownloadWifiOnly(value: Boolean)
 setDownloadTreeUri(value: String?)
 clearDownloadTreeUriIfMatches(expected: String)
@@ -274,6 +275,7 @@ setAutoCleanCacheInterval(value: CacheCleanupInterval)
 ```
 
 - 下载线程 1–16，默认 4（低内存设备默认 2）；列数 0（自动）或 2–7；连接/读取超时 10/15/30/60 秒；应用锁超时 0/1/10/60/180/600/3600 秒。
+- 下载画质默认「与图片质量相同」，也可选择「原图」；已有下载不受影响。偏好键 `download_quality` 随其他可迁移下载设置参与系统备份与恢复。
 - 默认首页固定分类为有序列表 `["大家都在看", "大濕推薦"]`，可清空。分类字符串保持接口拼写，重复项保留第一次出现的位置；空白项不能写入。
 - 黑/白名单分类、隐藏分类和首页固定分类互不替代。过滤、菜单入口显示、历史记录开关和自动化设置由业务层执行，设置仓库只保存值。
 - 分流支持从官方同步并记录同步时间戳；分流选择与测速由上层管理，数据层持久化当前生效地址及同步所得候选地址。

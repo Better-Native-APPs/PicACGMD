@@ -470,8 +470,8 @@ private fun EngineCard(
     @SuppressLint("StateFlowValueCalledInComposition") // Only the starting value; the flow delivers every later one.
     val firstProgress = manager.progress.value
     val progress by progressUpdates.collectAsStateWithLifecycle(firstProgress)
-    val waitingForWifi by manager.waitingForWifi.collectAsStateWithLifecycle(initialValue = progress.waitingForWifi)
-    val waiting = running && waitingForWifi
+    val waitingForUnmetered by manager.waitingForUnmetered.collectAsStateWithLifecycle(initialValue = progress.waitingForUnmetered)
+    val waiting = running && waitingForUnmetered
     val context = LocalContext.current
     val colors = MaterialTheme.colorScheme
     val throttled = running && progress.effectiveThreads < progress.configuredThreads
@@ -489,14 +489,14 @@ private fun EngineCard(
     }
     val speed = "${context.formatBytes(progress.bytesPerSecond)}/s"
     val title = when {
-        waiting -> "等待 Wi-Fi"
+        waiting -> "等待不计流量的网络"
         throttled -> "服务器限流 · $speed"
         running -> "下载中 · $speed"
         hasPaused -> "已暂停"
         else -> "排队中"
     }
     val subtitle = when {
-        waiting -> "连接 Wi-Fi 后自动继续"
+        waiting -> "连接不计流量的网络后自动继续"
         throttled -> "当前 ${progress.effectiveThreads} 个线程 · 已设 ${progress.configuredThreads} 个"
         running -> buildString {
             append("${progress.effectiveThreads} 个线程 · 剩余 ${progress.remainingPictures} 张")
@@ -604,7 +604,7 @@ private fun ActiveList(
                 progressBar = {
                     when (comic.status) {
                         // Wavy but still: the default wave speed redraws every frame for as long as a
-                        // comic is RUNNING, including hours spent offline or waiting for Wi-Fi. Before
+                        // comic is RUNNING, including hours spent offline or waiting for an unmetered network. Before
                         // the first chapter resolves, fraction() is 0 and the bar shows an empty track.
                         DownloadStatus.RUNNING -> LinearWavyProgressIndicator(
                             progress = { comic.fraction() },

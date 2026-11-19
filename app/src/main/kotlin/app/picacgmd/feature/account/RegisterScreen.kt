@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -26,6 +27,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import app.picacgmd.core.designsystem.component.AppButton
 import app.picacgmd.core.designsystem.component.AppOutlinedButton
@@ -48,15 +50,21 @@ private const val ACCOUNT_RULE_MESSAGE = "账号只能用字母、数字、下�
 internal fun RegisterScreen(onBack: () -> Unit, onRegistered: (String) -> Unit) {
     val container = LocalAppContainer.current
     val scope = rememberCoroutineScope()
-    // Keep the step with the in-memory password; process recreation restarts the form safely.
+    // Restart at the first step because its required password is never saved.
     var step by remember { mutableIntStateOf(1) }
-    var email by rememberSaveable { mutableStateOf("") }
-    var name by rememberSaveable { mutableStateOf("") }
+    var emailInput by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
+    var nameInput by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
+    val email = emailInput.text
+    val name = nameInput.text
     var password by remember { mutableStateOf("") }
     var gender by rememberSaveable { mutableStateOf("m") }
     var birthday by rememberSaveable { mutableStateOf("") }
     var birthdayPicker by remember { mutableStateOf(false) }
-    val questions = remember { mutableStateListOf("", "", "") }
+    val questions = List(3) { index ->
+        key(index) {
+            rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
+        }
+    }
     val answers = remember { mutableStateListOf("", "", "") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -84,8 +92,8 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: (String) -> Unit) 
                 LinearWavyProgressIndicator(progress = { shownStep / 2f }, modifier = Modifier.fillMaxWidth(), waveSpeed = 0.dp)
                 if (shownStep == 1) {
                     OutlinedTextField(
-                        email,
-                        { email = it },
+                        emailInput,
+                        { emailInput = it },
                         Modifier.fillMaxWidth(),
                         label = { Text("账号") },
                         supportingText = { Text(ACCOUNT_RULE_MESSAGE) },
@@ -93,7 +101,7 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: (String) -> Unit) 
                     )
                     PasswordField(password, { password = it })
                     Text("密码至少 8 位", style = MaterialTheme.typography.bodySmall)
-                    OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text("昵称") }, singleLine = true)
+                    OutlinedTextField(nameInput, { nameInput = it }, Modifier.fillMaxWidth(), label = { Text("昵称") }, singleLine = true)
                     Text("性别", style = MaterialTheme.typography.titleSmall)
                     Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
                         listOf("男" to "m", "女" to "f", "其他" to "bot").forEach { (label, value) ->
@@ -119,7 +127,7 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: (String) -> Unit) 
                 } else {
                     Text("填写三组安全问题，注册后无法修改")
                     repeat(3) { index ->
-                        OutlinedTextField(questions[index], { questions[index] = it }, Modifier.fillMaxWidth(), label = { Text("问题 ${index + 1}") }, enabled = !busy)
+                        OutlinedTextField(questions[index].value, { questions[index].value = it }, Modifier.fillMaxWidth(), label = { Text("问题 ${index + 1}") }, enabled = !busy)
                         OutlinedTextField(answers[index], { answers[index] = it }, Modifier.fillMaxWidth(), label = { Text("回答 ${index + 1}") }, enabled = !busy)
                     }
                     error?.let { AccountError(it) }
@@ -131,9 +139,9 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: (String) -> Unit) 
                                 name = name.trim(),
                                 birthday = birthday,
                                 gender = gender,
-                                question1 = questions[0].trim(),
-                                question2 = questions[1].trim(),
-                                question3 = questions[2].trim(),
+                                question1 = questions[0].value.text.trim(),
+                                question2 = questions[1].value.text.trim(),
+                                question3 = questions[2].value.text.trim(),
                                 answer1 = answers[0].trim(),
                                 answer2 = answers[1].trim(),
                                 answer3 = answers[2].trim(),
@@ -179,7 +187,7 @@ internal fun RegisterScreen(onBack: () -> Unit, onRegistered: (String) -> Unit) 
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !busy && questions.all(String::isNotBlank) && answers.all(String::isNotBlank),
+                        enabled = !busy && questions.all { it.value.text.isNotBlank() } && answers.all(String::isNotBlank),
                     ) { Text(if (busy) "正在注册" else "注册") }
                     AppTextButton({ step = 1; error = null }, enabled = !busy) { Text("上一步") }
                 }

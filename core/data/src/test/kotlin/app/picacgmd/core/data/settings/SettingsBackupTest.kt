@@ -46,6 +46,7 @@ class SettingsBackupTest {
             assertEquals(if (includeAuthentication) "secret-token" else null, store.data.value[Keys.authToken])
             assertNull(store.data.value[Keys.legacyStartupImageUri])
             assertEquals(setOf("games"), store.data.value[Keys.pinnedHomeChannels])
+            assertEquals("ORIGINAL", store.data.value[Keys.downloadQuality])
         }
     }
 
@@ -78,6 +79,7 @@ class SettingsBackupTest {
         assertEquals(0.4f, restored.eInkScrollAmount)
         assertEquals(0.2f, restored.eInkTriggerDistanceCm)
         assertEquals(16, restored.downloadThreads)
+        assertEquals(DownloadQuality.ORIGINAL, restored.downloadQuality)
         assertTrue(restored.preventScreenshots)
         assertEquals(AppOrientation.LANDSCAPE, restored.appOrientation)
         assertEquals(listOf("分类二", "分类一"), restored.pinnedHomeCategories)
@@ -190,7 +192,8 @@ class SettingsBackupTest {
         Keys.gestureSpeed to 1.5f, Keys.minZoom to 0.5f, Keys.maxZoom to 5f, Keys.doubleTapZoom to 3f,
         Keys.lockDragBounds to true, Keys.eInkReduceAnimations to true, Keys.eInkScrollByScreen to true,
         Keys.eInkScrollAmount to 0.4f, Keys.eInkTriggerDistanceCm to 0.2f, Keys.downloadThreads to 16,
-        Keys.downloadWifiOnly to true, Keys.downloadTreeUri to "content://documents/tree/comics",
+        Keys.downloadWifiOnly to true, Keys.downloadQuality to "ORIGINAL",
+        Keys.downloadTreeUri to "content://documents/tree/comics",
         Keys.autoDownloadOnFavourite to true, Keys.autoDownloadWifiOnly to false,
         Keys.autoDeleteDownloadOnUnfavourite to true, Keys.showCommentsInDownloads to true, Keys.autoPunchIn to false,
         Keys.appLockEnabled to true, Keys.biometricUnlockEnabled to false, Keys.appLockTimeoutSeconds to 60,

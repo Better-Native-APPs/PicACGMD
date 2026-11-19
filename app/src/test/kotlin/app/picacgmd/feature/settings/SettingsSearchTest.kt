@@ -67,6 +67,52 @@ class SettingsSearchTest {
         }
     }
 
+    @Test
+    fun unmeteredDownloadsAreFoundByWifiAndTrafficAndOpenTheDownloadsPage() {
+        compose()
+        listOf("Wi-Fi", "流量").forEach { query ->
+            search(query)
+            composeRule.onAllNodesWithText("仅在不计流量的网络下载").assertCountEquals(1)
+            composeRule.onAllNodesWithText("手动下载也只用 Wi-Fi 等不计流量的网络", substring = true).assertCountEquals(1)
+        }
+        composeRule.onNode(hasText("仅在不计流量的网络下载") and hasText("下载 › 网络", substring = true)).performClick()
+        composeRule.waitForIdle()
+        assertEquals(listOf(SettingsPage.Downloads), opened)
+    }
+
+    @Test
+    fun automaticUnmeteredDownloadsAreFoundByWifiAndTrafficAndOpenTheDownloadsPage() {
+        compose()
+        listOf("Wi-Fi", "流量").forEach { query ->
+            search(query)
+            composeRule.onAllNodesWithText("自动下载仅限不计流量的网络").assertCountEquals(1)
+        }
+        composeRule.onNode(hasText("自动下载仅限不计流量的网络") and hasText("下载 › 自动化", substring = true)).performClick()
+        composeRule.waitForIdle()
+        assertEquals(listOf(SettingsPage.Downloads), opened)
+    }
+
+    @Test
+    fun downloadQualityIsFoundByNameAndQualityAndOpensTheDownloadsPage() {
+        compose()
+        listOf("下载画质", "画质").forEach { query ->
+            search(query)
+            composeRule.onAllNodes(hasText("下载画质") and hasText("下载 › 网络", substring = true)).assertCountEquals(1)
+        }
+        composeRule.onNode(hasText("下载画质") and hasText("下载 › 网络", substring = true)).performClick()
+        composeRule.waitForIdle()
+        assertEquals(listOf(SettingsPage.Downloads), opened)
+    }
+
+    @Test
+    fun onlineQualitySearchExplainsWhereDownloadQualityIsChosen() {
+        compose()
+        search("图片质量")
+
+        composeRule.onAllNodesWithText("网络 › 看图 · 用于在线阅读；下载画质在下载设置中选择").assertCountEquals(1)
+        composeRule.onAllNodesWithText("仅影响在线图片，下载为原图", substring = true).assertCountEquals(0)
+    }
+
     private fun compose() {
         composeRule.setContent { MaterialTheme { SettingsScreen(onBack = {}, onOpenPage = { opened += it }) } }
     }

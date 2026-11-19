@@ -7,6 +7,7 @@ import app.picacgmd.core.data.db.DownloadPicture
 import app.picacgmd.core.data.db.DownloadStatus
 import app.picacgmd.core.data.db.acceptsResult
 import app.picacgmd.core.data.settings.AppSettings
+import app.picacgmd.core.data.settings.DownloadQuality
 import app.picacgmd.core.domain.session.toImageServer
 import app.picacgmd.core.network.Ep
 import app.picacgmd.core.network.ImageQuality
@@ -326,7 +327,7 @@ internal class DownloadEngine(
                 activeComic = null
                 // The wait flag belongs to a run; a stale one would label the next run's first notification.
                 mutableProgress.update {
-                    it.copy(bytesPerSecond = 0, currentComicTitle = null, currentEpTitle = null, waitingForWifi = false)
+                    it.copy(bytesPerSecond = 0, currentComicTitle = null, currentEpTitle = null, waitingForUnmetered = false)
                 }
             }
         }
@@ -474,8 +475,13 @@ internal class DownloadEngine(
             var index = 0
             do {
                 val result = retry {
+                    val preferences = latestSettings.value
+                    val quality = when (preferences.downloadQuality) {
+                        DownloadQuality.ORIGINAL -> ImageQuality.ORIGINAL
+                        DownloadQuality.SAME_AS_IMAGE -> ImageQuality.valueOf(preferences.imageQuality.name)
+                    }
                     apiProvider().comicPicturePageWithQuality(
-                        ep.comicId, ep.epOrder, page, ImageQuality.valueOf(latestSettings.value.imageQuality.name),
+                        ep.comicId, ep.epOrder, page, quality,
                     ).getOrThrow()
                 }.pages
                 val pictures = result.docs.map { picture ->
@@ -584,7 +590,7 @@ internal class DownloadEngine(
         val event = try {
             val staged = retry {
                 if (claimed == null) {
-                    // Keep the claim generation even if Wi-Fi disappears between the two DAO calls.
+                    // Keep the claim generation even if the network becomes disallowed between the two DAO calls.
                     withContext(NonCancellable) {
                         if (dao.claimPicture(picture.pictureId, nowMillis()) != 1) throw PictureNotClaimed()
                         claimed = dao.getPicture(picture.pictureId) ?: throw PictureNotClaimed()
@@ -789,7 +795,7 @@ internal class DownloadEngine(
         }
     }
 
-    /** A Wi-Fi change cancels sockets, then retries the same attempt after an allowed network returns. */
+    /** A network-policy change cancels sockets, then retries the same attempt after an allowed network returns. */
     private suspend fun <T> networkOperation(block: suspend () -> T): T {
         while (true) {
             networkAllowed.first { it }
@@ -819,9 +825,9 @@ internal class DownloadEngine(
     private suspend fun updateNetworkGate() {
         val preferences = latestSettings.value
         val connection = latestNetwork.value
-        networkAllowed.value = connection.connected && (!preferences.downloadWifiOnly || connection.wifi)
+        networkAllowed.value = connection.connected && (!preferences.downloadWifiOnly || connection.unmetered)
         limiter.setEnabled(networkAllowed.value)
-        mutableProgress.update { it.copy(waitingForWifi = preferences.downloadWifiOnly && !connection.wifi) }
+        mutableProgress.update { it.copy(waitingForUnmetered = preferences.downloadWifiOnly && !connection.unmetered) }
     }
 
     private fun imageUrl(image: PicaImage): String = imageUrlProvider?.invoke(image) ?: PicaImageUrls.build(

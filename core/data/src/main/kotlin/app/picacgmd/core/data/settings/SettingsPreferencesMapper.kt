@@ -88,6 +88,7 @@ internal object SettingsPreferencesMapper {
             eInkScrollAmount = preferences.readFloat(Keys.eInkScrollAmount, d.eInkScrollAmount, 0.1f..1f),
             eInkTriggerDistanceCm = preferences.readFloat(Keys.eInkTriggerDistanceCm, d.eInkTriggerDistanceCm, 0.1f..2f),
             downloadThreads = preferences.readInt(Keys.downloadThreads, d.downloadThreads, SettingsValidation::isDownloadThreads),
+            downloadQuality = preferences.readEnum(Keys.downloadQuality, d.downloadQuality),
             downloadWifiOnly = preferences[Keys.downloadWifiOnly] ?: d.downloadWifiOnly,
             downloadTreeUri = preferences[Keys.downloadTreeUri]?.takeIf(String::isNotBlank),
             autoDownloadOnFavourite = preferences[Keys.autoDownloadOnFavourite] ?: d.autoDownloadOnFavourite,

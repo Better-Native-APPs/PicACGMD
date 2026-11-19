@@ -72,7 +72,7 @@ class WebDavSyncPanelLayoutTest {
         composeRule.onNodeWithContentDescription("显示密码").assertTouchTarget()
         composeRule.onNodeWithContentDescription("返回").assertTouchTarget()
         click("取消")
-        listOf("修改", "用本机覆盖云端", "用云端覆盖本机", "自动同步", "仅在 Wi-Fi 下自动同步").forEach { action(it).assertTouchTarget() }
+        listOf("修改", "用本机覆盖云端", "用云端覆盖本机", "自动同步", "仅在不计流量的网络下自动同步").forEach { action(it).assertTouchTarget() }
 
         click("用云端覆盖本机")
         listOf("覆盖本机", "取消").forEach { label ->

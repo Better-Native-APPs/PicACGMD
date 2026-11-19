@@ -4,6 +4,7 @@ enum class RoutingMode { NONE, ROUTE_1, ROUTE_2, ROUTE_3 }
 
 val defaultApiAddresses: List<String> = listOf("172.67.7.24", "104.20.180.50", "172.67.208.169")
 enum class ImageQuality { ORIGINAL, LOW, MEDIUM, HIGH }
+enum class DownloadQuality { ORIGINAL, SAME_AS_IMAGE }
 enum class AppTheme { DYNAMIC, BRAND_PINK, BOOK, GREY_BLUE }
 enum class DarkMode { SYSTEM, LIGHT, DARK }
 enum class ListLayout { DETAILS, COVER, COVER_AND_TITLE }
@@ -38,8 +39,9 @@ enum class CacheCleanupInterval(val seconds: Long) {
  *   All bookshelf/search feature entries are visible.
  * - Webtoon, top-to-bottom, controller tap zones, black background, normal filter, keep screen on.
  *   Volume paging and automatic fullscreen are off; double-volume chapter paging is on.
- * - Download concurrency 2 on low-RAM devices, 4 elsewhere (allowed 1–16). Manual downloads may use
- *   mobile data. Auto-download is off, restricted to Wi-Fi when enabled; auto-delete and download comments are off.
+ * - Downloads follow online image quality. Concurrency is 2 on low-RAM devices, 4 elsewhere (allowed 1–16).
+ *   Manual downloads may use mobile data. Auto-download is off, restricted to Wi-Fi when enabled;
+ *   auto-delete and download comments are off.
  * - Automatic punch-in is on (B9). App lock/screenshot prevention are off; biometric unlock is
  *   available when locking is enabled. History/detail recording is on; automatic cache cleanup off.
  * - Connection/read timeouts 15/30 seconds; time offset 0; API image loading off.
@@ -125,6 +127,7 @@ data class AppSettings(
     val eInkScrollAmount: Float = 0.8f,
     val eInkTriggerDistanceCm: Float = 0.3f,
     val downloadThreads: Int = 4,
+    val downloadQuality: DownloadQuality = DownloadQuality.SAME_AS_IMAGE,
     val downloadWifiOnly: Boolean = false,
     /** Null uses app-private storage. Existing comics retain their own recorded storage root. */
     val downloadTreeUri: String? = null,

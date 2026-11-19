@@ -76,7 +76,7 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
                 }
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                        runWithWifiWaitWatch(manager.progress.map { it.waitingForWifi }, WIFI_WAIT_GRACE_MILLIS) {
+                        runWithWifiWaitWatch(manager.progress.map { it.waitingForUnmetered }, WIFI_WAIT_GRACE_MILLIS) {
                             manager.runUntilIdle()
                         }
                     } else {

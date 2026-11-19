@@ -26,10 +26,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -70,6 +72,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ModalBottomSheetProperties
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderState
@@ -142,7 +145,20 @@ internal fun ReaderSheet(
             then()
         }
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = state, scrimColor = scrim, properties = secureModalBottomSheetProperties()) {
+    val systemBars = currentReaderSystemBarsAppearance()
+    val properties = if (systemBars == null) secureModalBottomSheetProperties() else ModalBottomSheetProperties(
+        isAppearanceLightStatusBars = systemBars.lightStatusBars,
+        isAppearanceLightNavigationBars = systemBars.lightNavigationBars,
+        securePolicy = secureWindowPolicy(),
+    )
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = state,
+        scrimColor = scrim,
+        contentWindowInsets = { WindowInsets.safeDrawing },
+        properties = properties,
+    ) {
+        ReaderSheetSystemBars(systemBars)
         content(hide)
     }
 }

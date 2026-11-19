@@ -323,7 +323,7 @@ internal fun WebDavSyncPanel(
                     }
                     row { shapes ->
                         SettingsSwitchRow(
-                            shapes, "仅在 Wi-Fi 下自动同步", state.wifiOnly, { act { viewModel.setWifiOnly(it) } },
+                            shapes, "仅在不计流量的网络下自动同步", state.wifiOnly, { act { viewModel.setWifiOnly(it) } },
                             summary = if (state.autoSync) "手动同步不受限制" else "开启自动同步后可用",
                             enabled = state.autoSync && !state.busy,
                         )

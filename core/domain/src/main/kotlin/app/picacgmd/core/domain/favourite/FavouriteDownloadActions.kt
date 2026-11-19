@@ -21,10 +21,9 @@ class FavouriteDownloadActions(
         val preferences = settings.settings.first()
         if (!preferences.autoDownloadOnFavourite) return null
         if (!comic.allowDownload) return "此漫画不允许下载，已跳过自动下载"
-        // Same Wi-Fi transport contract as DownloadConnectivity (a VPN alone is not Wi-Fi).
         val capabilities = connectivity.activeNetwork?.let(connectivity::getNetworkCapabilities)
-        if (preferences.autoDownloadWifiOnly && capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) != true) {
-            return "未连接 Wi-Fi，已跳过自动下载"
+        if (preferences.autoDownloadWifiOnly && capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) != true) {
+            return "未连接不计流量的网络，已跳过自动下载"
         }
         // No chapter subset means all chapters, including chapter metadata recovery in the engine.
         downloads.enqueue(comic)

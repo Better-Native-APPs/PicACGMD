@@ -164,11 +164,12 @@ private val SearchIndex: List<SettingsEntry> = buildList {
     )
     add(
         SettingsPage.Downloads, "网络",
-        "仅 Wi-Fi 下载" to "手动下载也需连接 Wi-Fi",
+        "下载画质" to "原图、与图片质量相同",
+        "仅在不计流量的网络下载" to "手动下载也只用 Wi-Fi 等不计流量的网络",
     )
     add(
         SettingsPage.Downloads, "自动化",
-        "收藏时自动下载" to "下载全部章节", "自动下载仅限 Wi-Fi" to "", "取消收藏时删除下载" to "",
+        "收藏时自动下载" to "下载全部章节", "自动下载仅限不计流量的网络" to "自动下载也只用 Wi-Fi 等不计流量的网络", "取消收藏时删除下载" to "",
         "下载详情显示评论" to "需要联网加载",
     )
     add(
@@ -181,7 +182,7 @@ private val SearchIndex: List<SettingsEntry> = buildList {
     )
     add(
         SettingsPage.Network, "看图",
-        "图片质量" to "仅影响在线图片，下载为原图",
+        "图片质量" to "用于在线阅读；下载画质在下载设置中选择",
     )
     add(
         SettingsPage.Network, "连接",

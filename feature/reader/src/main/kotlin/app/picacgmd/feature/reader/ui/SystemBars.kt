@@ -12,8 +12,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
@@ -55,6 +56,28 @@ fun ReaderSystemBars(mode: SystemBarsMode, lightBackground: Boolean) {
 }
 
 @Composable
+internal fun currentReaderSystemBarsAppearance(): SystemBarsAppearance? =
+    LocalSystemBarsOwnership.current?.currentAppearance
+
+@Composable
+internal fun ReaderSheetSystemBars(appearance: SystemBarsAppearance?) {
+    if (appearance == null) return
+    val view = LocalView.current
+    val window = (view.parent as? DialogWindowProvider)?.window ?: return
+    // The dialog is discarded on close; restoring its bars would flash over the reader.
+    SideEffect { WindowCompat.getInsetsController(window, view).applyAppearance(appearance) }
+}
+
+private fun WindowInsetsControllerCompat.applyAppearance(appearance: SystemBarsAppearance) {
+    systemBarsBehavior = appearance.behavior
+    isAppearanceLightStatusBars = appearance.lightStatusBars
+    isAppearanceLightNavigationBars = appearance.lightNavigationBars
+    val visibility = appearance.mode.visibility()
+    if (visibility.shownTypes != 0) show(visibility.shownTypes)
+    if (visibility.hiddenTypes != 0) hide(visibility.hiddenTypes)
+}
+
+@Composable
 private fun rememberSystemBarsOwnership(): SystemBarsOwnership? {
     val view = LocalView.current
     if (view.isInEditMode) return null
@@ -67,23 +90,7 @@ private fun rememberSystemBarsOwnership(): SystemBarsOwnership? {
                 lightNavigationBars = controller.isAppearanceLightNavigationBars,
                 behavior = controller.systemBarsBehavior,
             )
-            SystemBarsOwnership(initial) { appearance ->
-                controller.systemBarsBehavior = appearance.behavior
-                controller.isAppearanceLightStatusBars = appearance.lightStatusBars
-                controller.isAppearanceLightNavigationBars = appearance.lightNavigationBars
-                when (appearance.mode) {
-                    SystemBarsMode.Visible -> controller.show(WindowInsetsCompat.Type.systemBars())
-                    SystemBarsMode.HiddenStatus -> {
-                        controller.show(WindowInsetsCompat.Type.navigationBars())
-                        controller.hide(WindowInsetsCompat.Type.statusBars())
-                    }
-                    SystemBarsMode.HiddenNavigation -> {
-                        controller.show(WindowInsetsCompat.Type.statusBars())
-                        controller.hide(WindowInsetsCompat.Type.navigationBars())
-                    }
-                    SystemBarsMode.HiddenAll -> controller.hide(WindowInsetsCompat.Type.systemBars())
-                }
-            }
+            SystemBarsOwnership(initial, controller::applyAppearance)
         }
     }
 }
