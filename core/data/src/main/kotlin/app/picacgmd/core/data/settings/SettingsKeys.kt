@@ -16,6 +16,7 @@ internal object SettingsKeys {
     val apiRouteAddress = stringPreferencesKey("api_route_address")
     val syncedApiAddresses = stringPreferencesKey("synced_api_addresses")
     val apiRoutesSyncedAt = longPreferencesKey("api_routes_synced_at")
+    val autoSyncApiRoutes = booleanPreferencesKey("auto_sync_api_routes")
     /** Read only: custom routes were removed, the key just identifies a stale custom selection. */
     val legacyCustomApiIp = stringPreferencesKey("custom_api_ip")
     val imageRoutingMode = stringPreferencesKey("image_routing_mode")

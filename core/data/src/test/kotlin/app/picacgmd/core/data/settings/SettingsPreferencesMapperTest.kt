@@ -13,6 +13,24 @@ import kotlin.test.assertTrue
 
 class SettingsPreferencesMapperTest {
     @Test
+    fun automaticRouteSyncDefaultsOnAndBothStoredChoicesOverrideDefaults() {
+        assertTrue(AppSettings.DEFAULT.autoSyncApiRoutes)
+        assertTrue(SettingsPreferencesMapper.decode(emptyPreferences()).autoSyncApiRoutes)
+        val defaults = AppSettings.DEFAULT.copy(autoSyncApiRoutes = false)
+        assertFalse(SettingsPreferencesMapper.decode(emptyPreferences(), defaults).autoSyncApiRoutes)
+        for (enabled in listOf(false, true)) {
+            val preferences = mutablePreferencesOf(
+                booleanPreferencesKey("auto_sync_api_routes") to enabled,
+                SettingsKeys.downloadThreads to 8,
+            )
+            assertEquals(
+                AppSettings.DEFAULT.copy(autoSyncApiRoutes = enabled, downloadThreads = 8),
+                SettingsPreferencesMapper.decode(preferences),
+            )
+        }
+    }
+
+    @Test
     fun existingFullScreenNamesKeepTheirMeaning() {
         val expected = mapOf(
             "OFF" to FullScreenDisplay.OFF,

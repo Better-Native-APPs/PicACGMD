@@ -60,6 +60,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.designsystem.component.AppButton
 import app.picacgmd.core.designsystem.component.AppFilledTonalButton
 import app.picacgmd.core.designsystem.component.AppIconButton
@@ -77,6 +78,7 @@ import app.picacgmd.core.network.ImageServer
 import app.picacgmd.di.LocalAppContainer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -112,6 +114,9 @@ internal fun formatSyncTime(millis: Long, now: Long = System.currentTimeMillis()
     return DateTimeFormatter.ofPattern(pattern, Locale.CHINA).format(then)
 }
 
+internal fun shouldAutoSyncApiRoutes(enabled: Boolean, lastSyncedAtMillis: Long?, nowMillis: Long): Boolean =
+    enabled && (lastSyncedAtMillis == null || lastSyncedAtMillis > nowMillis || nowMillis - lastSyncedAtMillis >= 24 * 60 * 60 * 1_000L)
+
 private enum class RouteWork { Switching, Syncing }
 
 private enum class RouteTone { Done, Error }
@@ -126,8 +131,9 @@ private data class RouteMessage(val text: String, val tone: RouteTone = RouteTon
  */
 @Composable
 fun RoutePickerDialog(onDismiss: () -> Unit) {
-    val routing = LocalAppContainer.current.routingRepository
-    RoutePickerDialog(routing, routing::measureApiRoute, routing::measureImageRoute, onDismiss)
+    val container = LocalAppContainer.current
+    val routing = container.routingRepository
+    RoutePickerDialog(routing, container.settingsRepository.settings, routing::measureApiRoute, routing::measureImageRoute, onDismiss)
 }
 
 /** The picker with its two probes passed in, so it can be shown without touching the network. */
@@ -135,26 +141,39 @@ fun RoutePickerDialog(onDismiss: () -> Unit) {
 @Composable
 internal fun RoutePickerDialog(
     routing: RoutingRepository,
+    settings: Flow<AppSettings>,
     measureApiRoute: suspend (ApiRoute) -> Long?,
     measureImageRoute: suspend (ImageServer) -> Long?,
     onDismiss: () -> Unit,
 ) {
+    val appSettings by settings.collectAsStateWithLifecycle(initialValue = null)
     val apiState by routing.apiRoutes.collectAsStateWithLifecycle(initialValue = null)
     val imageState by routing.imageRoutes.collectAsStateWithLifecycle(initialValue = null)
     val api = apiState ?: return
     val image = imageState ?: return
+    val autoSyncEnabled = appSettings?.autoSyncApiRoutes ?: return
 
     val scope = rememberCoroutineScope()
     val dismiss by rememberUpdatedState(onDismiss)
     var round by remember { mutableIntStateOf(0) }
     var work by remember { mutableStateOf<RouteWork?>(null) }
     var message by remember { mutableStateOf<RouteMessage?>(null) }
+    var automaticSyncRunning by remember { mutableStateOf(false) }
+    // What the automatic sync has to say comes last: any other line is shown instead of it.
+    var automaticMessage by remember { mutableStateOf<RouteMessage?>(null) }
+    var userOwnsStatus by remember { mutableStateOf(false) }
 
-    // One writer at a time; a failed write is reported in the status line instead of closing.
-    val perform: (RouteWork, String, suspend () -> RouteMessage?) -> Unit = { next, failure, block ->
+    // A user action owns the status line from then on, even when it leaves the line empty.
+    fun takeStatusLine() {
+        userOwnsStatus = true
+        automaticMessage = null
+        message = null
+    }
+    // User actions are serialized; a failed write is reported in the status line instead of closing.
+    fun perform(next: RouteWork, failure: String, block: suspend () -> RouteMessage?) {
         if (work == null) {
+            takeStatusLine()
             work = next
-            message = null
             scope.launch {
                 try {
                     message = block()
@@ -166,6 +185,26 @@ internal fun RoutePickerDialog(
                     work = null
                 }
             }
+        }
+    }
+    suspend fun syncRoutes(): RouteMessage {
+        routing.syncApiRoutes()
+        val count = routing.apiRoutes.first().options.count { it.source == RouteSource.SERVER }
+        return RouteMessage("已从官方同步 $count 条分流")
+    }
+    LaunchedEffect(Unit) {
+        if (shouldAutoSyncApiRoutes(autoSyncEnabled, api.lastSyncedAtMillis, System.currentTimeMillis())) {
+            automaticSyncRunning = true
+            val result = try {
+                syncRoutes()
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (_: Exception) {
+                RouteMessage("自动同步失败", RouteTone.Error)
+            } finally {
+                automaticSyncRunning = false
+            }
+            if (!userOwnsStatus) automaticMessage = result
         }
     }
     // After a round, an unreachable selection moves to the fastest route that answered.
@@ -195,6 +234,7 @@ internal fun RoutePickerDialog(
     // Measuring is shown by the 「自动选择最快」 button itself; the line under the title is for results only.
     val status = message
         ?: RouteMessage("暂无可用分流，请检查网络后重新测速", RouteTone.Error).takeIf { measured && apiFastest == null && imageFastest == null }
+        ?: automaticMessage
 
     BasicAlertDialog(onDismissRequest = onDismiss, properties = secureDialogProperties()) {
         Surface(
@@ -218,8 +258,8 @@ internal fun RoutePickerDialog(
                             )
                         }
                     }
-                    if (syncing) LoadingIndicator(Modifier.size(24.dp))
-                    AppIconButton(onClick = { message = null; round++ }, enabled = !syncing) {
+                    if (syncing || automaticSyncRunning) LoadingIndicator(Modifier.size(24.dp))
+                    AppIconButton(onClick = { takeStatusLine(); round++ }, enabled = !syncing) {
                         Icon(Icons.Outlined.Refresh, contentDescription = "重新测速")
                     }
                 }
@@ -258,14 +298,8 @@ internal fun RoutePickerDialog(
                         onSelect = { option -> perform(RouteWork.Switching, "切换失败") { routing.selectApiRoute(option.value); null } },
                     ) {
                         AppFilledTonalButton(
-                            onClick = {
-                                perform(RouteWork.Syncing, "同步失败") {
-                                    routing.syncApiRoutes()
-                                    val count = routing.apiRoutes.first().options.count { it.source == RouteSource.SERVER }
-                                    RouteMessage("已从官方同步 $count 条分流")
-                                }
-                            },
-                            enabled = !syncing,
+                            onClick = { perform(RouteWork.Syncing, "同步失败") { syncRoutes() } },
+                            enabled = !syncing && !automaticSyncRunning,
                             contentPadding = PaddingValues(start = 12.dp, end = 16.dp),
                         ) {
                             Icon(Icons.Outlined.Sync, contentDescription = null, modifier = Modifier.size(18.dp))

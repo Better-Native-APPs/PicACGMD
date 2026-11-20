@@ -78,6 +78,12 @@ fun NetworkSettingsPage(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 }
                 row { shapes ->
                     SettingsSwitchRow(
+                        shapes, "自动同步分流", settings.autoSyncApiRoutes, { writer.update { setAutoSyncApiRoutes(it) } },
+                        summary = "打开分流窗口时，距上次从官方同步超过 24 小时就自动同步一次",
+                    )
+                }
+                row { shapes ->
+                    SettingsSwitchRow(
                         shapes, "用 API 加载图片", settings.useApiClientForImages, { writer.update { setUseApiClientForImages(it) } },
                         summary = "图片分流不可用时启用",
                     )

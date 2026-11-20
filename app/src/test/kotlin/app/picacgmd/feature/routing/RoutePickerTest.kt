@@ -74,7 +74,7 @@ class RoutePickerTest {
     @get:Rule
     val rules: RuleChain = RuleChain.outerRule(ComposeHostRule()).around(composeRule)
 
-    private val settings = SettingsRepository(MemoryPreferencesStore(), AppSettings(autoPunchIn = false))
+    private val settings = SettingsRepository(MemoryPreferencesStore(), AppSettings(autoPunchIn = false, autoSyncApiRoutes = false))
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
     private val network = NetworkConfigProvider(settings.settings, scope)
     private val routing = RoutingRepository(settings, network, fetchAddresses = { error("Unexpected route sync") })
@@ -314,6 +314,7 @@ class RoutePickerTest {
                 if (open) {
                     RoutePickerDialog(
                         routing = routing,
+                        settings = settings.settings,
                         measureApiRoute = { route -> probeGate.await(); apiLatencies.getValue((route as? ApiRoute.Address)?.ip) },
                         measureImageRoute = { server -> probeGate.await(); imageLatencies.getValue(server) },
                         onDismiss = { dismissals++; open = false },

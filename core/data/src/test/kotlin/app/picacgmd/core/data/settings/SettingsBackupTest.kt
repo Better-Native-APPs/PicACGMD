@@ -47,6 +47,7 @@ class SettingsBackupTest {
             assertNull(store.data.value[Keys.legacyStartupImageUri])
             assertEquals(setOf("games"), store.data.value[Keys.pinnedHomeChannels])
             assertEquals("ORIGINAL", store.data.value[Keys.downloadQuality])
+            assertEquals(false, store.data.value[booleanPreferencesKey("auto_sync_api_routes")])
         }
     }
 
@@ -66,6 +67,7 @@ class SettingsBackupTest {
         assertEquals("203.0.113.1", restored.apiRouteAddress)
         assertEquals(listOf("203.0.113.1"), restored.syncedApiAddresses)
         assertEquals(456L, restored.apiRoutesSyncedAt)
+        assertEquals(false, store.data.value[booleanPreferencesKey("auto_sync_api_routes")])
         assertEquals(RoutingMode.ROUTE_2, restored.imageRoutingMode)
         assertEquals(8, restored.timeOffsetHours)
         assertNull(restored.displayModeId)
@@ -168,6 +170,7 @@ class SettingsBackupTest {
         Keys.accountEmail to "reader@example.com", Keys.authToken to "secret-token", Keys.authTokenUpdatedAt to 123L,
         Keys.apiRoutingMode to "ROUTE_3", Keys.apiRouteAddress to "203.0.113.1",
         Keys.syncedApiAddresses to "[\"203.0.113.1\"]", Keys.apiRoutesSyncedAt to 456L,
+        booleanPreferencesKey("auto_sync_api_routes") to false,
         Keys.legacyCustomApiIp to "203.0.113.2", Keys.imageRoutingMode to "ROUTE_2", Keys.imageQuality to "HIGH",
         Keys.connectTimeoutSeconds to 60, Keys.readTimeoutSeconds to 10, Keys.timeOffsetHours to 8,
         Keys.useApiClientForImages to true, Keys.theme to "BOOK", Keys.darkMode to "DARK", Keys.pureBlack to true,

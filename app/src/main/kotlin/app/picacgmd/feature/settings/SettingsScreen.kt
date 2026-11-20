@@ -178,7 +178,9 @@ private val SearchIndex: List<SettingsEntry> = buildList {
     )
     add(
         SettingsPage.Network, "分流",
-        "分流" to "切换分流和图片分流、测速、从官方同步", "用 API 加载图片" to "图片分流不可用时启用",
+        "分流" to "切换分流和图片分流、测速、从官方同步",
+        "自动同步分流" to "打开分流窗口时，距上次从官方同步超过 24 小时就自动同步一次",
+        "用 API 加载图片" to "图片分流不可用时启用",
     )
     add(
         SettingsPage.Network, "看图",

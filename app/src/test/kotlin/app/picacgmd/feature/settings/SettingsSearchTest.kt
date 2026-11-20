@@ -29,6 +29,25 @@ class SettingsSearchTest {
     private val opened = mutableListOf<SettingsPage>()
 
     @Test
+    fun automaticRouteSyncIsFoundByNameAndOpensTheNetworkPage() {
+        compose()
+        search("自动同步分流")
+
+        composeRule.onNode(hasText("自动同步分流") and hasText("网络 › 分流", substring = true)).performClick()
+        composeRule.waitForIdle()
+        assertEquals(listOf(SettingsPage.Network), opened)
+    }
+
+    @Test
+    fun automaticRouteSyncIsFoundByItsOpeningAnd24HourRule() {
+        compose()
+        listOf("分流窗口", "24 小时").forEach { query ->
+            search(query)
+            composeRule.onAllNodesWithText("自动同步分流").assertCountEquals(1)
+        }
+    }
+
+    @Test
     fun theSyncPanelIsFoundByNameAndOpensTheDataPage() {
         compose()
         search("webdav")

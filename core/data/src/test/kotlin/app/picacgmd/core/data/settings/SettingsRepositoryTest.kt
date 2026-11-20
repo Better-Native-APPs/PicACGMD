@@ -2,6 +2,7 @@ package app.picacgmd.core.data.settings
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.mutablePreferencesOf
 import java.io.IOException
@@ -20,6 +21,22 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class SettingsRepositoryTest {
+    @Test
+    fun automaticRouteSyncDefaultsOnAndItsChoicesSurviveNewRepositoryInstances() = runTest {
+        val store = MemoryPreferencesStore()
+        val repository = SettingsRepository(store)
+        val key = booleanPreferencesKey("auto_sync_api_routes")
+        assertTrue(repository.settings.first().autoSyncApiRoutes)
+        assertNull(store.data.first()[key])
+        repository.setSyncedApiAddresses(defaultApiAddresses, syncedAt = 1234L)
+        val before = repository.settings.first()
+        for (enabled in listOf(false, true)) {
+            repository.setAutoSyncApiRoutes(enabled)
+            assertEquals(enabled, store.data.first()[key])
+            assertEquals(before.copy(autoSyncApiRoutes = enabled), SettingsRepository(store).settings.first())
+        }
+    }
+
     @Test
     fun allFullScreenModesRoundTripByNameAcrossRepositoryInstances() = runTest {
         val store = MemoryPreferencesStore()

@@ -44,7 +44,7 @@ enum class CacheCleanupInterval(val seconds: Long) {
  *   auto-delete and download comments are off.
  * - Automatic punch-in is on (B9). App lock/screenshot prevention are off; biometric unlock is
  *   available when locking is enabled. History/detail recording is on; automatic cache cleanup off.
- * - Connection/read timeouts 15/30 seconds; time offset 0; API image loading off.
+ * - Connection/read timeouts 15/30 seconds; time offset 0; API image loading off; automatic route sync on.
  * - All remaining opt-in behavior is off, except copy confirmation and reader page animations.
  *   Reader zoom defaults 1×/3×/2×; screen scroll 0.8, gesture speed 1, e-ink trigger 0.3 cm.
  *
@@ -58,6 +58,7 @@ data class AppSettings(
     val apiRouteAddress: String? = defaultApiAddresses.first(),
     val syncedApiAddresses: List<String> = emptyList(),
     val apiRoutesSyncedAt: Long? = null,
+    val autoSyncApiRoutes: Boolean = true,
     // Original file servers by default: with a working proxy they are the fastest and most reliable;
     // the image 分流 hosts stay available in 设置 › 网络 for networks where the originals are blocked.
     val imageRoutingMode: RoutingMode = RoutingMode.NONE,

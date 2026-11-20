@@ -56,6 +56,7 @@ class SettingsRepository(
         }
     }
 
+    suspend fun setAutoSyncApiRoutes(value: Boolean) = set(Keys.autoSyncApiRoutes, value)
     suspend fun setImageRouting(mode: RoutingMode) = setEnum(Keys.imageRoutingMode, mode)
     suspend fun setImageQuality(value: ImageQuality) = setEnum(Keys.imageQuality, value)
 
@@ -282,7 +283,7 @@ class SettingsRepository(
             Keys.appLockEnabled, Keys.biometricUnlockEnabled, Keys.appLockTimeoutSeconds, Keys.webDavLastSyncedAt,
         )
         private val portableBackupKeys = listOf(
-            Keys.apiRoutingMode, Keys.apiRouteAddress, Keys.syncedApiAddresses, Keys.apiRoutesSyncedAt,
+            Keys.apiRoutingMode, Keys.apiRouteAddress, Keys.syncedApiAddresses, Keys.apiRoutesSyncedAt, Keys.autoSyncApiRoutes,
             Keys.imageRoutingMode, Keys.timeOffsetHours,
             Keys.imageQuality, Keys.connectTimeoutSeconds, Keys.readTimeoutSeconds, Keys.useApiClientForImages,
             Keys.theme, Keys.darkMode, Keys.pureBlack, Keys.appOrientation, Keys.fullScreenDisplay,

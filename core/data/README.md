@@ -193,6 +193,7 @@ setAccountEmail(value: String)
 setAuthToken(token: String?, updatedAt: Long = System.currentTimeMillis())
 setApiRouteAddress(address: String?)
 setSyncedApiAddresses(addresses: List<String>, syncedAt: Long)
+setAutoSyncApiRoutes(value: Boolean)
 setImageRouting(mode: RoutingMode)
 setImageQuality(value: ImageQuality)
 setConnectTimeoutSeconds(value: Int)
@@ -279,6 +280,7 @@ setAutoCleanCacheInterval(value: CacheCleanupInterval)
 - 默认首页固定分类为有序列表 `["大家都在看", "大濕推薦"]`，可清空。分类字符串保持接口拼写，重复项保留第一次出现的位置；空白项不能写入。
 - 黑/白名单分类、隐藏分类和首页固定分类互不替代。过滤、菜单入口显示、历史记录开关和自动化设置由业务层执行，设置仓库只保存值。
 - 分流支持从官方同步并记录同步时间戳；分流选择与测速由上层管理，数据层持久化当前生效地址及同步所得候选地址。
+- 「自动同步分流」默认开启（字段 `autoSyncApiRoutes`、偏好键 `auto_sync_api_routes`）。打开分流窗口时，距上次官方同步达到 24 小时、从未同步或保存的同步时间晚于当前时间，都会自动同步一次；该开关随分流设置参与系统备份与恢复。
 - 邮箱和 token 可保存；`setAuthToken(null)` 同时删除 token 和时间戳。没有密码字段，代码保留将来使用 EncryptedFile 的 TODO；日志输出不包含 token。
 - 数据存储不包含伪装、导入导出、局域网传输、迁移、文件备份、升级检查、付费或遥测设置。WebDAV 功能留待后续实现。
 

@@ -22,6 +22,7 @@ internal object SettingsPreferencesMapper {
             apiRouteAddress = preferences.readApiRouteAddress(syncedApiAddresses, d.apiRouteAddress),
             syncedApiAddresses = syncedApiAddresses,
             apiRoutesSyncedAt = preferences[Keys.apiRoutesSyncedAt],
+            autoSyncApiRoutes = preferences[Keys.autoSyncApiRoutes] ?: d.autoSyncApiRoutes,
             imageRoutingMode = preferences.readEnum(Keys.imageRoutingMode, d.imageRoutingMode),
             imageQuality = preferences.readEnum(Keys.imageQuality, d.imageQuality),
             connectTimeoutSeconds = preferences.readInt(Keys.connectTimeoutSeconds, d.connectTimeoutSeconds, SettingsValidation::isTimeout),
