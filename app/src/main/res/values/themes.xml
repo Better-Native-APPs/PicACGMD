@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Pica.Base" parent="Theme.Material3.DayNight.NoActionBar">
+    <!-- Compose draws the interface. The window theme only supplies the window background and the bar icon colours,
+         so it extends the platform theme and needs no Views library. -->
+    <style name="Theme.Pica.Base" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorBackground">#FEF7FF</item>
+        <item name="android:windowBackground">?android:colorBackground</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowActionModeOverlay">true</item>
     </style>

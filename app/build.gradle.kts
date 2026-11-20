@@ -84,8 +84,6 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.coil.compose)
-    // Only the XML launch/splash theme uses Material Views.
-    implementation(libs.material.views)
     implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.kotlin.test.junit)
