@@ -44,6 +44,13 @@ android {
 
     androidResources { localeFilters += "zh-rCN" }
 
+    packaging {
+        resources {
+            // Version stamps of the bundled libraries and a debugger helper of kotlinx.coroutines: nothing reads them on a device.
+            excludes += setOf("META-INF/*.version", "DebugProbesKt.bin")
+        }
+    }
+
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
