@@ -17,6 +17,9 @@ import app.picacgmd.core.data.settings.AppSettings
 import app.picacgmd.core.designsystem.theme.DarkMode
 import app.picacgmd.core.designsystem.theme.PicaTheme
 import app.picacgmd.core.designsystem.theme.ThemeChoice
+import app.picacgmd.core.domain.repository.ALL_COMICS_CATEGORY
+import app.picacgmd.core.domain.repository.GAMES_CATEGORY
+import app.picacgmd.core.domain.repository.RANDOM_CATEGORY
 import app.picacgmd.core.domain.repository.buildHomeModel
 import app.picacgmd.core.network.Category
 import app.picacgmd.testing.ComposeHostRule
@@ -76,6 +79,20 @@ class DiscoverCategoryGridTest {
         entry("grid-row-0", "随机").performClick()
         entry("grid-row-1", "随机").performClick()
         assertEquals(listOf("channel:Random", "category:随机"), opened)
+    }
+
+    @Test
+    fun beforeTheCategoriesLoadTheLocalEntriesFollowTheSavedOrderAndVisibility() {
+        assertEquals(
+            listOf(HomeCategoryKind.ALL_COMICS, HomeCategoryKind.RANDOM, HomeCategoryKind.GAMES),
+            localHomeCategories(AppSettings.DEFAULT).map { it.kind },
+        )
+        val saved = AppSettings(
+            categoryOrder = listOf(GAMES_CATEGORY.id, ALL_COMICS_CATEGORY.id, RANDOM_CATEGORY.id),
+            hiddenCategories = listOf(RANDOM_CATEGORY.id),
+        )
+        assertEquals(listOf(HomeCategoryKind.GAMES, HomeCategoryKind.ALL_COMICS), localHomeCategories(saved).map { it.kind })
+        assertEquals(emptyList(), localHomeCategories(saved.copy(hiddenCategories = saved.categoryOrder)))
     }
 
     private fun homeCategories(): List<HomeCategory> = buildHomeModel(

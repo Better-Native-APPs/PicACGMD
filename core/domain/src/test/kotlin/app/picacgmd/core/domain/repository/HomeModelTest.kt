@@ -16,6 +16,84 @@ class HomeModelTest {
     }
 
     @Test
+    fun defaultGridOrderPutsAllComicsRandomAndGamesBeforeServerCategories() {
+        val first = Category(id = "first", title = "甲")
+        val second = Category(id = "second", title = "乙")
+        val model = buildHomeModel(
+            listOf(first, Category(id = "web", title = "广告", isWeb = true), second), AppSettings(),
+        )
+        assertEquals(listOf(ALL_COMICS_CATEGORY, RANDOM_CATEGORY, GAMES_CATEGORY, first, second), model.categories)
+    }
+
+    @Test
+    fun storedGridOrderCanPutGamesBelowAServerCategory() {
+        val first = Category(id = "first", title = "甲")
+        val second = Category(id = "second", title = "乙")
+        val model = buildHomeModel(
+            listOf(first, second),
+            AppSettings(categoryOrder = listOf(ALL_COMICS_CATEGORY.id, RANDOM_CATEGORY.id, first.title, GAMES_CATEGORY.id, second.title)),
+        )
+        assertEquals(listOf(ALL_COMICS_CATEGORY, RANDOM_CATEGORY, first, GAMES_CATEGORY, second), model.categories)
+    }
+
+    @Test
+    fun hiddenRandomLeavesTheGridButKeepsItsPinnedShortcut() {
+        val model = buildHomeModel(
+            emptyList(),
+            AppSettings(hiddenCategories = listOf(RANDOM_CATEGORY.id), pinnedHomeChannels = setOf("random")),
+        )
+        assertEquals(listOf(ALL_COMICS_CATEGORY, GAMES_CATEGORY), model.categories)
+        assertEquals(listOf(HomeChannelKind.RANKINGS, HomeChannelKind.RANDOM), model.channels.map { it.kind })
+    }
+
+    @Test
+    fun hiddenAllComicsAndGamesKeepTheirPinnedShortcuts() {
+        val model = buildHomeModel(
+            emptyList(),
+            AppSettings(
+                hiddenCategories = listOf(ALL_COMICS_CATEGORY.id, GAMES_CATEGORY.id),
+                pinnedHomeCategories = listOf(ALL_COMICS_CATEGORY.title),
+                pinnedHomeChannels = setOf("games"),
+            ),
+        )
+        assertEquals(listOf(RANDOM_CATEGORY), model.categories)
+        assertEquals(listOf(HomeChannelKind.RANKINGS, HomeChannelKind.GAMES, HomeChannelKind.CATEGORY), model.channels.map { it.kind })
+        assertSame(ALL_COMICS_CATEGORY, model.channels.last().category)
+    }
+
+    @Test
+    fun hidingEitherRandomEntryLeavesTheOtherOneVisible() {
+        val serverRandom = Category(id = "server-random", title = RANDOM_CATEGORY.title)
+        val builtInHidden = buildHomeModel(listOf(serverRandom), AppSettings(hiddenCategories = listOf(RANDOM_CATEGORY.id)))
+        assertEquals(listOf(ALL_COMICS_CATEGORY, GAMES_CATEGORY, serverRandom), builtInHidden.categories)
+
+        val serverHidden = buildHomeModel(listOf(serverRandom), AppSettings(hiddenCategories = listOf(serverRandom.title)))
+        assertEquals(BUILT_IN_HOME_CATEGORIES, serverHidden.categories)
+    }
+
+    @Test
+    fun aSameNamedServerRandomHasItsOwnPositionInTheSavedGridOrder() {
+        val serverRandom = Category(id = "server-random", title = RANDOM_CATEGORY.title)
+        val model = buildHomeModel(
+            listOf(serverRandom),
+            AppSettings(categoryOrder = listOf(ALL_COMICS_CATEGORY.id, serverRandom.title, GAMES_CATEGORY.id, RANDOM_CATEGORY.id)),
+        )
+        assertEquals(listOf(ALL_COMICS_CATEGORY, serverRandom, GAMES_CATEGORY, RANDOM_CATEGORY), model.categories)
+    }
+
+    @Test
+    fun savedListsWithoutBuiltInIdsKeepTheirServerOrderAndVisibility() {
+        val first = Category(id = "first", title = "甲")
+        val second = Category(id = "second", title = "乙")
+        val third = Category(id = "third", title = "丙")
+        val model = buildHomeModel(
+            listOf(first, second, third),
+            AppSettings(categoryOrder = listOf(third.title, first.title, second.title), hiddenCategories = listOf(second.title)),
+        )
+        assertEquals(BUILT_IN_HOME_CATEGORIES + listOf(third, first), model.categories)
+    }
+
+    @Test
     fun rankingsStaysFirstAndOptionalBuiltInsKeepTheirOrderAheadOfCategories() {
         val selections = mapOf(
             setOf("games", "random") to listOf(HomeChannelKind.RANKINGS, HomeChannelKind.RANDOM, HomeChannelKind.GAMES),
@@ -88,7 +166,7 @@ class HomeModelTest {
     }
 
     @Test
-    fun builtInGridEntriesStayFirstEvenIfUnpinnedOrOldPreferencesHideOrReorderThem() {
+    fun legacyTitlesDoNotHideOrReorderBuiltInGridEntries() {
         val model = buildHomeModel(
             listOf(Category(title = "乙"), Category(title = "甲")),
             AppSettings(

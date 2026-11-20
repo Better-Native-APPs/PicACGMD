@@ -132,6 +132,7 @@ fun DiscoverScreen(
         ) {
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 val columns = categoryColumns(preferences?.categoryColumnCount ?: 0, maxWidth.value)
+                val localCategories = remember(preferences) { localHomeCategories(preferences ?: AppSettings.DEFAULT) }
                 LazyColumn(Modifier.fillMaxSize()) {
                     // Built-in channels need no server data; local pin preferences also apply while loading or offline.
                     item(key = "channels", contentType = "channels") {
@@ -152,7 +153,7 @@ fun DiscoverScreen(
                     }
                     // Local browse entries remain available before categories load or after a failure.
                     itemsIndexed(
-                        items = (content?.categories ?: BuiltInHomeCategories).chunked(columns),
+                        items = (content?.categories ?: localCategories).chunked(columns),
                         key = { index, _ -> "category-row-$columns-$index" },
                         contentType = { _, _ -> "category-row" },
                     ) { _, row ->

@@ -79,6 +79,8 @@ import app.picacgmd.core.domain.repository.ALL_COMICS_CATEGORY
 import app.picacgmd.core.domain.repository.GAMES_CATEGORY
 import app.picacgmd.core.domain.repository.RANDOM_CATEGORY
 import app.picacgmd.core.domain.repository.homeCategoryCatalogue
+import app.picacgmd.core.domain.repository.homeCategoryPreferenceKey
+import app.picacgmd.core.domain.repository.orderedHomeCategories
 import app.picacgmd.core.network.Category
 import app.picacgmd.feature.discover.ALL_COMICS_THUMB_URL
 import app.picacgmd.feature.discover.LoadFailure
@@ -158,13 +160,6 @@ class CategoriesViewModel(private val container: AppContainer) : ViewModel() {
     }
 }
 
-/**
- * 「分类管理」 (boards 04 §0 / 26): one page for both upstream screens. A 「每行列数」 connected
- * ButtonGroup sits on top, then drag-to-reorder pinned shortcuts and the home grid (with move
- * up / move down accessibility actions on each drag handle), 固定到首页 pin toggles and per-category
- * visibility switches. Random and games use the same pin toggles but keep fixed, always-visible grid positions.
- * Reached from the home grid and from 设置 → 浏览设置. Wire into `CategoriesRoute`.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoriesScreen(
@@ -230,9 +225,7 @@ internal fun ManageContent(
     val pinnedKeys = pinned.map { categoryKey(it.title) }.toSet()
     val hiddenKeys = settings.hiddenCategories.map(::categoryKey).toSet()
     val ordered = remember(categories, settings.categoryOrder) {
-        val order = settings.categoryOrder.map(::categoryKey).withIndex().associate { it.value to it.index }
-        categories.filterNot { it.id == ALL_COMICS_CATEGORY.id }
-            .sortedBy { order[categoryKey(it.title)] ?: Int.MAX_VALUE }
+        orderedHomeCategories(categories, settings.categoryOrder)
     }
     val scroll = rememberScrollState()
     Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(bottom = 24.dp)) {
@@ -286,46 +279,43 @@ internal fun ManageContent(
         SectionHeader(title = stringResource(R.string.categories_all_title))
         Caption(stringResource(R.string.categories_all_hint))
         SectionCard {
-            listOf(
-                PinnableHomeChannel.RANDOM to R.string.discover_channel_random,
-                PinnableHomeChannel.GAMES to R.string.discover_channel_games,
-            ).forEach { (channel, label) ->
-                val name = stringResource(label)
+            ReorderableColumn(
+                items = ordered,
+                keyOf = ::homeCategoryPreferenceKey,
+                nameOf = { it.title },
+                itemHeight = RowHeight,
+                onMoved = { list -> onReorderCategories(list.map(::homeCategoryPreferenceKey)) },
+            ) { category, handle ->
+                val key = homeCategoryPreferenceKey(category)
+                val channel = when (category.id) {
+                    RANDOM_CATEGORY.id -> PinnableHomeChannel.RANDOM
+                    GAMES_CATEGORY.id -> PinnableHomeChannel.GAMES
+                    else -> null
+                }
                 CategoryRow(
-                    category = when (channel) {
-                        PinnableHomeChannel.RANDOM -> RANDOM_CATEGORY
-                        PinnableHomeChannel.GAMES -> GAMES_CATEGORY
-                    }.copy(title = name),
-                    handle = null,
+                    category = category,
+                    handle = handle,
+                    dimmed = key in hiddenKeys,
+                    onClick = if (category.id == ALL_COMICS_CATEGORY.id) onOpenAllComics else null,
                     icon = when (channel) {
                         PinnableHomeChannel.RANDOM -> PicaIcons.Random
                         PinnableHomeChannel.GAMES -> PicaIcons.Gamepad
+                        null -> null
                     },
                 ) {
-                    PinToggle(
-                        pinned = channel.id in settings.pinnedHomeChannels,
-                        name = name,
-                        onPin = { _, pinned -> onChannelPin(channel, pinned) },
-                    )
-                }
-            }
-            CategoryRow(category = ALL_COMICS_CATEGORY, handle = null, onClick = onOpenAllComics) {
-                PinToggle(pinned = categoryKey(ALL_COMICS_CATEGORY.title) in pinnedKeys, name = ALL_COMICS_CATEGORY.title, onPin = onPin)
-            }
-            ReorderableColumn(
-                items = ordered,
-                keyOf = { categoryKey(it.title) },
-                nameOf = { it.title },
-                itemHeight = RowHeight,
-                onMoved = { list -> onReorderCategories(list.map { it.title }) },
-            ) { category, handle ->
-                val key = categoryKey(category.title)
-                CategoryRow(category = category, handle = handle, dimmed = key in hiddenKeys) {
-                    PinToggle(pinned = key in pinnedKeys, name = category.title, onPin = onPin)
+                    if (channel == null) {
+                        PinToggle(pinned = categoryKey(category.title) in pinnedKeys, name = category.title, onPin = onPin)
+                    } else {
+                        PinToggle(
+                            pinned = channel.id in settings.pinnedHomeChannels,
+                            name = category.title,
+                            onPin = { _, pinned -> onChannelPin(channel, pinned) },
+                        )
+                    }
                     val showLabel = stringResource(R.string.categories_show_on_home, category.title)
                     AppSwitch(
                         checked = key !in hiddenKeys,
-                        onCheckedChange = { onVisible(category.title, it) },
+                        onCheckedChange = { onVisible(key, it) },
                         modifier = Modifier.semantics { contentDescription = showLabel },
                     )
                 }

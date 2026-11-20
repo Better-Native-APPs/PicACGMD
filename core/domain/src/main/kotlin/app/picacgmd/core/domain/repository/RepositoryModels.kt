@@ -40,6 +40,22 @@ val ALL_COMICS_CATEGORY = Category(id = "builtin-all-comics", title = "全分类
 val RANDOM_CATEGORY = Category(id = "builtin-random", title = "随机")
 val GAMES_CATEGORY = Category(id = "builtin-games", title = "游戏专区")
 val BUILT_IN_HOME_CATEGORIES: List<Category> = listOf(ALL_COMICS_CATEGORY, RANDOM_CATEGORY, GAMES_CATEGORY)
+private val builtInHomeCategoryIds = BUILT_IN_HOME_CATEGORIES.map(Category::id).toSet()
+
+/** Built-in IDs keep a same-named server category's preferences independent. */
+fun homeCategoryPreferenceKey(category: Category): String =
+    if (category.id in builtInHomeCategoryIds) category.id else categoryKey(category.title)
+
+fun orderedHomeCategories(categories: List<Category>, savedOrder: List<String>): List<Category> {
+    val order = savedOrder.map(::categoryKey).withIndex().associate { it.value to it.index }
+    // Saved server-only orders predate built-in grid preferences and must keep the built-ins first.
+    val builtInsFirst = order.keys.none { it in builtInHomeCategoryIds }
+    return (BUILT_IN_HOME_CATEGORIES + categories.filterNot { it.isWeb || it.id in builtInHomeCategoryIds })
+        .sortedBy { category ->
+            if (builtInsFirst && category.id in builtInHomeCategoryIds) -1
+            else order[homeCategoryPreferenceKey(category)] ?: Int.MAX_VALUE
+        }
+}
 
 /** Name-based category pins stay separate from the built-in random/games preference IDs. */
 fun homeCategoryCatalogue(categories: List<Category>): List<Category> =
@@ -149,16 +165,14 @@ fun buildHomeModel(
     settings: AppSettings,
 ): HomeModel {
     val catalogue = homeCategoryCatalogue(categories)
-    val serverCategories = catalogue.drop(1)
     val hidden = settings.hiddenCategories.map(::categoryKey).toSet()
-    val order = settings.categoryOrder.map(::categoryKey).withIndex().associate { it.value to it.index }
-    val visible = serverCategories.filterNot { categoryKey(it.title) in hidden }
-        .sortedBy { order[categoryKey(it.title)] ?: Int.MAX_VALUE }
+    val visible = orderedHomeCategories(categories, settings.categoryOrder)
+        .filterNot { homeCategoryPreferenceKey(it) in hidden }
     val pins = settings.pinnedHomeCategories.mapNotNull { name ->
         catalogue.firstOrNull { it.title == name }
             ?: catalogue.firstOrNull { categoryKey(it.title) == categoryKey(name) }
     }.distinctBy { categoryKey(it.title) }
-    // Hidden grid categories and pinned shortcuts are independent preferences (SPEC §0).
+    // Hidden grid categories and pinned shortcuts are independent preferences.
     val builtIns = buildList {
         add(HomeChannel(HomeChannelKind.RANKINGS, "排行榜"))
         if (PinnableHomeChannel.RANDOM.id in settings.pinnedHomeChannels) {
@@ -170,6 +184,6 @@ fun buildHomeModel(
     }
     return HomeModel(
         channels = builtIns + pins.map { HomeChannel(HomeChannelKind.CATEGORY, it.title, it) },
-        categories = BUILT_IN_HOME_CATEGORIES + visible,
+        categories = visible,
     )
 }
