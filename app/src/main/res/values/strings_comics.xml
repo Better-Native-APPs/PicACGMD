@@ -103,6 +103,8 @@
     <string name="detail_keyword_unblocked_message">已取消屏蔽「%1$s」</string>
     <string name="detail_action_failed">操作失败：%1$s</string>
     <string name="detail_copy_name">复制名称</string>
+    <string name="detail_cover_view">查看封面</string>
+    <string name="detail_cover_close">关闭</string>
     <string name="detail_download_title">选择下载章节</string>
     <string name="detail_download_confirm">下载 %1$d 话</string>
 

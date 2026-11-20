@@ -366,9 +366,13 @@ internal fun DetailBody(
     val motion = MaterialTheme.motionScheme
     // Outside the LazyColumn: the marks keep one holder however often the row scrolls away.
     val readMarks = rememberReadMarks(remember(state.recommendations) { state.recommendations.map(ComicSimple::id) })
+    val cover = rememberImageUrl(comic.thumb)
+    var coverOpen by rememberSaveable { mutableStateOf(false) }
+    // The page stays where it is under the opened cover, but only the cover can be reached and read out.
+    val underCover = if (coverOpen) Modifier.clearAndSetSemantics { } else Modifier
     Box(Modifier.fillMaxSize()) {
-        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 112.dp)) {
-            item(key = "hero") { Hero(comic, copyText, preferences.confirmCopy, copyName) }
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize().then(underCover), contentPadding = PaddingValues(bottom = 112.dp)) {
+            item(key = "hero") { Hero(comic, cover, copyText, preferences.confirmCopy, copyName) { coverOpen = true } }
             // Always in the list, so blocking or unblocking a word makes room for the notice instead of jumping.
             item(key = "hidden") {
                 AnimatedVisibility(
@@ -472,7 +476,7 @@ internal fun DetailBody(
         }
 
         // Top bar fades from transparent-over-hero to solid once the hero scrolls away.
-        Column(Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().then(underCover)) {
             Surface(color = topBarContainerColor) {
                 Column {
                     Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
@@ -500,16 +504,24 @@ internal fun DetailBody(
             currentEpPages = library.currentEpPages,
             downloadedEpIds = library.downloadedEpIds,
             onRead = onRead,
-            modifier = Modifier.align(Alignment.BottomCenter),
+            modifier = Modifier.align(Alignment.BottomCenter).then(underCover),
         )
+
+        CoverViewer(visible = coverOpen, coverUrl = cover, title = comic.title, onClose = { coverOpen = false })
     }
 }
 
 /** Blurred cover wash behind a crisp cover and the title block: the page's one dramatic moment. */
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun Hero(comic: ComicInfo, copyText: String, confirmCopy: Boolean, onCopy: () -> Unit) {
-    val cover = rememberImageUrl(comic.thumb)
+private fun Hero(
+    comic: ComicInfo,
+    cover: String?,
+    copyText: String,
+    confirmCopy: Boolean,
+    onCopy: () -> Unit,
+    onCoverClick: () -> Unit,
+) {
     val surface = MaterialTheme.colorScheme.surface
     Box(Modifier.fillMaxWidth()) {
         SoftBackdrop(cover, Modifier.matchParentSize())
@@ -522,11 +534,21 @@ private fun Hero(comic: ComicInfo, copyText: String, confirmCopy: Boolean, onCop
             Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
             Spacer(Modifier.height(64.dp))
             Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                val coverShape = MaterialTheme.shapes.large
+                val viewCover = stringResource(R.string.detail_cover_view)
                 ComicCover(
                     coverUrl = cover,
-                    contentDescription = comic.title,
-                    modifier = Modifier.width(124.dp),
-                    shape = MaterialTheme.shapes.large,
+                    // As a button the cover says what it does; the comic's name is the title beside it.
+                    contentDescription = if (cover == null) comic.title else null,
+                    modifier = Modifier
+                        .width(124.dp)
+                        .then(
+                            if (cover == null) Modifier else Modifier
+                                .clip(coverShape)
+                                .clickable(role = Role.Button, onClick = onCoverClick)
+                                .semantics { contentDescription = viewCover },
+                        ),
+                    shape = coverShape,
                     badge = if (comic.finished) stringResource(R.string.comics_finished) else null,
                 )
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
