@@ -287,6 +287,7 @@ internal fun CategoryRow(
                 imageUrl = category.thumbUrl,
                 onClick = homeCategoryClick(category, onChannelClick, onCategoryClick, onAllComicsClick),
                 modifier = Modifier.weight(1f),
+                channel = category.kind.channel,
             )
         }
         repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
@@ -304,6 +305,14 @@ private fun homeCategoryClick(
     HomeCategoryKind.GAMES -> ({ onChannelClick(HomeChannel.Games) })
     HomeCategoryKind.CATEGORY -> ({ onCategoryClick(category.name) })
 }
+
+/** The built-in channel a grid entry opens, whose emblem its tile then carries. */
+private val HomeCategoryKind.channel: HomeChannel?
+    get() = when (this) {
+        HomeCategoryKind.RANDOM -> HomeChannel.Random
+        HomeCategoryKind.GAMES -> HomeChannel.Games
+        HomeCategoryKind.ALL_COMICS, HomeCategoryKind.CATEGORY -> null
+    }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Preview(showBackground = true, widthDp = 412, heightDp = 860)
