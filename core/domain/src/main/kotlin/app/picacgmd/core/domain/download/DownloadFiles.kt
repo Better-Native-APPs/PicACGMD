@@ -121,13 +121,6 @@ class DownloadFileStore(private val rootProvider: () -> File) {
         return File(rootDirectory(), comicId)
     }
 
-    fun coverFile(comicId: String): File = File(comicDirectory(comicId), "logo")
-
-    fun pictureFile(comicId: String, epOrder: Int, pictureIndex: Int): File {
-        require(epOrder > 0 && pictureIndex > 0) { "Chapter order and picture index must be one-based" }
-        return File(comicDirectory(comicId), "$epOrder/$pictureIndex")
-    }
-
     /** The marker preserves an 'all chapters' request when appending to an existing partial download. */
     fun requestAllEpisodes(comicId: String) {
         val marker = File(comicDirectory(comicId), ALL_EPISODES_MARKER)

@@ -327,7 +327,7 @@ internal class DownloadEngine(
                 activeComic = null
                 // The wait flag belongs to a run; a stale one would label the next run's first notification.
                 mutableProgress.update {
-                    it.copy(bytesPerSecond = 0, currentComicTitle = null, currentEpTitle = null, waitingForUnmetered = false)
+                    it.copy(bytesPerSecond = 0, currentEpTitle = null, waitingForUnmetered = false)
                 }
             }
         }
@@ -336,13 +336,12 @@ internal class DownloadEngine(
     private suspend fun processComic(comicId: String, manifestsOnly: Boolean = false) {
         try {
             coroutineScope {
-                val comic = withComicLock(comicId) {
+                withComicLock(comicId) {
                     val current = dao.getComic(comicId) ?: return@withComicLock null
                     if (current.status !in activeStatuses) return@withComicLock null
                     dao.transitionComic(comicId, DownloadStatus.RUNNING, updatedAt = nowMillis())
                     current
                 } ?: return@coroutineScope
-                mutableProgress.update { it.copy(currentComicTitle = comic.title) }
                 val ownerJob = coroutineContext.job
                 val stateObserver = launch {
                     dao.observeComic(comicId).collect {

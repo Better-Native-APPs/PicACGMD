@@ -22,7 +22,6 @@ data class DownloadProgress(
     val failedPictures: Int = 0,
     val downloadedBytes: Long = 0,
     val bytesPerSecond: Long = 0,
-    val currentComicTitle: String? = null,
     val currentEpTitle: String? = null,
     val waitingForUnmetered: Boolean = false,
     val configuredThreads: Int = 4,
